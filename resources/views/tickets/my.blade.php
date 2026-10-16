@@ -12,63 +12,50 @@
     ];
 @endphp
 
-<div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
-        <div>
-            <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900">Tiket Saya & Tracking Hirarki</h1>
-            <p class="text-xs sm:text-sm text-slate-500 mt-0.5">
-                Daftar seluruh tiket yang Anda ajukan beserta progres tahapan rolenya saat ini.
-            </p>
+<div class="flex items-center justify-between gap-4 mb-5">
+    <div>
+        <h1 class="text-lg font-bold text-slate-900">Tiket Saya</h1>
+        <p class="text-xs text-slate-500">Pantau posisi hirarki tiket yang Anda ajukan.</p>
+    </div>
+    <a href="{{ route('tickets.create') }}"
+       class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
+        + Buat Tiket
+    </a>
+</div>
+
+<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    @if($tickets->isEmpty())
+        <div class="p-10 text-center text-xs text-slate-400">
+            Anda belum pernah mengajukan tiket.
         </div>
-        <a href="{{ route('tickets.create') }}"
-           class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold shadow-md shadow-indigo-500/20 transition">
-            @include('partials.icon', ['name' => 'plus-circle', 'class' => 'w-4 h-4'])
-            Ajukan Tiket Baru
-        </a>
-    </div>
-
-    <div class="mt-6">
-        @if($tickets->isEmpty())
-            <div class="p-10 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center">
-                <p class="text-sm font-bold text-slate-700">Anda belum pernah mengajukan tiket</p>
-                <p class="text-xs text-slate-500 mt-1">Klik tombol Ajukan Tiket Baru di kanan atas untuk mengirim tiket ke role atasan Anda.</p>
-            </div>
-        @else
-            <div class="space-y-4">
-                @foreach($tickets as $ticket)
-                    <a href="{{ route('tickets.show', $ticket) }}"
-                       class="block p-5 rounded-2xl border border-slate-200/80 hover:border-indigo-400 transition bg-slate-50/40 hover:bg-white">
-                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                            <div class="flex items-center gap-2">
-                                <span class="font-mono text-xs font-extrabold text-indigo-600">{{ $ticket->ticket_number }}</span>
-                                <span class="text-xs font-bold px-2.5 py-0.5 rounded-full border {{ $statusColors[$ticket->status] ?? 'bg-slate-100' }}">
-                                    {{ $ticket->statusLabel() }}
+    @else
+        <div class="divide-y divide-slate-100">
+            @foreach($tickets as $ticket)
+                <a href="{{ route('tickets.show', $ticket) }}" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50 transition">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono text-xs font-semibold text-indigo-600">{{ $ticket->ticket_number }}</span>
+                            <span class="text-sm font-semibold text-slate-900 truncate">{{ $ticket->title }}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 mt-1.5 text-xs text-slate-500">
+                            <span>Alur:</span>
+                            @foreach($ticket->getHierarchyStepper() as $idx => $step)
+                                @if($idx > 0)
+                                    <span class="text-slate-300">→</span>
+                                @endif
+                                <span class="px-1.5 py-0.5 rounded text-[11px] {{ $step['state'] === 'active' ? 'bg-indigo-600 text-white font-semibold' : ($step['state'] === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500') }}">
+                                    {{ $step['role']->name }}
                                 </span>
-                            </div>
-                            <span class="text-xs text-slate-400">{{ $ticket->created_at->diffForHumans() }}</span>
+                            @endforeach
                         </div>
-                        <h3 class="text-base font-extrabold text-slate-900">{{ $ticket->title }}</h3>
-                        <p class="text-xs text-slate-500 mt-1 line-clamp-2">{{ $ticket->description }}</p>
+                    </div>
 
-                        <!-- Mini Visual Stepper -->
-                        <div class="mt-4 pt-3 border-t border-slate-200/70 flex flex-wrap items-center justify-between gap-3">
-                            <div class="flex items-center gap-1.5 flex-wrap">
-                                <span class="text-[11px] text-slate-400 font-semibold mr-1">Jalur Hirarki:</span>
-                                @foreach($ticket->getHierarchyStepper() as $idx => $step)
-                                    @if($idx > 0)
-                                        <span class="text-slate-300 text-xs">→</span>
-                                    @endif
-                                    <span class="text-[11px] px-2.5 py-0.5 rounded-lg font-bold {{ $step['state'] === 'active' ? 'bg-indigo-600 text-white ring-2 ring-indigo-200' : ($step['state'] === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500') }}">
-                                        {{ $step['role']->name }}
-                                    </span>
-                                @endforeach
-                            </div>
-                            <span class="text-xs font-bold text-indigo-600">Lihat Detail & Timeline →</span>
-                        </div>
-                    </a>
-                @endforeach
-            </div>
-        @endif
-    </div>
+                    <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-md border shrink-0 {{ $statusColors[$ticket->status] ?? 'bg-slate-100' }}">
+                        {{ $ticket->statusLabel() }}
+                    </span>
+                </a>
+            @endforeach
+        </div>
+    @endif
 </div>
 @endsection
