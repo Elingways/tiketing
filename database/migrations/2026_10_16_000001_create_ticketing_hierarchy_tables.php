@@ -24,18 +24,28 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // 2. Tambahkan relasi role & atribut akademik ke tabel users
+        // 2. Tambahkan relasi role & atribut akademik SIAKAD ke tabel users
         Schema::table('users', function (Blueprint $table) {
             $table->foreignId('role_id')->nullable()->after('id')->constrained('roles')->nullOnDelete();
             $table->foreignId('supervisor_id')->nullable()->after('role_id')->constrained('users')->nullOnDelete();
+            $table->string('user_type')->default('mahasiswa')->after('supervisor_id'); // mahasiswa, pengajar, admin
+            $table->unsignedBigInteger('siakad_id')->nullable()->after('user_type');
             $table->string('identity_number')->nullable()->after('email'); // NIM / NIDN / NIP
-            $table->string('department')->nullable()->after('identity_number'); // Prodi / Unit
-            $table->string('avatar_color')->default('indigo')->after('department');
+            $table->string('department')->nullable()->after('identity_number'); // Program Studi / Unit
+            $table->string('fakultas')->nullable()->after('department');
+            $table->integer('angkatan')->nullable()->after('fakultas');
+            $table->integer('semester')->nullable()->after('angkatan');
+            $table->string('status_akademik')->default('Aktif')->after('semester');
+            $table->string('jabatan')->nullable()->after('status_akademik');
+            $table->string('phone')->nullable()->after('jabatan');
+            $table->string('avatar_color')->default('indigo')->after('phone');
+            $table->timestamp('synced_at')->nullable()->after('avatar_color');
         });
 
-        // 3. Tabel Menus (Manajemen Menu Dinamis SuperApp)
+        // 3. Tabel Menus (Manajemen Menu Dinamis SuperApp beserta Sub-Sidebar parent_id)
         Schema::create('menus', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('parent_id')->nullable()->constrained('menus')->nullOnDelete();
             $table->string('name');
             $table->string('slug')->unique();
             $table->string('route_name');
@@ -129,7 +139,20 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->dropConstrainedForeignId('supervisor_id');
             $table->dropConstrainedForeignId('role_id');
-            $table->dropColumn(['identity_number', 'department', 'avatar_color']);
+            $table->dropColumn([
+                'user_type',
+                'siakad_id',
+                'identity_number',
+                'department',
+                'fakultas',
+                'angkatan',
+                'semester',
+                'status_akademik',
+                'jabatan',
+                'phone',
+                'avatar_color',
+                'synced_at',
+            ]);
         });
         Schema::dropIfExists('roles');
     }

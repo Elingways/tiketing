@@ -138,6 +138,74 @@ class TicketingHierarchyTest extends TestCase
         $this->actingAs($superuser)->get(route('admin.hierarchy'))->assertOk();
         $this->actingAs($superuser)->get(route('admin.menus'))->assertOk();
         $this->actingAs($superuser)->get(route('admin.categories'))->assertOk();
-        $this->actingAs($superuser)->get(route('admin.users'))->assertOk();
+        $this->actingAs($superuser)->get(route('admin.users'))->assertRedirect(route('admin.users.students'));
+        $this->actingAs($superuser)->get(route('admin.users.students'))->assertOk();
+        $this->actingAs($superuser)->get(route('admin.users.lecturers'))->assertOk();
+    }
+
+    public function test_siakad_rest_api_syncs_students_and_lecturers_with_roles(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            '*/api/external/lecturers*' => \Illuminate\Support\Facades\Http::response([
+                'success' => true,
+                'data' => [
+                    [
+                        'id_lecture' => 64,
+                        'name' => 'Dwi Utari Iswavigra, S.T., M.Kom.',
+                        'nidn' => '0626049701',
+                        'email' => 'dwi.utari@sugenghartono.ac.id',
+                        'program_studi' => 'Informatika',
+                        'fakultas' => 'FAKULTAS TEKNOLOGI, HUKUM DAN BISNIS',
+                        'jabatan' => 'Kaprodi Informatika',
+                        'role_slug' => 'kaprodi',
+                        'students_count' => 15,
+                    ],
+                    [
+                        'id_lecture' => 71,
+                        'name' => 'Yulaikha Maratullatifah, S.Pd., M.Kom.',
+                        'nidn' => '0630079202',
+                        'email' => 'yulaikha@sugenghartono.ac.id',
+                        'program_studi' => 'Informatika',
+                        'fakultas' => 'FAKULTAS TEKNOLOGI, HUKUM DAN BISNIS',
+                        'jabatan' => 'Dosen Tetap',
+                        'role_slug' => 'dosen',
+                        'students_count' => 10,
+                    ],
+                ],
+            ], 200),
+            '*/api/external/students*' => \Illuminate\Support\Facades\Http::response([
+                'success' => true,
+                'data' => [
+                    [
+                        'id_mahasiswa' => 109,
+                        'nim' => '062201002',
+                        'name' => 'WIBOWO JAMAL NUGROHO',
+                        'email' => 'wibowo@mhs.sugenghartono.ac.id',
+                        'angkatan' => 2022,
+                        'semester' => 8,
+                        'program_studi' => 'Informatika',
+                        'fakultas' => 'FAKULTAS TEKNOLOGI, HUKUM DAN BISNIS',
+                        'status_mahasiswa' => 'Aktif',
+                        'id_dosen_pembimbing' => 71,
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+
+        $this->actingAs($superuser)
+            ->post(route('admin.users.sync-siakad'), ['type' => 'all'])
+            ->assertRedirect();
+
+        $syncedKaprodi = User::where('email', 'dwi.utari@sugenghartono.ac.id')->firstOrFail();
+        $this->assertEquals('kaprodi', $syncedKaprodi->role->slug);
+
+        $syncedDosen = User::where('email', 'yulaikha@sugenghartono.ac.id')->firstOrFail();
+        $this->assertEquals('dosen', $syncedDosen->role->slug);
+
+        $syncedStudent = User::where('identity_number', '062201002')->firstOrFail();
+        $this->assertEquals('mahasiswa', $syncedStudent->role->slug);
+        $this->assertEquals($syncedDosen->id, $syncedStudent->supervisor_id);
     }
 }

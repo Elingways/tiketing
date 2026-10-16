@@ -32,6 +32,8 @@ Route::middleware('auth')->group(function () {
 
     // Modul Manajemen Superuser
     Route::prefix('admin')->name('admin.')->group(function () {
+        Route::get('/', fn () => redirect()->route('admin.users.students'))->name('index');
+
         Route::get('/hierarchy', [HierarchyController::class, 'index'])->name('hierarchy');
         Route::post('/hierarchy/roles', [HierarchyController::class, 'storeRole'])->name('hierarchy.store');
         Route::put('/hierarchy/roles/{role}', [HierarchyController::class, 'updateHierarchy'])->name('hierarchy.update');
@@ -48,9 +50,14 @@ Route::middleware('auth')->group(function () {
         Route::put('/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
         Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 
+        // Manajemen Pengguna dengan Sub-Sidebar: Mahasiswa & Pengajar (Dosen, Kaprodi, Dekan)
         Route::get('/users', [UserController::class, 'index'])->name('users');
+        Route::get('/users/students', [UserController::class, 'students'])->name('users.students');
+        Route::get('/users/lecturers', [UserController::class, 'lecturers'])->name('users.lecturers');
+        Route::post('/users/sync-siakad', [UserController::class, 'syncFromSiakad'])->name('users.sync-siakad');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });
 });

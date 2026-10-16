@@ -28,14 +28,30 @@ class AppServiceProvider extends ServiceProvider
             if ($user) {
                 $user->loadMissing(['role.parent', 'role.children']);
                 $accessibleMenus = $user->accessibleMenus();
-                $sidebarMenus = $accessibleMenus->where('show_in_sidebar', true)->groupBy('group');
-                $launcherMenus = $accessibleMenus->where('show_in_launcher', true);
+                $sidebarMenus = $accessibleMenus
+                    ->where('show_in_sidebar', true)
+                    ->whereNull('parent_id')
+                    ->groupBy('group');
+                $launcherMenus = $accessibleMenus
+                    ->where('show_in_launcher', true)
+                    ->whereNull('parent_id');
 
                 $roleInboxCount = Ticket::where('current_role_id', $user->role_id)
                     ->whereNotIn('status', ['resolved', 'rejected', 'closed'])
                     ->count();
 
-                $allDemoUsers = User::with('role')->orderBy('role_id')->get();
+                // Ambil sampel akun per role untuk quick switcher di header (agar ringan walau ribuan mahasiswa tersinkron)
+                $allDemoUsers = User::with('role')
+                    ->orderBy('role_id')
+                    ->orderBy('id')
+                    ->get()
+                    ->groupBy('role_id')
+                    ->flatMap(fn ($group) => $group->take(4))
+                    ->values();
+
+                if (!$allDemoUsers->contains('id', $user->id)) {
+                    $allDemoUsers->prepend($user);
+                }
 
                 // Data kategori global untuk Modal Buat Tiket di seluruh halaman
                 $globalCategories = Schema::hasTable('ticket_categories')

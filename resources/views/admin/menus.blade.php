@@ -92,6 +92,8 @@
                     <option value="admin.menus">admin.menus</option>
                     <option value="admin.categories">admin.categories</option>
                     <option value="admin.users">admin.users</option>
+                    <option value="admin.users.students">admin.users.students</option>
+                    <option value="admin.users.lecturers">admin.users.lecturers</option>
                 </select>
             </div>
         </div>

@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'siakad' => [
+        'api_url' => env('SIAKAD_API_URL', 'http://127.0.0.1:8090'),
+        'api_key' => env('SIAKAD_API_KEY', 'ush-secret-key-2026'),
+        'timeout' => (int) env('SIAKAD_API_TIMEOUT', 30),
+    ],
+
 ];

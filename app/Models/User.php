@@ -21,9 +21,18 @@ class User extends Authenticatable
         'password',
         'role_id',
         'supervisor_id',
+        'user_type',
+        'siakad_id',
         'identity_number',
         'department',
+        'fakultas',
+        'angkatan',
+        'semester',
+        'status_akademik',
+        'jabatan',
+        'phone',
         'avatar_color',
+        'synced_at',
     ];
 
     protected $hidden = [
@@ -35,6 +44,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'synced_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -79,10 +89,11 @@ class User extends Authenticatable
         }
 
         if ($this->isSuperuser()) {
-            return Menu::where('is_active', true)->orderBy('sort_order')->get();
+            return Menu::with('children')->where('is_active', true)->orderBy('sort_order')->get();
         }
 
         return $this->role->menus()
+            ->with('children')
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->get();

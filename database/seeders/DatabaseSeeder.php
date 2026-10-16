@@ -89,8 +89,10 @@ class DatabaseSeeder extends Seeder
             'email' => 'superuser@kampus.ac.id',
             'password' => Hash::make('password'),
             'role_id' => $superuserRole->id,
+            'user_type' => 'admin',
             'identity_number' => 'SUP-001',
             'department' => 'Direktorat Sistem Informasi',
+            'jabatan' => 'Superuser Sistem',
             'avatar_color' => 'rose',
         ]);
 
@@ -99,8 +101,11 @@ class DatabaseSeeder extends Seeder
             'email' => 'dekan@kampus.ac.id',
             'password' => Hash::make('password'),
             'role_id' => $dekanRole->id,
+            'user_type' => 'pengajar',
             'identity_number' => 'NIP-19720411',
-            'department' => 'Fakultas Ilmu Komputer',
+            'department' => 'Fakultas Teknologi, Hukum dan Bisnis',
+            'fakultas' => 'FAKULTAS TEKNOLOGI, HUKUM DAN BISNIS',
+            'jabatan' => 'Dekan Fakultas',
             'avatar_color' => 'violet',
         ]);
 
@@ -110,8 +115,11 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('password'),
             'role_id' => $kaprodiRole->id,
             'supervisor_id' => $dekan->id,
+            'user_type' => 'pengajar',
             'identity_number' => 'NIDN-0412088501',
-            'department' => 'S1 Teknik Informatika',
+            'department' => 'Informatika',
+            'fakultas' => 'FAKULTAS TEKNOLOGI, HUKUM DAN BISNIS',
+            'jabatan' => 'Kaprodi Informatika',
             'avatar_color' => 'amber',
         ]);
 
@@ -121,8 +129,11 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('password'),
             'role_id' => $dosenRole->id,
             'supervisor_id' => $kaprodi->id,
+            'user_type' => 'pengajar',
             'identity_number' => 'NIDN-0425099002',
-            'department' => 'S1 Teknik Informatika',
+            'department' => 'Informatika',
+            'fakultas' => 'FAKULTAS TEKNOLOGI, HUKUM DAN BISNIS',
+            'jabatan' => 'Dosen Tetap',
             'avatar_color' => 'emerald',
         ]);
 
@@ -132,8 +143,13 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('password'),
             'role_id' => $mahasiswaRole->id,
             'supervisor_id' => $dosen->id,
-            'identity_number' => 'NIM-2310511042',
-            'department' => 'S1 Teknik Informatika',
+            'user_type' => 'mahasiswa',
+            'identity_number' => '2310511042',
+            'department' => 'Informatika',
+            'fakultas' => 'FAKULTAS TEKNOLOGI, HUKUM DAN BISNIS',
+            'angkatan' => 2023,
+            'semester' => 5,
+            'status_akademik' => 'Aktif',
             'avatar_color' => 'indigo',
         ]);
 
@@ -143,12 +159,17 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('password'),
             'role_id' => $mahasiswaRole->id,
             'supervisor_id' => $dosen->id,
-            'identity_number' => 'NIM-2410511018',
-            'department' => 'S1 Teknik Informatika',
+            'user_type' => 'mahasiswa',
+            'identity_number' => '2410511018',
+            'department' => 'Informatika',
+            'fakultas' => 'FAKULTAS TEKNOLOGI, HUKUM DAN BISNIS',
+            'angkatan' => 2024,
+            'semester' => 3,
+            'status_akademik' => 'Aktif',
             'avatar_color' => 'sky',
         ]);
 
-        // 3. Buat Menu Dinamis (SuperApp Launcher & Sidebar)
+        // 3. Buat Menu Dinamis (SuperApp Launcher & Sidebar beserta Sub-Sidebar Manajemen Pengguna)
         $menusData = [
             [
                 'name' => 'Beranda SuperApp',
@@ -255,8 +276,8 @@ class DatabaseSeeder extends Seeder
                 'icon' => 'users',
                 'color' => 'fuchsia',
                 'group' => 'management',
-                'badge_text' => 'Users',
-                'description' => 'Kelola akun civitas akademika, penempatan role, dan relasi atasan/pembimbing.',
+                'badge_text' => 'SIAKAD API',
+                'description' => 'Kelola data Mahasiswa dan Pengajar (Dosen, Kaprodi, Dekan) yang disinkronkan dari REST API SIAKAD.',
                 'show_in_sidebar' => true,
                 'show_in_launcher' => true,
                 'sort_order' => 8,
@@ -264,11 +285,50 @@ class DatabaseSeeder extends Seeder
             ],
         ];
 
+        $createdMenus = [];
         foreach ($menusData as $item) {
             $roleIds = $item['roles'];
             unset($item['roles']);
             $menu = Menu::create($item);
             $menu->roles()->sync($roleIds);
+            $createdMenus[$menu->slug] = $menu;
+        }
+
+        // Sub-Sidebar di bawah Manajemen Pengguna: 1. Mahasiswa, 2. Pengajar
+        if (isset($createdMenus['admin-users'])) {
+            $parentMenu = $createdMenus['admin-users'];
+
+            $subStudents = Menu::create([
+                'parent_id' => $parentMenu->id,
+                'name' => 'Mahasiswa',
+                'slug' => 'admin-users-students',
+                'route_name' => 'admin.users.students',
+                'icon' => 'academic-cap',
+                'color' => 'indigo',
+                'group' => 'management',
+                'badge_text' => 'SIAKAD',
+                'description' => 'Direktori & manajemen Mahasiswa dari REST API SIAKAD.',
+                'show_in_sidebar' => true,
+                'show_in_launcher' => false,
+                'sort_order' => 1,
+            ]);
+            $subStudents->roles()->sync([$superuserRole->id]);
+
+            $subLecturers = Menu::create([
+                'parent_id' => $parentMenu->id,
+                'name' => 'Pengajar',
+                'slug' => 'admin-users-lecturers',
+                'route_name' => 'admin.users.lecturers',
+                'icon' => 'user-group',
+                'color' => 'amber',
+                'group' => 'management',
+                'badge_text' => 'Dosen/Kaprodi',
+                'description' => 'Direktori Pengajar (Dosen, Kaprodi, Dekan) dari REST API SIAKAD.',
+                'show_in_sidebar' => true,
+                'show_in_launcher' => false,
+                'sort_order' => 2,
+            ]);
+            $subLecturers->roles()->sync([$superuserRole->id]);
         }
 
         // 4. Buat Kategori Tiket dengan Konfigurasi Hirarki (Eskalasi & Approval Berjenjang)
