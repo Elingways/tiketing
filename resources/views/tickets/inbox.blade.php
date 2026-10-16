@@ -80,7 +80,7 @@
     </div>
 </form>
 
-<!-- Daftar Tiket Masuk dengan Aksi Set Prioritas -->
+<!-- Daftar Tiket Masuk dengan Aksi Set Prioritas & Preview Dokumen -->
 <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
     @if($tickets->isEmpty())
         <div class="p-10 text-center text-xs text-slate-400">
@@ -100,10 +100,11 @@
                                 {{ $ticket->title }}
                             </a>
                             @if($ticket->attachment_path)
-                                <a href="{{ route('tickets.attachment', $ticket) }}"
-                                   class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[11px] text-slate-600 font-medium">
-                                    📎 Dokumen
-                                </a>
+                                <button type="button"
+                                        @click="openDocPreview('{{ route('tickets.preview', $ticket) }}', '{{ route('tickets.attachment', $ticket) }}', '{{ addslashes($ticket->attachment_name ?? 'Dokumen Lampiran') }}')"
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-[11px] text-indigo-700 font-medium">
+                                    📎 Preview Dokumen
+                                </button>
                             @endif
                         </div>
 
@@ -114,7 +115,6 @@
                         </p>
                     </div>
 
-                    <!-- Kanan: Set Prioritas Langsung (Jika Wewenang Role Ini) & Status + Tombol Proses -->
                     <div class="flex flex-wrap items-center gap-2 shrink-0">
                         @if($canSetPriority)
                             <form action="{{ route('tickets.priority', $ticket) }}" method="POST" class="flex items-center">

@@ -71,7 +71,8 @@ class TicketingHierarchyTest extends TestCase
         $this->assertNotNull($ticket->attachment_path);
         $this->assertEquals($dosen->role_id, $ticket->current_role_id);
 
-        // Pastikan dokumen dapat diunduh
+        // Pastikan dokumen dapat di-preview secara inline maupun diunduh
+        $this->actingAs($dosen)->get(route('tickets.preview', $ticket))->assertOk();
         $this->actingAs($dosen)->get(route('tickets.attachment', $ticket))->assertOk();
 
         // 2. Dosen mencari & memfilter tiket di Tiket Masuk berdasarkan kategori, lalu mengatur Prioritas
@@ -98,6 +99,17 @@ class TicketingHierarchyTest extends TestCase
         $this->assertEquals($kaprodi->role_id, $ticket->current_role_id);
         $this->assertEquals('urgent', $ticket->priority);
         $this->assertEquals('escalated', $ticket->status);
+
+        // 4. Kaprodi menyelesaikan/menyetujui tiket, lalu Mahasiswa melihat di Riwayat Tiket Saya (Sudah Di-Approve)
+        $this->actingAs($kaprodi)->post(route('tickets.action', $ticket), [
+            'action_type' => 'resolve',
+            'note' => 'Disetujui penambahan kuota.',
+        ])->assertRedirect();
+
+        $this->actingAs($mahasiswa)->get(route('tickets.my', ['tab' => 'approved']))
+            ->assertOk()
+            ->assertSee('Pengajuan Penambahan Kuota KRS')
+            ->assertSee('Preview Dokumen');
     }
 
     public function test_all_main_pages_render_successfully_across_roles(): void

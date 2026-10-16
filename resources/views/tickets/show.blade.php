@@ -20,7 +20,6 @@
     <!-- Kolom Utama: Detail Tiket + Riwayat Diskusi -->
     <div class="{{ $canHandle ? 'lg:col-span-7' : '' }} space-y-5">
 
-        <!-- Jika sedang dilihat oleh Role non-penanggung jawab (misal Mahasiswa), tampilkan bar info posisi yang ringkas -->
         @if(!$canHandle && !in_array($ticket->status, ['resolved', 'rejected', 'closed'], true))
             <div class="bg-white rounded-xl px-4 py-3 border border-slate-200 flex items-center justify-between gap-3">
                 <p class="text-xs text-slate-600">
@@ -39,7 +38,6 @@
 
         <!-- Kartu Utama Tiket -->
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <!-- Header Tiket -->
             <div class="p-6">
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div class="flex items-center gap-2">
@@ -61,7 +59,7 @@
                 <h1 class="text-base font-bold text-slate-900">{{ $ticket->title }}</h1>
                 <p class="mt-2.5 text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">{{ $ticket->description }}</p>
 
-                <!-- Dokumen Lampiran (Jika Ada) -->
+                <!-- Dokumen Lampiran dengan Tombol Preview Modal & Unduh -->
                 @if($ticket->attachment_path)
                     <div class="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
                         <div class="flex items-center gap-2 min-w-0">
@@ -71,14 +69,20 @@
                                 <p class="text-[10px] text-slate-400">Lampiran Pengajuan Tiket</p>
                             </div>
                         </div>
-                        <a href="{{ route('tickets.attachment', $ticket) }}"
-                           class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 shrink-0 transition">
-                            Unduh Dokumen
-                        </a>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button type="button"
+                                    @click="openDocPreview('{{ route('tickets.preview', $ticket) }}', '{{ route('tickets.attachment', $ticket) }}', '{{ addslashes($ticket->attachment_name ?? 'Dokumen Lampiran') }}')"
+                                    class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
+                                Preview Dokumen
+                            </button>
+                            <a href="{{ route('tickets.attachment', $ticket) }}"
+                               class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition">
+                                Unduh
+                            </a>
+                        </div>
                     </div>
                 @endif
 
-                <!-- Metadata Ringkas -->
                 <div class="mt-5 pt-4 border-t border-slate-100 grid grid-cols-3 gap-4 text-xs">
                     <div>
                         <span class="text-slate-400 block text-[11px]">Pemohon</span>
@@ -96,7 +100,7 @@
                 </div>
             </div>
 
-            <!-- Footer Stepper Alur Hirarki (Terintegrasi di dalam Kartu) -->
+            <!-- Footer Stepper Alur Hirarki -->
             <div class="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2 flex-wrap text-xs">
                 <span class="text-slate-400 font-medium mr-1">Progres Hirarki:</span>
                 @foreach($stepper as $idx => $step)
@@ -110,7 +114,7 @@
             </div>
         </div>
 
-        <!-- Riwayat & Diskusi (Clean Divider List) -->
+        <!-- Riwayat & Diskusi -->
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100">
                 <h2 class="text-sm font-bold text-slate-900">Riwayat & Diskusi</h2>
@@ -137,7 +141,6 @@
                 @endforeach
             </div>
 
-            <!-- Form Balasan -->
             <form action="{{ route('tickets.comment', $ticket) }}" method="POST" class="p-4 bg-slate-50/60 border-t border-slate-100 flex gap-2">
                 @csrf
                 <input type="text" name="note" required placeholder="Tulis balasan atau catatan..."
@@ -149,7 +152,7 @@
         </div>
     </div>
 
-    <!-- Kolom Kanan (Hanya muncul bila Role saat ini berwenang memproses tiket) -->
+    <!-- Kolom Kanan (Panel Tindak Lanjut Role) -->
     @if($canHandle)
         <div class="lg:col-span-5">
             <div class="bg-white rounded-xl p-6 border border-slate-200 sticky top-20" x-data="{ actionType: '{{ $defaultAction }}' }">
@@ -159,7 +162,6 @@
                 <form action="{{ route('tickets.action', $ticket) }}" method="POST" class="space-y-4">
                     @csrf
 
-                    <!-- Set Prioritas Tiket di Jenjang Penerima -->
                     <div>
                         <label class="block text-xs font-semibold text-slate-700 mb-1.5">1. Set Prioritas Tiket</label>
                         <select name="priority" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-slate-900">
@@ -170,7 +172,6 @@
                         </select>
                     </div>
 
-                    <!-- Pilih Keputusan Hirarki -->
                     <div class="space-y-2 text-xs">
                         <label class="block text-xs font-semibold text-slate-700 mb-1">2. Pilih Tindakan</label>
 

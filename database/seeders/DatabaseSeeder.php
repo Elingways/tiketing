@@ -165,20 +165,6 @@ class DatabaseSeeder extends Seeder
                 'roles' => [$superuserRole->id, $dekanRole->id, $kaprodiRole->id, $dosenRole->id, $mahasiswaRole->id],
             ],
             [
-                'name' => 'Buat Tiket Baru',
-                'slug' => 'tickets-create',
-                'route_name' => 'tickets.create',
-                'icon' => 'plus-circle',
-                'color' => 'emerald',
-                'group' => 'ticketing',
-                'badge_text' => 'Layanan',
-                'description' => 'Ajukan tiket bimbingan, KRS, judul skripsi, atau permohonan berjenjang.',
-                'show_in_sidebar' => true,
-                'show_in_launcher' => true,
-                'sort_order' => 2,
-                'roles' => [$superuserRole->id, $kaprodiRole->id, $dosenRole->id, $mahasiswaRole->id],
-            ],
-            [
                 'name' => 'Tiket Masuk Role',
                 'slug' => 'tickets-inbox',
                 'route_name' => 'tickets.inbox',
@@ -186,24 +172,24 @@ class DatabaseSeeder extends Seeder
                 'color' => 'amber',
                 'group' => 'ticketing',
                 'badge_text' => 'Inbox Hirarki',
-                'description' => 'Daftar tiket masuk dari role di bawah Anda untuk diproses, disetujui, atau dieskalasi.',
+                'description' => 'Daftar tiket masuk dari role di bawah Anda untuk diatur prioritasnya, disetujui, atau dieskalasi.',
                 'show_in_sidebar' => true,
                 'show_in_launcher' => true,
-                'sort_order' => 3,
+                'sort_order' => 2,
                 'roles' => [$superuserRole->id, $dekanRole->id, $kaprodiRole->id, $dosenRole->id],
             ],
             [
-                'name' => 'Tiket Saya',
+                'name' => 'Riwayat Tiket Saya',
                 'slug' => 'tickets-my',
                 'route_name' => 'tickets.my',
                 'icon' => 'ticket',
                 'color' => 'sky',
                 'group' => 'ticketing',
-                'badge_text' => 'Tracking',
-                'description' => 'Pantau progres tiket yang Anda ajukan beserta posisi hirarki saat ini.',
+                'badge_text' => 'Riwayat & Dokumen',
+                'description' => 'Lihat riwayat tiket yang sudah di-approve beserta preview dokumen yang diunggah.',
                 'show_in_sidebar' => true,
                 'show_in_launcher' => true,
-                'sort_order' => 4,
+                'sort_order' => 3,
                 'roles' => [$superuserRole->id, $dekanRole->id, $kaprodiRole->id, $dosenRole->id, $mahasiswaRole->id],
             ],
             [
@@ -320,8 +306,12 @@ class DatabaseSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        // 5. Buat Contoh Tiket Lintas Hirarki
-        // Tiket 1: Baru dibuat oleh Mahasiswa Andi -> sedang di Inbox Dosen
+        // 5. Buat Sample Dokumen PDF untuk Preview & Contoh Tiket Lintas Hirarki
+        $samplePdfContent = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Resources<</Font<</F1 4 0 R>>>>/Contents 5 0 R>>endobj\n4 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n5 0 obj<</Length 128>>stream\nBT /F1 16 Tf 50 760 Td (DOKUMEN LAMPIRAN TIKET AKADEMIK) Tj /F1 12 Tf 0 -30 Td (Status: Dokumen Pendukung Pengajuan Tiket Mahasiswa) Tj ET\nendstream\nendobj\nxref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000101 00000 n \n0000000207 00000 n \n0000000269 00000 n \ntrailer<</Size 6/Root 1 0 R>>\nstartxref\n446\n%%EOF";
+        \Illuminate\Support\Facades\Storage::disk('public')->put('attachments/proposal_skripsi_siti.pdf', $samplePdfContent);
+        \Illuminate\Support\Facades\Storage::disk('public')->put('attachments/surat_dispensasi_gemastik.pdf', $samplePdfContent);
+
+        // Tiket 1: Baru dibuat oleh Mahasiswa Andi -> sedang di Inbox Dosen (Prioritas belum diset)
         $t1 = Ticket::create([
             'ticket_number' => 'TKT-202610-0001',
             'title' => 'Permohonan Buka Kelas Tambahan Mata Kuliah Cloud Computing',
@@ -346,11 +336,13 @@ class DatabaseSeeder extends Seeder
             'note' => 'Tiket dibuat oleh Mahasiswa dan otomatis diarahkan ke role Dosen sesuai hirarki.',
         ]);
 
-        // Tiket 2: Pengajuan Judul Skripsi oleh Siti -> Sudah di-approve Dosen (Tahap 1) -> Sekarang berada di Inbox Kaprodi (Tahap 2)
+        // Tiket 2: Pengajuan Judul Skripsi oleh Siti -> Sudah di-approve Dosen & Kaprodi (Selesai / Approved) + Ada Dokumen PDF!
         $t2 = Ticket::create([
             'ticket_number' => 'TKT-202610-0002',
             'title' => 'Pengajuan Topik Skripsi: Sistem Deteksi Anomali Jaringan Berbasis Deep Learning',
             'description' => 'Yth. Bapak Dosen Pembimbing dan Ibu Kaprodi, berikut saya ajukan proposal ringkas topik tugas akhir mengenai deteksi anomali trafik jaringan kampus menggunakan arsitektur Transformer.',
+            'attachment_path' => 'attachments/proposal_skripsi_siti.pdf',
+            'attachment_name' => 'Proposal_Skripsi_Siti_Nabila.pdf',
             'category_id' => $catSkripsi->id,
             'priority' => 'medium',
             'workflow_type' => 'tiered_approval',
@@ -358,8 +350,9 @@ class DatabaseSeeder extends Seeder
             'creator_role_id' => $mahasiswaRole->id,
             'current_role_id' => $kaprodiRole->id,
             'assigned_user_id' => $kaprodi->id,
-            'status' => 'waiting_next_approval',
+            'status' => 'resolved',
             'approval_step' => 2,
+            'resolved_at' => now(),
         ]);
 
         TicketLog::create([
@@ -368,7 +361,7 @@ class DatabaseSeeder extends Seeder
             'from_role_id' => $mahasiswaRole->id,
             'to_role_id' => $dosenRole->id,
             'action' => 'created',
-            'note' => 'Tiket pengajuan judul skripsi dibuat oleh Mahasiswa dan masuk ke antrean approval Dosen.',
+            'note' => 'Tiket pengajuan judul skripsi dibuat oleh Mahasiswa. Lampiran: Proposal_Skripsi_Siti_Nabila.pdf',
         ]);
 
         TicketLog::create([
@@ -377,7 +370,16 @@ class DatabaseSeeder extends Seeder
             'from_role_id' => $dosenRole->id,
             'to_role_id' => $kaprodiRole->id,
             'action' => 'approved_step',
-            'note' => 'Topik sangat relevan dengan roadmap riset lab. Disetujui di tingkat Dosen dan diteruskan ke Kaprodi untuk pengesahan.',
+            'note' => 'Topik sangat relevan dengan roadmap riset lab. Disetujui di tingkat Dosen dan diteruskan ke Kaprodi.',
+        ]);
+
+        TicketLog::create([
+            'ticket_id' => $t2->id,
+            'user_id' => $kaprodi->id,
+            'from_role_id' => $kaprodiRole->id,
+            'to_role_id' => $kaprodiRole->id,
+            'action' => 'final_approved',
+            'note' => 'Judul skripsi disetujui oleh Kaprodi. Silakan lanjutkan penyusunan Bab 1-3.',
         ]);
 
         // Tiket 3: Tiket Mahasiswa Andi yang juga berada di Inbox Dosen (sedang diproses Dosen)
@@ -414,11 +416,13 @@ class DatabaseSeeder extends Seeder
             'note' => 'Sedang saya cek rekap nilai dari asisten laboratorium, mohon ditunggu.',
         ]);
 
-        // Tiket 4: Dispensasi Lomba yang sudah sampai di Dekan (Tahap 3)
+        // Tiket 4: Dispensasi Lomba Andi yang sudah di-approve sampai Dekan + Ada Dokumen PDF!
         $t4 = Ticket::create([
             'ticket_number' => 'TKT-202610-0004',
             'title' => 'Permohonan Dispensasi Kuliah & Surat Tugas Finalis Gemastik Nasional',
             'description' => 'Tim kami lolos ke babak final Gemastik selama 4 hari minggu depan. Mohon persetujuan dispensasi kehadiran perkuliahan dan surat tugas resmi fakultas.',
+            'attachment_path' => 'attachments/surat_dispensasi_gemastik.pdf',
+            'attachment_name' => 'Surat_Undangan_Finalis_Gemastik.pdf',
             'category_id' => $catDispensasi->id,
             'priority' => 'high',
             'workflow_type' => 'tiered_approval',
@@ -426,8 +430,9 @@ class DatabaseSeeder extends Seeder
             'creator_role_id' => $mahasiswaRole->id,
             'current_role_id' => $dekanRole->id,
             'assigned_user_id' => $dekan->id,
-            'status' => 'waiting_next_approval',
+            'status' => 'resolved',
             'approval_step' => 3,
+            'resolved_at' => now(),
         ]);
 
         TicketLog::create([
@@ -436,7 +441,7 @@ class DatabaseSeeder extends Seeder
             'from_role_id' => $mahasiswaRole->id,
             'to_role_id' => $dosenRole->id,
             'action' => 'created',
-            'note' => 'Pengajuan dispensasi dibuat oleh Mahasiswa ke Dosen Wali.',
+            'note' => 'Pengajuan dispensasi dibuat oleh Mahasiswa ke Dosen Wali. Lampiran: Surat_Undangan_Finalis_Gemastik.pdf',
         ]);
 
         TicketLog::create([
@@ -455,6 +460,15 @@ class DatabaseSeeder extends Seeder
             'to_role_id' => $dekanRole->id,
             'action' => 'approved_step',
             'note' => 'Prodi mendukung penuh keikutsertaan tim. Diteruskan ke Dekan untuk surat tugas fakultas.',
+        ]);
+
+        TicketLog::create([
+            'ticket_id' => $t4->id,
+            'user_id' => $dekan->id,
+            'from_role_id' => $dekanRole->id,
+            'to_role_id' => $dekanRole->id,
+            'action' => 'final_approved',
+            'note' => 'Disetujui oleh Dekan. Surat tugas dan dispensasi perkuliahan resmi diterbitkan.',
         ]);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Ticket;
+use App\Models\TicketCategory;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
@@ -36,12 +37,37 @@ class AppServiceProvider extends ServiceProvider
 
                 $allDemoUsers = User::with('role')->orderBy('role_id')->get();
 
+                // Data kategori global untuk Modal Buat Tiket di seluruh halaman
+                $globalCategories = Schema::hasTable('ticket_categories')
+                    ? TicketCategory::with(['initialTargetRole.parent', 'maxApprovalRole'])
+                        ->where('is_active', true)
+                        ->get()
+                    : collect();
+
+                $globalCategoryChains = [];
+                foreach ($globalCategories as $cat) {
+                    $chain = $cat->getWorkflowChain($user->role);
+                    $globalCategoryChains[$cat->id] = [
+                        'workflow_type' => $cat->workflow_type,
+                        'workflow_label' => $cat->workflow_type === 'tiered_approval'
+                            ? 'Approval Berjenjang'
+                            : 'Eskalasi / Disposisi',
+                        'target_role' => $chain->first()?->name ?? ($user->role?->parent?->name ?? 'Admin'),
+                        'chain_names' => array_merge(
+                            [$user->role?->name ?? 'Pemohon'],
+                            $chain->pluck('name')->toArray()
+                        ),
+                    ];
+                }
+
                 $view->with([
                     'authUser' => $user,
                     'sidebarMenus' => $sidebarMenus,
                     'launcherMenus' => $launcherMenus,
                     'roleInboxCount' => $roleInboxCount,
                     'allDemoUsers' => $allDemoUsers,
+                    'globalCategories' => $globalCategories,
+                    'globalCategoryChains' => $globalCategoryChains,
                 ]);
             }
         });

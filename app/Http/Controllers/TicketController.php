@@ -70,16 +70,40 @@ class TicketController extends Controller
     }
 
     /**
-     * Daftar Tiket yang Diajukan oleh User Saat Ini + Filter Pencarian & Kategori
+     * Menu Riwayat Tiket Saya (Filter: Sudah Di-Approve vs Semua Riwayat + Aksi Preview Dokumen)
      */
     public function myTickets(Request $request)
     {
         $user = Auth::user()->load('role.parent');
+        $tab = $request->query('tab', 'approved'); // Default tampilkan yang sudah di-approve sesuai permintaan user
         $search = trim((string) $request->query('search', ''));
         $categoryId = $request->query('category_id');
 
-        $query = Ticket::with(['category', 'currentRole', 'creatorRole', 'assignedUser'])
+        $baseQuery = Ticket::with(['category', 'currentRole', 'creatorRole', 'assignedUser', 'logs'])
             ->where('creator_id', $user->id);
+
+        $approvedCount = (clone $baseQuery)->where(function ($q) {
+            $q->where('status', 'resolved')
+                ->orWhereHas('logs', function ($lq) {
+                    $lq->whereIn('action', ['approved_step', 'final_approved', 'resolved']);
+                });
+        })->count();
+
+        $allCount = (clone $baseQuery)->count();
+
+        $query = clone $baseQuery;
+
+        if ($tab === 'approved') {
+            // Menampilkan tiket yang sudah di-approve (baik disetujui bertahap maupun selesai di-approve final)
+            $query->where(function ($q) {
+                $q->where('status', 'resolved')
+                    ->orWhereHas('logs', function ($lq) {
+                        $lq->whereIn('action', ['approved_step', 'final_approved', 'resolved']);
+                    });
+            });
+        } elseif ($tab === 'active') {
+            $query->whereNotIn('status', ['resolved', 'rejected', 'closed']);
+        }
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -95,11 +119,20 @@ class TicketController extends Controller
         $tickets = $query->latest()->get();
         $categories = TicketCategory::orderBy('name')->get();
 
-        return view('tickets.my', compact('tickets', 'user', 'search', 'categoryId', 'categories'));
+        return view('tickets.my', compact(
+            'tickets',
+            'user',
+            'tab',
+            'search',
+            'categoryId',
+            'categories',
+            'approvedCount',
+            'allCount'
+        ));
     }
 
     /**
-     * Form Buat Tiket Baru (Tanpa input prioritas; dilengkapi Upload Dokumen Opsional)
+     * Halaman Buat Tiket (Fallback bila diakses via URL langsung, meskipun di UI utama sudah menggunakan Modal)
      */
     public function create()
     {
@@ -128,7 +161,7 @@ class TicketController extends Controller
     }
 
     /**
-     * Simpan Tiket Baru (Prioritas diatur nanti oleh role penerima di Tiket Masuk)
+     * Simpan Tiket Baru dari Modal Buat Tiket
      */
     public function store(Request $request)
     {
@@ -172,7 +205,7 @@ class TicketController extends Controller
             'attachment_path' => $attachmentPath,
             'attachment_name' => $attachmentName,
             'category_id' => $category->id,
-            'priority' => null, // Diatur oleh role tujuan pada menu Tiket Masuk
+            'priority' => null,
             'workflow_type' => $category->workflow_type,
             'creator_id' => $user->id,
             'creator_role_id' => $user->role_id,
@@ -197,7 +230,26 @@ class TicketController extends Controller
     }
 
     /**
-     * Unduh / Lihat Dokumen Lampiran Tiket
+     * Preview Dokumen Lampiran Secara Inline (Untuk Modal Preview / Tab Baru)
+     */
+    public function previewAttachment(Ticket $ticket)
+    {
+        if (!$ticket->attachment_path || !Storage::disk('public')->exists($ticket->attachment_path)) {
+            abort(404, 'Dokumen lampiran tidak ditemukan.');
+        }
+
+        $fullPath = Storage::disk('public')->path($ticket->attachment_path);
+        $mimeType = Storage::disk('public')->mimeType($ticket->attachment_path) ?? 'application/octet-stream';
+        $filename = $ticket->attachment_name ?? basename($ticket->attachment_path);
+
+        return response()->file($fullPath, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . addslashes($filename) . '"',
+        ]);
+    }
+
+    /**
+     * Unduh Dokumen Lampiran Tiket
      */
     public function downloadAttachment(Ticket $ticket)
     {
@@ -212,7 +264,7 @@ class TicketController extends Controller
     }
 
     /**
-     * Set Prioritas Tiket oleh Jenjang Penerima (Di Tiket Masuk atau Detail Tiket)
+     * Set Prioritas Tiket oleh Jenjang Penerima
      */
     public function updatePriority(Request $request, Ticket $ticket)
     {
@@ -242,9 +294,6 @@ class TicketController extends Controller
         return back()->with('success', "Prioritas tiket #{$ticket->ticket_number} diatur ke: {$ticket->priorityLabel()}.");
     }
 
-    /**
-     * Detail Tiket
-     */
     public function show(Ticket $ticket)
     {
         $ticket->load([
@@ -276,9 +325,6 @@ class TicketController extends Controller
         ));
     }
 
-    /**
-     * Eksekusi Keputusan Hirarki pada Tiket
-     */
     public function handleAction(Request $request, Ticket $ticket)
     {
         $user = Auth::user()->load('role');
