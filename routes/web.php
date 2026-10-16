@@ -18,8 +18,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
     // Modul Tiketing
-    Route::get('/tickets/inbox', [TicketController::class, 'inbox'])->name('tickets.inbox');
     Route::get('/tickets/my', [TicketController::class, 'myTickets'])->name('tickets.my');
+    Route::get('/tickets/history', [TicketController::class, 'historyTickets'])->name('tickets.history');
+    Route::get('/tickets/inbox', [TicketController::class, 'inbox'])->name('tickets.inbox');
     Route::get('/tickets/create', [TicketController::class, 'create'])->name('tickets.create');
     Route::post('/tickets', [TicketController::class, 'store'])->name('tickets.store');
     Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');

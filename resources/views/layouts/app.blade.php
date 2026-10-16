@@ -67,32 +67,21 @@
                         <div class="space-y-0.5">
                             @foreach($sidebarMenus[$groupKey] as $menuItem)
                                 @php
-                                    $isCreateTicketMenu = ($menuItem->route_name === 'tickets.create');
-                                    $isActive = !$isCreateTicketMenu && (request()->routeIs($menuItem->route_name) || (request()->routeIs('tickets.show') && $menuItem->route_name === 'tickets.inbox'));
+                                    $isActive = request()->routeIs($menuItem->route_name) || (request()->routeIs('tickets.show') && $menuItem->route_name === 'tickets.inbox');
                                     $hasRoute = \Illuminate\Support\Facades\Route::has($menuItem->route_name);
                                 @endphp
-                                @if($isCreateTicketMenu)
-                                    <button type="button" @click="createTicketModal = true"
-                                            class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition text-left">
-                                        <div class="flex items-center gap-2.5 min-w-0">
-                                            @include('partials.icon', ['name' => $menuItem->icon, 'class' => 'w-4 h-4 shrink-0 text-indigo-600'])
-                                            <span class="truncate">{{ $menuItem->name }}</span>
-                                        </div>
-                                    </button>
-                                @else
-                                    <a href="{{ $hasRoute ? route($menuItem->route_name) : '#' }}"
-                                       class="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition {{ $isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                                        <div class="flex items-center gap-2.5 min-w-0">
-                                            @include('partials.icon', ['name' => $menuItem->icon, 'class' => 'w-4 h-4 shrink-0 ' . ($isActive ? 'text-white' : 'text-slate-400')])
-                                            <span class="truncate">{{ $menuItem->name }}</span>
-                                        </div>
-                                        @if($menuItem->route_name === 'tickets.inbox' && $roleInboxCount > 0)
-                                            <span class="px-1.5 py-0.5 text-[10px] font-bold rounded {{ $isActive ? 'bg-white text-slate-900' : 'bg-indigo-600 text-white' }}">
-                                                {{ $roleInboxCount }}
-                                            </span>
-                                        @endif
-                                    </a>
-                                @endif
+                                <a href="{{ $hasRoute ? route($menuItem->route_name) : '#' }}"
+                                   class="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition {{ $isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
+                                    <div class="flex items-center gap-2.5 min-w-0">
+                                        @include('partials.icon', ['name' => $menuItem->icon, 'class' => 'w-4 h-4 shrink-0 ' . ($isActive ? 'text-white' : 'text-slate-400')])
+                                        <span class="truncate">{{ $menuItem->name }}</span>
+                                    </div>
+                                    @if($menuItem->route_name === 'tickets.inbox' && $roleInboxCount > 0)
+                                        <span class="px-1.5 py-0.5 text-[10px] font-bold rounded {{ $isActive ? 'bg-white text-slate-900' : 'bg-indigo-600 text-white' }}">
+                                            {{ $roleInboxCount }}
+                                        </span>
+                                    @endif
+                                </a>
                             @endforeach
                         </div>
                     </div>

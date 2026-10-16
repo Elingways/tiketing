@@ -85,9 +85,9 @@
                 <label class="block text-xs font-medium text-slate-700 mb-1">Route Target</label>
                 <select name="route_name" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white">
                     <option value="dashboard">dashboard</option>
-                    <option value="tickets.inbox">tickets.inbox</option>
-                    <option value="tickets.create">tickets.create</option>
                     <option value="tickets.my">tickets.my</option>
+                    <option value="tickets.history">tickets.history</option>
+                    <option value="tickets.inbox">tickets.inbox</option>
                     <option value="admin.hierarchy">admin.hierarchy</option>
                     <option value="admin.menus">admin.menus</option>
                     <option value="admin.categories">admin.categories</option>

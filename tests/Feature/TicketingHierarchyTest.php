@@ -100,13 +100,24 @@ class TicketingHierarchyTest extends TestCase
         $this->assertEquals('urgent', $ticket->priority);
         $this->assertEquals('escalated', $ticket->status);
 
-        // 4. Kaprodi menyelesaikan/menyetujui tiket, lalu Mahasiswa melihat di Riwayat Tiket Saya (Sudah Di-Approve)
+        // Saat masih dieskalasi (sedang diproses), tiket tampil di menu "Tiket Saya" beserta tombol "+ Buat Tiket Baru"
+        $this->actingAs($mahasiswa)->get(route('tickets.my'))
+            ->assertOk()
+            ->assertSee('+ Buat Tiket Baru')
+            ->assertSee('Pengajuan Penambahan Kuota KRS');
+
+        // Dan belum tampil di menu "Riwayat Tiket" (karena belum berstatus approve/resolved)
+        $this->actingAs($mahasiswa)->get(route('tickets.history'))
+            ->assertOk()
+            ->assertDontSee('Pengajuan Penambahan Kuota KRS');
+
+        // 4. Kaprodi menyelesaikan/menyetujui tiket, lalu Mahasiswa melihat di menu "Riwayat Tiket" (fokus yang berstatus Approve saja)
         $this->actingAs($kaprodi)->post(route('tickets.action', $ticket), [
             'action_type' => 'resolve',
             'note' => 'Disetujui penambahan kuota.',
         ])->assertRedirect();
 
-        $this->actingAs($mahasiswa)->get(route('tickets.my', ['tab' => 'approved']))
+        $this->actingAs($mahasiswa)->get(route('tickets.history'))
             ->assertOk()
             ->assertSee('Pengajuan Penambahan Kuota KRS')
             ->assertSee('Preview Dokumen');
@@ -119,7 +130,8 @@ class TicketingHierarchyTest extends TestCase
             $this->actingAs($user)->get(route('dashboard'))->assertOk();
             $this->actingAs($user)->get(route('tickets.inbox'))->assertOk();
             $this->actingAs($user)->get(route('tickets.my'))->assertOk();
-            $this->actingAs($user)->get(route('tickets.create'))->assertOk();
+            $this->actingAs($user)->get(route('tickets.history'))->assertOk();
+            $this->actingAs($user)->get(route('tickets.create'))->assertRedirect(route('tickets.my'));
         }
 
         $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();

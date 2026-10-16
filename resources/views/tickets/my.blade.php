@@ -7,40 +7,40 @@
         'in_progress' => 'bg-sky-50 text-sky-700 border-sky-200',
         'escalated' => 'bg-violet-50 text-violet-700 border-violet-200',
         'waiting_next_approval' => 'bg-indigo-50 text-indigo-700 border-indigo-200',
-        'resolved' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
-        'rejected' => 'bg-rose-50 text-rose-700 border-rose-200',
+    ];
+    $prioColors = [
+        'low' => 'bg-slate-100 text-slate-600',
+        'medium' => 'bg-blue-50 text-blue-700',
+        'high' => 'bg-orange-50 text-orange-700',
+        'urgent' => 'bg-rose-50 text-rose-700 font-semibold',
     ];
 @endphp
 
-<!-- Judul Halaman & Tab Status -->
+<!-- Header Halaman Tiket Saya + Tombol Buat Tiket Baru -->
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
     <div>
-        <h1 class="text-lg font-bold text-slate-900">Riwayat Tiket Saya</h1>
-        <p class="text-xs text-slate-500">Pantau tahapan proses hirarki tiket Anda, riwayat approval, dan dokumen lampiran.</p>
+        <h1 class="text-lg font-bold text-slate-900">Tiket Saya (Sedang Diproses)</h1>
+        <p class="text-xs text-slate-500">
+            Daftar pengajuan tiket Anda yang sedang berjalan di alur hirarki role beserta tahapan prosesnya.
+        </p>
     </div>
 
-    <div class="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 self-start sm:self-auto">
-        <a href="{{ route('tickets.my', ['tab' => 'approved', 'category_id' => $categoryId, 'search' => $search]) }}"
-           class="px-3 py-1.5 rounded-md text-xs font-medium transition {{ $tab === 'approved' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50' }}">
-            Sudah Di-Approve ({{ $approvedCount }})
+    <div class="flex items-center gap-2">
+        <a href="{{ route('tickets.history') }}"
+           class="px-3.5 py-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition">
+            Lihat Riwayat Approve →
         </a>
-        <a href="{{ route('tickets.my', ['tab' => 'active', 'category_id' => $categoryId, 'search' => $search]) }}"
-           class="px-3 py-1.5 rounded-md text-xs font-medium transition {{ $tab === 'active' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50' }}">
-            Sedang Diproses
-        </a>
-        <a href="{{ route('tickets.my', ['tab' => 'all', 'category_id' => $categoryId, 'search' => $search]) }}"
-           class="px-3 py-1.5 rounded-md text-xs font-medium transition {{ $tab === 'all' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50' }}">
-            Semua ({{ $allCount }})
-        </a>
+        <button type="button" @click="createTicketModal = true"
+                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition shadow-2xs cursor-pointer">
+            <span>+ Buat Tiket Baru</span>
+        </button>
     </div>
 </div>
 
-<!-- Card Utama: Toolbar Search/Dropdown + Tabel Riwayat Tiket -->
+<!-- Card Utama: Filter Rapi + Tabel Tiket Saya yang Sedang Diproses -->
 <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-    <!-- Toolbar Pencarian & Dropdown Kategori yang Rapi -->
+    <!-- Toolbar Pencarian & Dropdown Kategori -->
     <form action="{{ route('tickets.my') }}" method="GET" class="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <input type="hidden" name="tab" value="{{ $tab }}">
-
         <div class="relative flex-1 max-w-md">
             <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -66,7 +66,7 @@
             </button>
 
             @if($search || $categoryId)
-                <a href="{{ route('tickets.my', ['tab' => $tab]) }}"
+                <a href="{{ route('tickets.my') }}"
                    class="px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-600 hover:bg-slate-100">
                     Reset
                 </a>
@@ -74,7 +74,7 @@
         </div>
     </form>
 
-    <!-- Tabel Riwayat Tiket -->
+    <!-- Tabel Tiket Saya (Sedang Diproses) -->
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
             <thead>
@@ -82,7 +82,8 @@
                     <th class="py-3 px-4 w-36">No. Tiket</th>
                     <th class="py-3 px-4">Judul & Kategori Tiket</th>
                     <th class="py-3 px-4">Proses (Tahap Hirarki)</th>
-                    <th class="py-3 px-4 w-32">Status</th>
+                    <th class="py-3 px-4 w-32">Prioritas</th>
+                    <th class="py-3 px-4 w-36">Status</th>
                     <th class="py-3 px-4 w-36">Dokumen</th>
                     <th class="py-3 px-4 w-24 text-right">Aksi</th>
                 </tr>
@@ -91,7 +92,6 @@
                 @forelse($tickets as $ticket)
                     @php
                         $stepper = $ticket->getHierarchyStepper();
-                        $lastApprovalLog = $ticket->logs->whereIn('action', ['approved_step', 'final_approved', 'resolved'])->last();
                     @endphp
                     <tr class="hover:bg-slate-50/70 transition align-top">
                         <!-- 1. No. Tiket -->
@@ -108,7 +108,7 @@
                             <span class="text-[11px] text-slate-500 block mt-0.5">{{ $ticket->category?->name }}</span>
                         </td>
 
-                        <!-- 3. Kolom Proses (Tahap Hirarki Saat Ini) -->
+                        <!-- 3. Proses (Tahap Hirarki Saat Ini) -->
                         <td class="py-3.5 px-4">
                             <div class="flex items-center gap-1 flex-wrap mb-1">
                                 @foreach($stepper as $idx => $step)
@@ -121,27 +121,29 @@
                                 @endforeach
                             </div>
                             <p class="text-[11px] text-slate-500">
-                                @if($ticket->status === 'resolved')
-                                    <span class="text-emerald-700 font-medium">
-                                        ✓ Selesai di Role {{ $ticket->currentRole?->name }}
-                                        @if($lastApprovalLog)
-                                            ({{ $lastApprovalLog->user?->name }})
-                                        @endif
-                                    </span>
-                                @else
-                                    Tahap {{ $ticket->approval_step }}: Sedang di <strong class="text-slate-700">Role {{ $ticket->currentRole?->name }}</strong>
-                                @endif
+                                Tahap {{ $ticket->approval_step }}: Sedang diproses di <strong class="text-slate-700">Role {{ $ticket->currentRole?->name }}</strong>
                             </p>
                         </td>
 
-                        <!-- 4. Status -->
+                        <!-- 4. Prioritas -->
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            @if($ticket->priority)
+                                <span class="inline-block text-[11px] px-2 py-0.5 rounded {{ $prioColors[$ticket->priority] ?? 'bg-slate-100' }}">
+                                    {{ $ticket->priorityLabel() }}
+                                </span>
+                            @else
+                                <span class="text-[11px] text-slate-400">Menunggu Role</span>
+                            @endif
+                        </td>
+
+                        <!-- 5. Status -->
                         <td class="py-3.5 px-4 whitespace-nowrap">
                             <span class="inline-block text-[11px] font-medium px-2.5 py-0.5 rounded-md border {{ $statusColors[$ticket->status] ?? 'bg-slate-100' }}">
                                 {{ $ticket->statusLabel() }}
                             </span>
                         </td>
 
-                        <!-- 5. Dokumen (Preview Modal) -->
+                        <!-- 6. Dokumen -->
                         <td class="py-3.5 px-4 whitespace-nowrap">
                             @if($ticket->attachment_path)
                                 <button type="button"
@@ -154,7 +156,7 @@
                             @endif
                         </td>
 
-                        <!-- 6. Aksi -->
+                        <!-- 7. Aksi -->
                         <td class="py-3.5 px-4 text-right whitespace-nowrap">
                             <a href="{{ route('tickets.show', $ticket) }}"
                                class="inline-block px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 font-medium transition">
@@ -164,8 +166,8 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="py-10 px-4 text-center text-xs text-slate-400">
-                            Belum ada data tiket pada tampilan ini.
+                        <td colspan="7" class="py-10 px-4 text-center text-xs text-slate-400">
+                            Tidak ada tiket yang sedang diproses saat ini. Klik tombol <strong>+ Buat Tiket Baru</strong> di kanan atas untuk mengajukan tiket.
                         </td>
                     </tr>
                 @endforelse

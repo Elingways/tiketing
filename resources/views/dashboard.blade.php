@@ -104,7 +104,10 @@
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
                 <h2 class="text-sm font-bold text-slate-900">Tiket Terbaru Saya</h2>
-                <a href="{{ route('tickets.my') }}" class="text-xs font-semibold text-indigo-600 hover:underline">Lihat Riwayat →</a>
+                <div class="flex items-center gap-3">
+                    <a href="{{ route('tickets.my') }}" class="text-xs font-semibold text-indigo-600 hover:underline">Tiket Saya →</a>
+                    <a href="{{ route('tickets.history') }}" class="text-xs font-semibold text-emerald-600 hover:underline">Riwayat Approve →</a>
+                </div>
             </div>
 
             <div class="overflow-x-auto">

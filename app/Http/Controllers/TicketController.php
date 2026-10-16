@@ -14,7 +14,79 @@ use Illuminate\Support\Facades\Storage;
 class TicketController extends Controller
 {
     /**
-     * Daftar Tiket Masuk ke Role User Saat Ini + Search & Filter Kategori + Set Prioritas
+     * Menu 1: Tiket Saya (Menampilkan tiket saya yang sedang diproses + tombol Buat Tiket Baru via Modal)
+     */
+    public function myTickets(Request $request)
+    {
+        $user = Auth::user()->load('role.parent');
+        $search = trim((string) $request->query('search', ''));
+        $categoryId = $request->query('category_id');
+
+        $query = Ticket::with(['category', 'currentRole', 'creatorRole', 'assignedUser', 'logs'])
+            ->where('creator_id', $user->id)
+            ->whereNotIn('status', ['resolved', 'rejected', 'closed']);
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('ticket_number', 'like', "%{$search}%")
+                    ->orWhere('title', 'like', "%{$search}%");
+            });
+        }
+
+        if ($categoryId) {
+            $query->where('category_id', $categoryId);
+        }
+
+        $tickets = $query->latest()->get();
+        $categories = TicketCategory::orderBy('name')->get();
+
+        return view('tickets.my', compact(
+            'tickets',
+            'user',
+            'search',
+            'categoryId',
+            'categories'
+        ));
+    }
+
+    /**
+     * Menu 2: Riwayat Tiket (Berfokus khusus pada tiket saya yang sudah berstatus Approve / Selesai + Preview Dokumen)
+     */
+    public function historyTickets(Request $request)
+    {
+        $user = Auth::user()->load('role.parent');
+        $search = trim((string) $request->query('search', ''));
+        $categoryId = $request->query('category_id');
+
+        $query = Ticket::with(['category', 'currentRole', 'creatorRole', 'assignedUser', 'logs.user.role'])
+            ->where('creator_id', $user->id)
+            ->where('status', 'resolved');
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('ticket_number', 'like', "%{$search}%")
+                    ->orWhere('title', 'like', "%{$search}%");
+            });
+        }
+
+        if ($categoryId) {
+            $query->where('category_id', $categoryId);
+        }
+
+        $tickets = $query->latest('resolved_at')->latest()->get();
+        $categories = TicketCategory::orderBy('name')->get();
+
+        return view('tickets.history', compact(
+            'tickets',
+            'user',
+            'search',
+            'categoryId',
+            'categories'
+        ));
+    }
+
+    /**
+     * Menu 3: Tiket Masuk Role (Untuk Dosen / Kaprodi / Dekan / Superuser)
      */
     public function inbox(Request $request)
     {
@@ -69,99 +141,13 @@ class TicketController extends Controller
         ));
     }
 
-    /**
-     * Menu Riwayat Tiket Saya (Filter: Sudah Di-Approve vs Semua Riwayat + Aksi Preview Dokumen)
-     */
-    public function myTickets(Request $request)
-    {
-        $user = Auth::user()->load('role.parent');
-        $tab = $request->query('tab', 'approved'); // Default tampilkan yang sudah di-approve sesuai permintaan user
-        $search = trim((string) $request->query('search', ''));
-        $categoryId = $request->query('category_id');
-
-        $baseQuery = Ticket::with(['category', 'currentRole', 'creatorRole', 'assignedUser', 'logs'])
-            ->where('creator_id', $user->id);
-
-        $approvedCount = (clone $baseQuery)->where(function ($q) {
-            $q->where('status', 'resolved')
-                ->orWhereHas('logs', function ($lq) {
-                    $lq->whereIn('action', ['approved_step', 'final_approved', 'resolved']);
-                });
-        })->count();
-
-        $allCount = (clone $baseQuery)->count();
-
-        $query = clone $baseQuery;
-
-        if ($tab === 'approved') {
-            // Menampilkan tiket yang sudah di-approve (baik disetujui bertahap maupun selesai di-approve final)
-            $query->where(function ($q) {
-                $q->where('status', 'resolved')
-                    ->orWhereHas('logs', function ($lq) {
-                        $lq->whereIn('action', ['approved_step', 'final_approved', 'resolved']);
-                    });
-            });
-        } elseif ($tab === 'active') {
-            $query->whereNotIn('status', ['resolved', 'rejected', 'closed']);
-        }
-
-        if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('ticket_number', 'like', "%{$search}%")
-                    ->orWhere('title', 'like', "%{$search}%");
-            });
-        }
-
-        if ($categoryId) {
-            $query->where('category_id', $categoryId);
-        }
-
-        $tickets = $query->latest()->get();
-        $categories = TicketCategory::orderBy('name')->get();
-
-        return view('tickets.my', compact(
-            'tickets',
-            'user',
-            'tab',
-            'search',
-            'categoryId',
-            'categories',
-            'approvedCount',
-            'allCount'
-        ));
-    }
-
-    /**
-     * Halaman Buat Tiket (Fallback bila diakses via URL langsung, meskipun di UI utama sudah menggunakan Modal)
-     */
     public function create()
     {
-        $user = Auth::user()->load('role.parent');
-        $categories = TicketCategory::with(['initialTargetRole.parent', 'maxApprovalRole'])
-            ->where('is_active', true)
-            ->get();
-
-        $categoryChains = [];
-        foreach ($categories as $cat) {
-            $chain = $cat->getWorkflowChain($user->role);
-            $categoryChains[$cat->id] = [
-                'workflow_type' => $cat->workflow_type,
-                'workflow_label' => $cat->workflow_type === 'tiered_approval'
-                    ? 'Approval Berjenjang'
-                    : 'Eskalasi / Disposisi',
-                'target_role' => $chain->first()?->name ?? ($user->role?->parent?->name ?? 'Admin'),
-                'chain_names' => array_merge(
-                    [$user->role?->name ?? 'Pemohon'],
-                    $chain->pluck('name')->toArray()
-                ),
-            ];
-        }
-
-        return view('tickets.create', compact('user', 'categories', 'categoryChains'));
+        return redirect()->route('tickets.my');
     }
 
     /**
-     * Simpan Tiket Baru dari Modal Buat Tiket
+     * Simpan Tiket Baru dari Modal Buat Tiket di Halaman Tiket Saya
      */
     public function store(Request $request)
     {
@@ -225,12 +211,12 @@ class TicketController extends Controller
                 . ($attachmentName ? " Lampiran: {$attachmentName}" : ''),
         ]);
 
-        return redirect()->route('tickets.show', $ticket)
-            ->with('success', "Tiket #{$ticket->ticket_number} berhasil diajukan ke Role {$targetRole->name}.");
+        return redirect()->route('tickets.my')
+            ->with('success', "Tiket #{$ticket->ticket_number} berhasil dibuat dan sedang diproses pada Role {$targetRole->name}.");
     }
 
     /**
-     * Preview Dokumen Lampiran Secara Inline (Untuk Modal Preview / Tab Baru)
+     * Preview Dokumen Lampiran Secara Inline
      */
     public function previewAttachment(Ticket $ticket)
     {
@@ -248,9 +234,6 @@ class TicketController extends Controller
         ]);
     }
 
-    /**
-     * Unduh Dokumen Lampiran Tiket
-     */
     public function downloadAttachment(Ticket $ticket)
     {
         if (!$ticket->attachment_path || !Storage::disk('public')->exists($ticket->attachment_path)) {
@@ -263,9 +246,6 @@ class TicketController extends Controller
         );
     }
 
-    /**
-     * Set Prioritas Tiket oleh Jenjang Penerima
-     */
     public function updatePriority(Request $request, Ticket $ticket)
     {
         $user = Auth::user()->load('role');
