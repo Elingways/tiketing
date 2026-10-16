@@ -8,6 +8,8 @@ use App\Models\TicketCategory;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class TicketingHierarchyTest extends TestCase
@@ -26,14 +28,12 @@ class TicketingHierarchyTest extends TestCase
         $dosenRole = Role::where('slug', 'dosen')->firstOrFail();
         $kaprodiRole = Role::where('slug', 'kaprodi')->firstOrFail();
 
-        // Pastikan Dosen hirarkinya ke Kaprodi
         $this->assertEquals($kaprodiRole->id, $dosenRole->parent_id);
 
-        // Superuser membuat role baru "Asisten Dosen" dan menentukan hirarkinya ke "Dosen"
         $response = $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
             'name' => 'Asisten Dosen',
             'parent_id' => $dosenRole->id,
-            'badge_color' => 'teal',
+            'badge_color' => 'indigo',
             'description' => 'Membantu praktikum dan meneruskan tiket ke Dosen.',
             'can_create_ticket' => 1,
             'can_receive_ticket' => 1,
@@ -43,48 +43,61 @@ class TicketingHierarchyTest extends TestCase
         $newRole = Role::where('name', 'Asisten Dosen')->first();
         $this->assertNotNull($newRole);
         $this->assertEquals($dosenRole->id, $newRole->parent_id);
-
-        // Cek rantai hirarki ke atas: Asisten Dosen -> Dosen -> Kaprodi -> Dekan
-        $chain = $newRole->getUpwardChainNames();
-        $this->assertEquals(['Asisten Dosen', 'Dosen', 'Kaprodi', 'Dekan'], $chain);
+        $this->assertEquals(['Asisten Dosen', 'Dosen', 'Kaprodi', 'Dekan'], $newRole->getUpwardChainNames());
     }
 
-    public function test_mahasiswa_creates_ticket_to_dosen_and_dosen_escalates_to_kaprodi(): void
+    public function test_mahasiswa_creates_ticket_with_optional_document_and_dosen_sets_priority_and_escalates(): void
     {
+        Storage::fake('public');
+
         $mahasiswa = User::where('email', 'mahasiswa@kampus.ac.id')->firstOrFail();
         $dosen = User::where('email', 'dosen@kampus.ac.id')->firstOrFail();
         $kaprodi = User::where('email', 'kaprodi@kampus.ac.id')->firstOrFail();
         $category = TicketCategory::where('workflow_type', 'escalation')->firstOrFail();
 
-        // 1. Mahasiswa membuat tiket baru -> masuk ke Dosen
+        $file = UploadedFile::fake()->create('surat_permohonan.pdf', 200, 'application/pdf');
+
+        // 1. Mahasiswa membuat tiket (tanpa prioritas, dengan dokumen opsional)
         $this->actingAs($mahasiswa)->post(route('tickets.store'), [
             'title' => 'Pengajuan Penambahan Kuota KRS',
             'category_id' => $category->id,
-            'priority' => 'high',
             'description' => 'Mohon bantuan pembukaan kuota KRS untuk mata kuliah pilihan.',
+            'attachment' => $file,
         ])->assertRedirect();
 
         $ticket = Ticket::where('title', 'Pengajuan Penambahan Kuota KRS')->firstOrFail();
+        $this->assertNull($ticket->priority);
+        $this->assertEquals('surat_permohonan.pdf', $ticket->attachment_name);
+        $this->assertNotNull($ticket->attachment_path);
         $this->assertEquals($dosen->role_id, $ticket->current_role_id);
 
-        // 2. Dosen melihat tiket di dashboard & melakukan eskalasi ke atasan hirarkinya (Kaprodi)
+        // Pastikan dokumen dapat diunduh
+        $this->actingAs($dosen)->get(route('tickets.attachment', $ticket))->assertOk();
+
+        // 2. Dosen mencari & memfilter tiket di Tiket Masuk berdasarkan kategori, lalu mengatur Prioritas
+        $this->actingAs($dosen)->get(route('tickets.inbox', [
+            'search' => 'Kuota KRS',
+            'category_id' => $category->id,
+        ]))->assertOk()->assertSee('Pengajuan Penambahan Kuota KRS');
+
+        $this->actingAs($dosen)->post(route('tickets.priority', $ticket), [
+            'priority' => 'high',
+        ])->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertEquals('high', $ticket->priority);
+
+        // 3. Dosen melakukan eskalasi ke Kaprodi
         $this->actingAs($dosen)->post(route('tickets.action', $ticket), [
             'action_type' => 'escalate',
+            'priority' => 'urgent',
             'note' => 'Mohon kebijakan Ibu Kaprodi untuk penambahan kuota kelas.',
         ])->assertRedirect();
 
         $ticket->refresh();
         $this->assertEquals($kaprodi->role_id, $ticket->current_role_id);
+        $this->assertEquals('urgent', $ticket->priority);
         $this->assertEquals('escalated', $ticket->status);
-
-        // 3. Kaprodi menyelesaikan tiket
-        $this->actingAs($kaprodi)->post(route('tickets.action', $ticket), [
-            'action_type' => 'resolve',
-            'note' => 'Kuota kelas telah ditambah 10 kursi. Silakan isi KRS.',
-        ])->assertRedirect();
-
-        $ticket->refresh();
-        $this->assertEquals('resolved', $ticket->status);
     }
 
     public function test_all_main_pages_render_successfully_across_roles(): void

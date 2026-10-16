@@ -327,7 +327,7 @@ class DatabaseSeeder extends Seeder
             'title' => 'Permohonan Buka Kelas Tambahan Mata Kuliah Cloud Computing',
             'description' => 'Selamat pagi Pak Budi, saya Andi Pratama (NIM 2310511042). Saat pengisian KRS, kuota kelas Cloud Computing sudah penuh padahal mata kuliah ini prasyarat semester depan. Mohon arahan dan bantuannya Pak.',
             'category_id' => $catKrs->id,
-            'priority' => 'high',
+            'priority' => null,
             'workflow_type' => 'escalation',
             'creator_id' => $mahasiswa1->id,
             'creator_role_id' => $mahasiswaRole->id,

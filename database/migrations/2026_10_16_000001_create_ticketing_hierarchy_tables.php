@@ -83,8 +83,10 @@ return new class extends Migration
             $table->string('ticket_number')->unique();
             $table->string('title');
             $table->text('description');
+            $table->string('attachment_path')->nullable();
+            $table->string('attachment_name')->nullable();
             $table->foreignId('category_id')->constrained('ticket_categories')->cascadeOnDelete();
-            $table->enum('priority', ['low', 'medium', 'high', 'urgent'])->default('medium');
+            $table->enum('priority', ['low', 'medium', 'high', 'urgent'])->nullable();
             $table->enum('workflow_type', ['escalation', 'tiered_approval'])->default('escalation');
             $table->foreignId('creator_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('creator_role_id')->constrained('roles')->cascadeOnDelete();
