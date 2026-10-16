@@ -165,6 +165,20 @@ class DatabaseSeeder extends Seeder
                 'roles' => [$superuserRole->id, $dekanRole->id, $kaprodiRole->id, $dosenRole->id, $mahasiswaRole->id],
             ],
             [
+                'name' => 'Buat Tiket Baru',
+                'slug' => 'tickets-create',
+                'route_name' => 'tickets.create',
+                'icon' => 'plus-circle',
+                'color' => 'indigo',
+                'group' => 'ticketing',
+                'badge_text' => 'Modal',
+                'description' => 'Ajukan tiket layanan baru melalui form modal.',
+                'show_in_sidebar' => true,
+                'show_in_launcher' => true,
+                'sort_order' => 2,
+                'roles' => [$superuserRole->id, $kaprodiRole->id, $dosenRole->id, $mahasiswaRole->id],
+            ],
+            [
                 'name' => 'Tiket Masuk Role',
                 'slug' => 'tickets-inbox',
                 'route_name' => 'tickets.inbox',
@@ -175,7 +189,7 @@ class DatabaseSeeder extends Seeder
                 'description' => 'Daftar tiket masuk dari role di bawah Anda untuk diatur prioritasnya, disetujui, atau dieskalasi.',
                 'show_in_sidebar' => true,
                 'show_in_launcher' => true,
-                'sort_order' => 2,
+                'sort_order' => 3,
                 'roles' => [$superuserRole->id, $dekanRole->id, $kaprodiRole->id, $dosenRole->id],
             ],
             [
@@ -189,7 +203,7 @@ class DatabaseSeeder extends Seeder
                 'description' => 'Lihat riwayat tiket yang sudah di-approve beserta preview dokumen yang diunggah.',
                 'show_in_sidebar' => true,
                 'show_in_launcher' => true,
-                'sort_order' => 3,
+                'sort_order' => 4,
                 'roles' => [$superuserRole->id, $dekanRole->id, $kaprodiRole->id, $dosenRole->id, $mahasiswaRole->id],
             ],
             [

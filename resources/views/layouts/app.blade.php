@@ -49,31 +49,19 @@
 
 <div class="flex min-h-screen">
     <!-- Sidebar -->
-    <aside class="hidden lg:flex lg:w-60 lg:flex-col lg:fixed lg:inset-y-0 bg-white border-r border-slate-200/80 z-30">
-        <div class="flex items-center justify-between px-5 h-14 border-b border-slate-100">
-            <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-                    @include('partials.icon', ['name' => 'ticket', 'class' => 'w-4 h-4'])
-                </div>
-                <span class="font-bold text-sm text-slate-900 tracking-tight">SuperTicket</span>
+    <aside class="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 bg-white border-r border-slate-200 z-30">
+        <div class="flex items-center gap-2.5 px-5 h-14 border-b border-slate-100">
+            <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+                @include('partials.icon', ['name' => 'ticket', 'class' => 'w-4 h-4'])
             </div>
+            <span class="font-bold text-sm text-slate-900 tracking-tight">SuperTicket</span>
         </div>
-
-        @if($authUser->role?->can_create_ticket)
-            <div class="px-3 pt-3">
-                <button type="button" @click="createTicketModal = true"
-                        class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-2xs transition">
-                    @include('partials.icon', ['name' => 'plus-circle', 'class' => 'w-4 h-4'])
-                    <span>Buat Tiket Baru</span>
-                </button>
-            </div>
-        @endif
 
         <nav class="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
             @foreach(['main', 'ticketing', 'management'] as $groupKey)
                 @if(isset($sidebarMenus[$groupKey]) && $sidebarMenus[$groupKey]->count() > 0)
                     <div>
-                        <p class="px-2.5 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        <p class="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                             {{ $groupLabels[$groupKey] ?? ucfirst($groupKey) }}
                         </p>
                         <div class="space-y-0.5">
@@ -85,15 +73,15 @@
                                 @endphp
                                 @if($isCreateTicketMenu)
                                     <button type="button" @click="createTicketModal = true"
-                                            class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition text-left">
+                                            class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition text-left">
                                         <div class="flex items-center gap-2.5 min-w-0">
-                                            @include('partials.icon', ['name' => $menuItem->icon, 'class' => 'w-4 h-4 shrink-0 text-slate-400'])
+                                            @include('partials.icon', ['name' => $menuItem->icon, 'class' => 'w-4 h-4 shrink-0 text-indigo-600'])
                                             <span class="truncate">{{ $menuItem->name }}</span>
                                         </div>
                                     </button>
                                 @else
                                     <a href="{{ $hasRoute ? route($menuItem->route_name) : '#' }}"
-                                       class="flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium transition {{ $isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
+                                       class="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition {{ $isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
                                         <div class="flex items-center gap-2.5 min-w-0">
                                             @include('partials.icon', ['name' => $menuItem->icon, 'class' => 'w-4 h-4 shrink-0 ' . ($isActive ? 'text-white' : 'text-slate-400')])
                                             <span class="truncate">{{ $menuItem->name }}</span>
@@ -116,7 +104,7 @@
             <div class="flex items-center justify-between gap-2 px-2 py-1">
                 <div class="min-w-0">
                     <p class="text-xs font-semibold text-slate-900 truncate">{{ $authUser->name }}</p>
-                    <p class="text-[11px] text-slate-400 truncate">{{ $authUser->role?->name }}</p>
+                    <p class="text-[11px] text-slate-400 truncate">Role: {{ $authUser->role?->name }}</p>
                 </div>
                 <form action="{{ route('logout') }}" method="POST">
                     @csrf
@@ -129,55 +117,46 @@
     </aside>
 
     <!-- Main Content -->
-    <div class="flex-1 lg:pl-60 flex flex-col min-w-0 pb-20 lg:pb-10">
+    <div class="flex-1 lg:pl-64 flex flex-col min-w-0 pb-20 lg:pb-10">
         <!-- Top Header -->
-        <header class="sticky top-0 z-20 bg-white border-b border-slate-200/80">
-            <div class="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+        <header class="sticky top-0 z-20 bg-white border-b border-slate-200">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
                 <div class="flex items-center gap-2 text-xs text-slate-500">
-                    <span class="font-medium text-slate-700">{{ $authUser->name }}</span>
+                    <span class="font-semibold text-slate-800">{{ $authUser->name }}</span>
                     <span class="text-slate-300">•</span>
-                    <span>Hirarki: <strong class="text-slate-700">{{ implode(' → ', $authUser->role?->getUpwardChainNames() ?? []) }}</strong></span>
+                    <span>Alur Hirarki: <strong class="text-slate-700">{{ implode(' → ', $authUser->role?->getUpwardChainNames() ?? []) }}</strong></span>
                 </div>
 
-                <div class="flex items-center gap-2">
-                    @if($authUser->role?->can_create_ticket)
-                        <button type="button" @click="createTicketModal = true"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
-                            <span>+ Buat Tiket</span>
-                        </button>
-                    @endif
+                <!-- Role Switcher -->
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open" type="button"
+                            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+                        <span>Role: <strong>{{ $authUser->role?->name }}</strong></span>
+                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                    </button>
 
-                    <!-- Role Switcher -->
-                    <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open" type="button"
-                                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition">
-                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
-                            <span>Role: <strong>{{ $authUser->role?->name }}</strong></span>
-                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
-                        </button>
-
-                        <div x-show="open" @click.outside="open = false" x-cloak
-                             class="absolute right-0 mt-1.5 w-60 rounded-xl bg-white shadow-lg border border-slate-200 p-1.5 z-50">
-                            <div class="px-2.5 py-1 border-b border-slate-100 mb-1">
-                                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pindah Role / Akun</p>
-                            </div>
-                            <div class="max-h-72 overflow-y-auto space-y-0.5">
-                                @foreach($allDemoUsers as $demoUser)
-                                    <form action="{{ route('auth.quick-switch', $demoUser) }}" method="POST">
-                                        @csrf
-                                        <button type="submit"
-                                                class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-xs transition {{ $demoUser->id === $authUser->id ? 'bg-slate-100 text-slate-900 font-semibold' : 'hover:bg-slate-50 text-slate-600' }}">
-                                            <div class="truncate pr-2">
-                                                <p class="truncate">{{ $demoUser->name }}</p>
-                                                <p class="text-[10px] text-slate-400">{{ $demoUser->role?->name }}</p>
-                                            </div>
-                                            @if($demoUser->id === $authUser->id)
-                                                <span class="text-[10px] font-semibold text-indigo-600">Aktif</span>
-                                            @endif
-                                        </button>
-                                    </form>
-                                @endforeach
-                            </div>
+                    <div x-show="open" @click.outside="open = false" x-cloak
+                         class="absolute right-0 mt-1.5 w-60 rounded-xl bg-white shadow-lg border border-slate-200 p-1.5 z-50">
+                        <div class="px-2.5 py-1 border-b border-slate-100 mb-1">
+                            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pindah Role / Akun</p>
+                        </div>
+                        <div class="max-h-72 overflow-y-auto space-y-0.5">
+                            @foreach($allDemoUsers as $demoUser)
+                                <form action="{{ route('auth.quick-switch', $demoUser) }}" method="POST">
+                                    @csrf
+                                    <button type="submit"
+                                            class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-xs transition {{ $demoUser->id === $authUser->id ? 'bg-slate-100 text-slate-900 font-semibold' : 'hover:bg-slate-50 text-slate-600' }}">
+                                        <div class="truncate pr-2">
+                                            <p class="truncate">{{ $demoUser->name }}</p>
+                                            <p class="text-[10px] text-slate-400">{{ $demoUser->role?->name }}</p>
+                                        </div>
+                                        @if($demoUser->id === $authUser->id)
+                                            <span class="text-[10px] font-semibold text-indigo-600">Aktif</span>
+                                        @endif
+                                    </button>
+                                </form>
+                            @endforeach
                         </div>
                     </div>
                 </div>
@@ -185,7 +164,7 @@
         </header>
 
         <!-- Alerts -->
-        <div class="max-w-5xl w-full mx-auto px-4 sm:px-6 pt-4">
+        <div class="max-w-6xl w-full mx-auto px-4 sm:px-6 pt-4">
             @if(session('success'))
                 <div class="mb-4 px-4 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium">
                     {{ session('success') }}
@@ -208,13 +187,13 @@
         </div>
 
         <!-- Content -->
-        <main class="max-w-5xl w-full mx-auto px-4 sm:px-6 py-4 flex-1">
+        <main class="max-w-6xl w-full mx-auto px-4 sm:px-6 py-5 flex-1">
             @yield('content')
         </main>
     </div>
 </div>
 
-<!-- MODAL 1: Buat Tiket Baru (Global Modal) -->
+<!-- MODAL 1: Buat Tiket Baru -->
 <div x-show="createTicketModal" x-cloak
      @keydown.escape.window="createTicketModal = false"
      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
@@ -228,7 +207,7 @@
 
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <div>
-                <h2 class="text-sm font-bold text-slate-900">Ajukan Tiket Baru</h2>
+                <h2 class="text-sm font-bold text-slate-900">Buat Tiket Baru</h2>
                 <p class="text-[11px] text-slate-400">Prioritas tiket ditentukan oleh role penerima di tahap berikutnya.</p>
             </div>
             <button type="button" @click="createTicketModal = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">
@@ -302,7 +281,7 @@
     </div>
 </div>
 
-<!-- MODAL 2: Preview Dokumen Lampiran (Global Modal) -->
+<!-- MODAL 2: Preview Dokumen Lampiran -->
 <div x-show="previewModal" x-cloak
      @keydown.escape.window="previewModal = false"
      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
