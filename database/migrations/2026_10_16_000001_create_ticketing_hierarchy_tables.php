@@ -24,18 +24,28 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // 2. Tambahkan relasi role & atribut akademik ke tabel users
+        // 2. Tambahkan relasi role & atribut akademik SIAKAD ke tabel users
         Schema::table('users', function (Blueprint $table) {
             $table->foreignId('role_id')->nullable()->after('id')->constrained('roles')->nullOnDelete();
             $table->foreignId('supervisor_id')->nullable()->after('role_id')->constrained('users')->nullOnDelete();
+            $table->string('user_type')->default('mahasiswa')->after('supervisor_id'); // mahasiswa, pengajar, admin
+            $table->unsignedBigInteger('siakad_id')->nullable()->after('user_type');
             $table->string('identity_number')->nullable()->after('email'); // NIM / NIDN / NIP
-            $table->string('department')->nullable()->after('identity_number'); // Prodi / Unit
-            $table->string('avatar_color')->default('indigo')->after('department');
+            $table->string('department')->nullable()->after('identity_number'); // Program Studi / Unit
+            $table->string('fakultas')->nullable()->after('department');
+            $table->integer('angkatan')->nullable()->after('fakultas');
+            $table->integer('semester')->nullable()->after('angkatan');
+            $table->string('status_akademik')->default('Aktif')->after('semester');
+            $table->string('jabatan')->nullable()->after('status_akademik');
+            $table->string('phone')->nullable()->after('jabatan');
+            $table->string('avatar_color')->default('indigo')->after('phone');
+            $table->timestamp('synced_at')->nullable()->after('avatar_color');
         });
 
-        // 3. Tabel Menus (Manajemen Menu Dinamis SuperApp)
+        // 3. Tabel Menus (Manajemen Menu Dinamis SuperApp beserta Sub-Sidebar parent_id)
         Schema::create('menus', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('parent_id')->nullable()->constrained('menus')->nullOnDelete();
             $table->string('name');
             $table->string('slug')->unique();
             $table->string('route_name');
@@ -59,7 +69,7 @@ return new class extends Migration
             $table->unique(['menu_id', 'role_id']);
         });
 
-        // 5. Tabel Kategori Tiket & Konfigurasi Alur Hirarki (Eskalasi vs Approval Berjenjang)
+        // 5. Tabel Kategori Tiket & Konfigurasi Alur Hirarki Kustom + Template Dokumen Layanan
         Schema::create('ticket_categories', function (Blueprint $table) {
             $table->id();
             $table->string('name');
@@ -67,12 +77,18 @@ return new class extends Migration
             $table->string('icon')->default('ticket');
             $table->string('color')->default('indigo');
             $table->text('description')->nullable();
-            // Role penerima awal (jika kosong, otomatis mengikuti parent_id dari role pembuat tiket)
+            // Susunan tahapan role kustom per kategori layanan (contoh: [Mahasiswa, Akademik, Yayasan])
+            $table->json('workflow_roles')->nullable();
+            // Role penerima awal (jika kosong, otomatis mengikuti workflow_roles atau parent_id pembuat tiket)
             $table->foreignId('initial_target_role_id')->nullable()->constrained('roles')->nullOnDelete();
-            // Mode workflow: 'escalation' (Disposisi/Eskalasi manual ke atasan) atau 'tiered_approval' (Approval otomatis berjenjang naik ke atasan)
-            $table->enum('workflow_type', ['escalation', 'tiered_approval'])->default('escalation');
-            // Batas puncak role approval untuk mode tiered_approval (misal sampai Kaprodi atau Dekan)
+            // Mode workflow: 'escalation' (Disposisi/Eskalasi manual ke tahap berikutnya) atau 'tiered_approval' (Approval berjenjang)
+            $table->enum('workflow_type', ['escalation', 'tiered_approval'])->default('tiered_approval');
+            // Batas puncak role approval
             $table->foreignId('max_approval_role_id')->nullable()->constrained('roles')->nullOnDelete();
+            // Template dokumen yang harus diisi oleh pemohon layanan ini
+            $table->string('template_path')->nullable();
+            $table->string('template_name')->nullable();
+            $table->boolean('is_attachment_required')->default(false);
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
@@ -83,8 +99,10 @@ return new class extends Migration
             $table->string('ticket_number')->unique();
             $table->string('title');
             $table->text('description');
+            $table->string('attachment_path')->nullable();
+            $table->string('attachment_name')->nullable();
             $table->foreignId('category_id')->constrained('ticket_categories')->cascadeOnDelete();
-            $table->enum('priority', ['low', 'medium', 'high', 'urgent'])->default('medium');
+            $table->enum('priority', ['low', 'medium', 'high', 'urgent'])->nullable();
             $table->enum('workflow_type', ['escalation', 'tiered_approval'])->default('escalation');
             $table->foreignId('creator_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('creator_role_id')->constrained('roles')->cascadeOnDelete();
@@ -127,7 +145,20 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->dropConstrainedForeignId('supervisor_id');
             $table->dropConstrainedForeignId('role_id');
-            $table->dropColumn(['identity_number', 'department', 'avatar_color']);
+            $table->dropColumn([
+                'user_type',
+                'siakad_id',
+                'identity_number',
+                'department',
+                'fakultas',
+                'angkatan',
+                'semester',
+                'status_akademik',
+                'jabatan',
+                'phone',
+                'avatar_color',
+                'synced_at',
+            ]);
         });
         Schema::dropIfExists('roles');
     }

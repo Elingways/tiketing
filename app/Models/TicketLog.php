@@ -39,15 +39,16 @@ class TicketLog extends Model
     public function actionBadge(): array
     {
         return match ($this->action) {
-            'created' => ['label' => 'Tiket Dibuat', 'color' => 'indigo'],
-            'in_progress' => ['label' => 'Mulai Diproses', 'color' => 'sky'],
-            'escalated' => ['label' => 'Eskalasi Hirarki Naik', 'color' => 'amber'],
-            'disposed' => ['label' => 'Disposisi ke Bawahan', 'color' => 'violet'],
-            'approved_step' => ['label' => 'Disetujui & Naik Hirarki', 'color' => 'emerald'],
-            'final_approved' => ['label' => 'Approval Final Selesai', 'color' => 'emerald'],
-            'resolved' => ['label' => 'Tiket Diselesaikan', 'color' => 'emerald'],
-            'rejected' => ['label' => 'Tiket Ditolak', 'color' => 'rose'],
-            'comment' => ['label' => 'Balasan / Diskusi', 'color' => 'slate'],
+            'created' => ['label' => 'Dibuat', 'color' => 'indigo'],
+            'priority_set' => ['label' => 'Set Prioritas', 'color' => 'sky'],
+            'in_progress' => ['label' => 'Diproses', 'color' => 'sky'],
+            'escalated' => ['label' => 'Eskalasi', 'color' => 'amber'],
+            'disposed' => ['label' => 'Disposisi', 'color' => 'violet'],
+            'approved_step' => ['label' => 'Disetujui Tahap', 'color' => 'emerald'],
+            'final_approved' => ['label' => 'Disetujui Final', 'color' => 'emerald'],
+            'resolved' => ['label' => 'Selesai', 'color' => 'emerald'],
+            'rejected' => ['label' => 'Ditolak', 'color' => 'rose'],
+            'comment' => ['label' => 'Diskusi', 'color' => 'slate'],
             default => ['label' => ucfirst($this->action), 'color' => 'slate'],
         };
     }

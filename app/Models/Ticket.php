@@ -13,6 +13,8 @@ class Ticket extends Model
         'ticket_number',
         'title',
         'description',
+        'attachment_path',
+        'attachment_name',
         'category_id',
         'priority',
         'workflow_type',
@@ -59,17 +61,24 @@ class Ticket extends Model
         return $this->hasMany(TicketLog::class)->orderBy('created_at', 'asc');
     }
 
-    /**
-     * Role atasan berikutnya di atas currentRole dalam hirarki
-     */
     public function nextSuperiorRole(): ?Role
     {
+        if ($this->category) {
+            return $this->category->getNextRoleAfter($this->currentRole, $this->creatorRole);
+        }
+
         return $this->currentRole?->parent;
     }
 
-    /**
-     * Apakah tiket ini bisa dieksekusi (diproses/dieskalasi/di-approve/diselesaikan) oleh $user
-     */
+    public function previousRolesInChain(): Collection
+    {
+        if ($this->category) {
+            return $this->category->getPreviousRolesBefore($this->currentRole, $this->creatorRole);
+        }
+
+        return $this->currentRole?->children ?? collect();
+    }
+
     public function canBeHandledBy(User $user): bool
     {
         if (in_array($this->status, ['resolved', 'rejected', 'closed'], true)) {
@@ -83,22 +92,22 @@ class Ticket extends Model
         return (int) $user->role_id === (int) $this->current_role_id;
     }
 
-    /**
-     * Cek apakah pada mode tiered_approval, currentRole sudah mencapai batas puncak approval
-     */
     public function isAtFinalApprovalStage(): bool
     {
+        if ($this->category && !empty($this->category->workflow_roles)) {
+            return $this->nextSuperiorRole() === null;
+        }
+
         $maxRoleId = $this->category?->max_approval_role_id;
         if ($maxRoleId && (int) $this->current_role_id === (int) $maxRoleId) {
             return true;
         }
 
-        // Jika tidak ada atasan lagi di atas currentRole, maka ini adalah tahap akhir
         return $this->nextSuperiorRole() === null;
     }
 
     /**
-     * Dapatkan tahapan rantai role dari pembuatan tiket sampai puncak hirarki untuk visualisasi stepper
+     * Stepper visual hirarki yang akurat sesuai posisi terakhir tiket
      */
     public function getHierarchyStepper(): Collection
     {
@@ -116,14 +125,16 @@ class Ticket extends Model
 
         foreach ($chain as $index => $role) {
             $isCurrent = ((int) $role->id === (int) $this->current_role_id);
-            if ($this->status === 'resolved') {
-                $state = 'completed';
-            } elseif ($this->status === 'rejected' && $isCurrent) {
-                $state = 'rejected';
+
+            if ($isCurrent) {
                 $foundCurrent = true;
-            } elseif ($isCurrent) {
-                $state = 'active';
-                $foundCurrent = true;
+                if ($this->status === 'resolved') {
+                    $state = 'completed';
+                } elseif ($this->status === 'rejected') {
+                    $state = 'rejected';
+                } else {
+                    $state = 'active';
+                }
             } elseif (!$foundCurrent) {
                 $state = 'completed';
             } else {
@@ -133,8 +144,8 @@ class Ticket extends Model
             $steps->push([
                 'role' => $role,
                 'label' => $this->workflow_type === 'tiered_approval'
-                    ? 'Approval Tahap ' . ($index + 1)
-                    : ($index === 0 ? 'Tujuan Utama' : 'Eskalasi Level ' . $index),
+                    ? 'Tahap ' . ($index + 1)
+                    : ($index === 0 ? 'Tujuan' : 'Eskalasi ' . $index),
                 'state' => $state,
             ]);
         }
@@ -146,10 +157,10 @@ class Ticket extends Model
     {
         return match ($this->status) {
             'open' => 'Baru Masuk',
-            'in_progress' => 'Sedang Diproses',
-            'escalated' => 'Dieskalasi ke Atasan',
-            'waiting_next_approval' => 'Menunggu Approval Lanjutan',
-            'resolved' => 'Selesai / Disetujui',
+            'in_progress' => 'Diproses',
+            'escalated' => 'Dieskalasi',
+            'waiting_next_approval' => 'Menunggu Approval',
+            'resolved' => 'Selesai',
             'rejected' => 'Ditolak',
             'closed' => 'Ditutup',
             default => ucfirst($this->status),
@@ -158,6 +169,10 @@ class Ticket extends Model
 
     public function priorityLabel(): string
     {
+        if (!$this->priority) {
+            return 'Belum Diset';
+        }
+
         return match ($this->priority) {
             'low' => 'Rendah',
             'medium' => 'Normal',

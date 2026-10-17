@@ -12,19 +12,7 @@ class HierarchyController extends Controller
 {
     public function index()
     {
-        $roles = Role::with(['parent', 'children', 'users', 'menus'])
-            ->orderBy('is_superuser', 'desc')
-            ->orderBy('level')
-            ->orderBy('name')
-            ->get();
-
-        // Root roles untuk pohon visualisasi hirarki organisasi/tiketing
-        $treeRoots = Role::with('childrenRecursive')
-            ->whereNull('parent_id')
-            ->where('is_superuser', false)
-            ->get();
-
-        return view('admin.hierarchy', compact('roles', 'treeRoots'));
+        return redirect()->route('admin.categories');
     }
 
     /**
@@ -61,11 +49,8 @@ class HierarchyController extends Controller
 
         Role::recalculateLevels();
 
-        // Berikan akses menu standar secara otomatis ke role baru (Beranda, Tiket Saya, + Buat/Inbox sesuai kapabilitas)
-        $defaultSlugs = ['dashboard', 'tickets-my'];
-        if ($role->can_create_ticket) {
-            $defaultSlugs[] = 'tickets-create';
-        }
+        // Berikan akses menu standar secara otomatis ke role baru (Beranda, Tiket Saya, Riwayat Tiket, + Inbox sesuai kapabilitas)
+        $defaultSlugs = ['dashboard', 'tickets-my', 'tickets-history'];
         if ($role->can_receive_ticket) {
             $defaultSlugs[] = 'tickets-inbox';
         }
