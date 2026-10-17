@@ -45,4 +45,37 @@ class Menu extends Model
     {
         return $this->belongsToMany(Role::class, 'menu_role');
     }
+
+    public function resolveUrl(): string
+    {
+        $target = trim((string) $this->route_name);
+        if ($target === '' || $target === '#') {
+            return '#';
+        }
+
+        if (str_starts_with($target, 'http://') || str_starts_with($target, 'https://') || str_starts_with($target, '/')) {
+            return $target;
+        }
+
+        if (\Illuminate\Support\Facades\Route::has($target)) {
+            return route($target);
+        }
+
+        return '#';
+    }
+
+    public function isCurrentRoute(): bool
+    {
+        $target = trim((string) $this->route_name);
+        if ($target === '' || $target === '#') {
+            return false;
+        }
+
+        if (str_starts_with($target, '/')) {
+            return request()->is(ltrim($target, '/'));
+        }
+
+        return request()->routeIs($target);
+    }
 }
+

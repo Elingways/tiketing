@@ -281,5 +281,45 @@ class TicketingHierarchyTest extends TestCase
         $ticket->refresh();
         $this->assertEquals('resolved', $ticket->status);
     }
+
+    public function test_superuser_can_create_and_edit_flexible_menu_and_sub_sidebar(): void
+    {
+        $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+        $parentMenu = \App\Models\Menu::where('slug', 'admin-users')->firstOrFail();
+        $superuserRole = Role::where('slug', 'superuser')->firstOrFail();
+
+        $this->actingAs($superuser)->post(route('admin.menus.store'), [
+            'name' => 'Direktori Tendik',
+            'parent_id' => $parentMenu->id,
+            'route_name' => '/admin/users/lecturers',
+            'group' => 'management',
+            'icon' => 'user-group',
+            'sort_order' => 3,
+            'show_in_sidebar' => 1,
+            'is_active' => 1,
+            'roles' => [$superuserRole->id],
+        ])->assertRedirect();
+
+        $subMenu = \App\Models\Menu::where('name', 'Direktori Tendik')->firstOrFail();
+        $this->assertEquals($parentMenu->id, $subMenu->parent_id);
+        $this->assertEquals('/admin/users/lecturers', $subMenu->resolveUrl());
+
+        $this->actingAs($superuser)->put(route('admin.menus.update', $subMenu), [
+            'name' => 'Direktori Staf & Pengajar',
+            'parent_id' => $parentMenu->id,
+            'route_name' => 'admin.users.lecturers',
+            'group' => 'management',
+            'icon' => 'users',
+            'sort_order' => 4,
+            'show_in_sidebar' => 1,
+            'is_active' => 1,
+            'roles' => [$superuserRole->id],
+        ])->assertRedirect();
+
+        $subMenu->refresh();
+        $this->assertEquals('Direktori Staf & Pengajar', $subMenu->name);
+        $this->assertEquals(4, $subMenu->sort_order);
+    }
 }
+
 

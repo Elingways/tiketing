@@ -58,7 +58,13 @@
         </div>
 
         <nav class="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
-            @foreach(['main', 'ticketing', 'management'] as $groupKey)
+            @php
+                $orderedGroupKeys = collect(['main', 'ticketing', 'management'])
+                    ->concat(collect(array_keys(($sidebarMenus ?? collect())->all())))
+                    ->unique()
+                    ->values();
+            @endphp
+            @foreach($orderedGroupKeys as $groupKey)
                 @if(isset($sidebarMenus[$groupKey]) && $sidebarMenus[$groupKey]->count() > 0)
                     <div>
                         <p class="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -69,11 +75,10 @@
                                 @php
                                     $children = $menuItem->children ?? collect();
                                     $hasChildren = $children->count() > 0;
-                                    $isChildActive = $hasChildren && $children->contains(fn ($c) => request()->routeIs($c->route_name));
+                                    $isChildActive = $hasChildren && $children->contains(fn ($c) => $c->isCurrentRoute());
                                     $isActive = $isChildActive
-                                        || request()->routeIs($menuItem->route_name)
+                                        || $menuItem->isCurrentRoute()
                                         || (request()->routeIs('tickets.show') && $menuItem->route_name === 'tickets.inbox');
-                                    $hasRoute = \Illuminate\Support\Facades\Route::has($menuItem->route_name);
                                 @endphp
 
                                 @if($hasChildren)
@@ -89,14 +94,13 @@
                                             </svg>
                                         </button>
 
-                                        <!-- Sub-Sidebar Items (Mahasiswa, Pengajar, dll.) -->
+                                        <!-- Sub-Sidebar Items -->
                                         <div x-show="openSub" x-cloak class="ml-5 pl-2.5 border-l-2 border-slate-200 space-y-0.5 pt-0.5 pb-1">
                                             @foreach($children as $childMenu)
                                                 @php
-                                                    $childHasRoute = \Illuminate\Support\Facades\Route::has($childMenu->route_name);
-                                                    $childActive = request()->routeIs($childMenu->route_name);
+                                                    $childActive = $childMenu->isCurrentRoute();
                                                 @endphp
-                                                <a href="{{ $childHasRoute ? route($childMenu->route_name) : '#' }}"
+                                                <a href="{{ $childMenu->resolveUrl() }}"
                                                    class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition {{ $childActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
                                                     <div class="flex items-center gap-2 min-w-0">
                                                         @include('partials.icon', ['name' => $childMenu->icon, 'class' => 'w-3.5 h-3.5 shrink-0 ' . ($childActive ? 'text-white' : 'text-slate-400')])
@@ -112,7 +116,7 @@
                                         </div>
                                     </div>
                                 @else
-                                    <a href="{{ $hasRoute ? route($menuItem->route_name) : '#' }}"
+                                    <a href="{{ $menuItem->resolveUrl() }}"
                                        class="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition {{ $isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
                                         <div class="flex items-center gap-2.5 min-w-0">
                                             @include('partials.icon', ['name' => $menuItem->icon, 'class' => 'w-4 h-4 shrink-0 ' . ($isActive ? 'text-white' : 'text-slate-400')])
