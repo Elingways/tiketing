@@ -26,6 +26,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
     Route::get('/tickets/{ticket}/preview', [TicketController::class, 'previewAttachment'])->name('tickets.preview');
     Route::get('/tickets/{ticket}/attachment', [TicketController::class, 'downloadAttachment'])->name('tickets.attachment');
+    Route::get('/categories/{category}/template/preview', [TicketController::class, 'previewCategoryTemplate'])->name('categories.template.preview');
+    Route::get('/categories/{category}/template/download', [TicketController::class, 'downloadCategoryTemplate'])->name('categories.template.download');
     Route::post('/tickets/{ticket}/priority', [TicketController::class, 'updatePriority'])->name('tickets.priority');
     Route::post('/tickets/{ticket}/action', [TicketController::class, 'handleAction'])->name('tickets.action');
     Route::post('/tickets/{ticket}/comment', [TicketController::class, 'addComment'])->name('tickets.comment');

@@ -63,16 +63,21 @@ class AppServiceProvider extends ServiceProvider
                 $globalCategoryChains = [];
                 foreach ($globalCategories as $cat) {
                     $chain = $cat->getWorkflowChain($user->role);
+                    $fullRoles = $cat->getFullHierarchyRoles($user->role);
                     $globalCategoryChains[$cat->id] = [
                         'workflow_type' => $cat->workflow_type,
                         'workflow_label' => $cat->workflow_type === 'tiered_approval'
                             ? 'Approval Berjenjang'
                             : 'Eskalasi / Disposisi',
                         'target_role' => $chain->first()?->name ?? ($user->role?->parent?->name ?? 'Admin'),
-                        'chain_names' => array_merge(
-                            [$user->role?->name ?? 'Pemohon'],
-                            $chain->pluck('name')->toArray()
-                        ),
+                        'chain_names' => $fullRoles->isNotEmpty()
+                            ? $fullRoles->pluck('name')->toArray()
+                            : array_merge([$user->role?->name ?? 'Pemohon'], $chain->pluck('name')->toArray()),
+                        'has_template' => $cat->hasTemplate(),
+                        'template_name' => $cat->template_name,
+                        'template_preview_url' => $cat->hasTemplate() ? route('categories.template.preview', $cat) : null,
+                        'template_download_url' => $cat->hasTemplate() ? route('categories.template.download', $cat) : null,
+                        'is_attachment_required' => (bool) $cat->is_attachment_required,
                     ];
                 }
 

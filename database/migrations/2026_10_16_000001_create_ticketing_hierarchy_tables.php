@@ -69,7 +69,7 @@ return new class extends Migration
             $table->unique(['menu_id', 'role_id']);
         });
 
-        // 5. Tabel Kategori Tiket & Konfigurasi Alur Hirarki (Eskalasi vs Approval Berjenjang)
+        // 5. Tabel Kategori Tiket & Konfigurasi Alur Hirarki Kustom + Template Dokumen Layanan
         Schema::create('ticket_categories', function (Blueprint $table) {
             $table->id();
             $table->string('name');
@@ -77,12 +77,18 @@ return new class extends Migration
             $table->string('icon')->default('ticket');
             $table->string('color')->default('indigo');
             $table->text('description')->nullable();
-            // Role penerima awal (jika kosong, otomatis mengikuti parent_id dari role pembuat tiket)
+            // Susunan tahapan role kustom per kategori layanan (contoh: [Mahasiswa, Akademik, Yayasan])
+            $table->json('workflow_roles')->nullable();
+            // Role penerima awal (jika kosong, otomatis mengikuti workflow_roles atau parent_id pembuat tiket)
             $table->foreignId('initial_target_role_id')->nullable()->constrained('roles')->nullOnDelete();
-            // Mode workflow: 'escalation' (Disposisi/Eskalasi manual ke atasan) atau 'tiered_approval' (Approval otomatis berjenjang naik ke atasan)
-            $table->enum('workflow_type', ['escalation', 'tiered_approval'])->default('escalation');
-            // Batas puncak role approval untuk mode tiered_approval (misal sampai Kaprodi atau Dekan)
+            // Mode workflow: 'escalation' (Disposisi/Eskalasi manual ke tahap berikutnya) atau 'tiered_approval' (Approval berjenjang)
+            $table->enum('workflow_type', ['escalation', 'tiered_approval'])->default('tiered_approval');
+            // Batas puncak role approval
             $table->foreignId('max_approval_role_id')->nullable()->constrained('roles')->nullOnDelete();
+            // Template dokumen yang harus diisi oleh pemohon layanan ini
+            $table->string('template_path')->nullable();
+            $table->string('template_name')->nullable();
+            $table->boolean('is_attachment_required')->default(false);
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

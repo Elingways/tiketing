@@ -208,4 +208,78 @@ class TicketingHierarchyTest extends TestCase
         $this->assertEquals('mahasiswa', $syncedStudent->role->slug);
         $this->assertEquals($syncedDosen->id, $syncedStudent->supervisor_id);
     }
+
+    public function test_superuser_creates_service_category_with_custom_hierarchy_and_template_document(): void
+    {
+        Storage::fake('public');
+
+        $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+        $mahasiswa = User::where('email', 'mahasiswa@kampus.ac.id')->firstOrFail();
+        $akademik = User::where('email', 'akademik@kampus.ac.id')->firstOrFail();
+        $yayasan = User::where('email', 'yayasan@kampus.ac.id')->firstOrFail();
+
+        $mahasiswaRole = Role::where('slug', 'mahasiswa')->firstOrFail();
+        $akademikRole = Role::where('slug', 'akademik')->firstOrFail();
+        $yayasanRole = Role::where('slug', 'yayasan')->firstOrFail();
+
+        $templateFile = UploadedFile::fake()->create('Template_Pengadaan_Dana_Ormawa.pdf', 150, 'application/pdf');
+
+        // 1. Superuser membuat Kategori Layanan "Pengadaan Dana Ormawa" dengan hirarki: Mahasiswa -> Akademik -> Yayasan + Template Dokumen
+        $this->actingAs($superuser)->post(route('admin.categories.store'), [
+            'name' => 'Pengadaan Dana Ormawa',
+            'workflow_type' => 'tiered_approval',
+            'description' => 'Pengajuan dana kegiatan organisasi mahasiswa melalui Akademik dan Yayasan.',
+            'workflow_roles' => [$mahasiswaRole->id, $akademikRole->id, $yayasanRole->id],
+            'template_file' => $templateFile,
+            'is_attachment_required' => 1,
+        ])->assertRedirect();
+
+        $category = TicketCategory::where('name', 'Pengadaan Dana Ormawa')->firstOrFail();
+        $this->assertTrue($category->hasTemplate());
+        $this->assertEquals('Template_Pengadaan_Dana_Ormawa.pdf', $category->template_name);
+        $this->assertTrue($category->is_attachment_required);
+        $this->assertEquals(
+            ['Mahasiswa', 'Akademik', 'Yayasan'],
+            $category->getFullHierarchyRoles()->pluck('name')->all()
+        );
+
+        // 2. Mahasiswa dapat preview & mengunduh template dokumen layanan
+        $this->actingAs($mahasiswa)->get(route('categories.template.preview', $category))->assertOk();
+        $this->actingAs($mahasiswa)->get(route('categories.template.download', $category))->assertOk();
+
+        // 3. Mahasiswa mengajukan tiket pada layanan "Pengadaan Dana Ormawa" dengan mengunggah dokumen yang sudah diisi
+        $filledDoc = UploadedFile::fake()->create('Form_Pengadaan_Dana_Terisi.pdf', 220, 'application/pdf');
+
+        $this->actingAs($mahasiswa)->post(route('tickets.store'), [
+            'title' => 'Pengajuan Dana Seminar Nasional AI',
+            'category_id' => $category->id,
+            'description' => 'Mohon persetujuan pencairan dana kegiatan seminar nasional.',
+            'attachment' => $filledDoc,
+        ])->assertRedirect();
+
+        $ticket = Ticket::where('title', 'Pengajuan Dana Seminar Nasional AI')->firstOrFail();
+        // Tahap pertama setelah Mahasiswa adalah Akademik
+        $this->assertEquals($akademikRole->id, $ticket->current_role_id);
+
+        // 4. Role Akademik menyetujui tahap 1 -> otomatis naik ke Role Yayasan
+        $this->actingAs($akademik)->post(route('tickets.action', $ticket), [
+            'action_type' => 'approve_step',
+            'priority' => 'high',
+            'note' => 'Proposal dan RAB telah diverifikasi oleh bagian Akademik, diteruskan ke Yayasan.',
+        ])->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertEquals($yayasanRole->id, $ticket->current_role_id);
+        $this->assertEquals('waiting_next_approval', $ticket->status);
+
+        // 5. Role Yayasan menyetujui tahap akhir -> status tiket menjadi resolved (Approve)
+        $this->actingAs($yayasan)->post(route('tickets.action', $ticket), [
+            'action_type' => 'approve_step',
+            'note' => 'Pengadaan dana disetujui oleh Yayasan.',
+        ])->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertEquals('resolved', $ticket->status);
+    }
 }
+

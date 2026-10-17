@@ -263,37 +263,75 @@
                 </select>
 
                 <div x-show="selectedCategory && chains[selectedCategory]" x-cloak
-                     class="mt-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200/70 text-[11px] text-slate-600 flex items-center justify-between">
+                     class="mt-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200/70 text-[11px] text-slate-600 flex items-center justify-between gap-2">
                     <span>Alur Hirarki: <strong class="text-slate-900" x-text="(chains[selectedCategory]?.chain_names || []).join(' → ')"></strong></span>
-                    <span class="text-slate-400" x-text="chains[selectedCategory]?.workflow_label"></span>
+                    <span class="text-slate-400 shrink-0" x-text="chains[selectedCategory]?.workflow_label"></span>
+                </div>
+
+                <!-- Box Template Dokumen Layanan (Tampil Otomatis Jika Kategori Memiliki Template) -->
+                <div x-show="selectedCategory && chains[selectedCategory]?.has_template" x-cloak
+                     class="mt-2.5 p-3 rounded-xl bg-indigo-50/70 border border-indigo-200 space-y-2">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <p class="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                                <span>📄 Template Dokumen Layanan</span>
+                                <span x-show="chains[selectedCategory]?.is_attachment_required"
+                                      class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-rose-100 text-rose-700 border border-rose-200">
+                                    Wajib Diisi
+                                </span>
+                            </p>
+                            <p class="text-[11px] text-indigo-800/80 mt-0.5">
+                                Silakan unduh dan lengkapi template <strong x-text="chains[selectedCategory]?.template_name"></strong> sebelum mengunggahnya di bawah.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <a :href="chains[selectedCategory]?.template_download_url"
+                           class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition">
+                            <span>⬇ Unduh Template Dokumen</span>
+                        </a>
+                        <button type="button"
+                                @click="openDocPreview(chains[selectedCategory]?.template_preview_url, chains[selectedCategory]?.template_download_url, chains[selectedCategory]?.template_name)"
+                                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-semibold transition cursor-pointer">
+                            <span>📎 Preview Template</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">Judul Permohonan / Kendala</label>
                 <input type="text" name="title" value="{{ old('title') }}" required
-                       placeholder="Contoh: Permohonan Izin Dispensasi Kelas"
+                       placeholder="Contoh: Pengajuan Pencairan Dana Kegiatan Seminar"
                        class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">Deskripsi Lengkap</label>
                 <textarea name="description" rows="3" required
-                          placeholder="Tuliskan rincian keperluan atau kendala Anda..."
-                          class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">{{ old('description') }}</textarea>
+                       placeholder="Tuliskan rincian keperluan atau pengajuan Anda..."
+                       class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">{{ old('description') }}</textarea>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Upload Dokumen Pendukung <span class="font-normal text-slate-400">(Opsional — PDF, Gambar, DOCX maks 10MB)</span>
+                    <span>Upload Dokumen Layanan / Pendukung</span>
+                    <span x-show="chains[selectedCategory]?.is_attachment_required" class="text-rose-600 font-bold ml-1">
+                        * (Wajib mengunggah template yang telah diisi)
+                    </span>
+                    <span x-show="!chains[selectedCategory]?.is_attachment_required" class="font-normal text-slate-400 ml-1">
+                        (Opsional — PDF, Gambar, DOCX maks 10MB)
+                    </span>
                 </label>
-                <label class="flex items-center justify-between px-3.5 py-2 rounded-lg border border-dashed border-slate-300 hover:border-slate-400 bg-slate-50/50 cursor-pointer transition">
+                <label class="flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-dashed transition cursor-pointer"
+                       :class="chains[selectedCategory]?.is_attachment_required ? 'border-indigo-300 bg-indigo-50/30 hover:border-indigo-500' : 'border-slate-300 bg-slate-50/50 hover:border-slate-400'">
                     <div class="flex items-center gap-2 text-xs text-slate-600 truncate">
                         <span>📎</span>
-                        <span x-text="fileName || 'Pilih file dokumen lampiran...'" class="truncate"></span>
+                        <span x-text="fileName || (chains[selectedCategory]?.is_attachment_required ? 'Pilih file dokumen template yang sudah diisi...' : 'Pilih file dokumen lampiran...')" class="truncate"></span>
                     </div>
                     <span class="text-[11px] font-semibold text-indigo-600 shrink-0 ml-2">Pilih File</span>
                     <input type="file" name="attachment" class="hidden"
+                           :required="Boolean(chains[selectedCategory]?.is_attachment_required)"
                            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip"
                            @change="fileName = $event.target.files[0]?.name || ''">
                 </label>

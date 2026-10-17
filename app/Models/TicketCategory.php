@@ -15,13 +15,19 @@ class TicketCategory extends Model
         'icon',
         'color',
         'description',
+        'workflow_roles',
         'initial_target_role_id',
         'workflow_type',
         'max_approval_role_id',
+        'template_path',
+        'template_name',
+        'is_attachment_required',
         'is_active',
     ];
 
     protected $casts = [
+        'workflow_roles' => 'array',
+        'is_attachment_required' => 'boolean',
         'is_active' => 'boolean',
     ];
 
@@ -40,24 +46,77 @@ class TicketCategory extends Model
         return $this->hasMany(Ticket::class, 'category_id');
     }
 
-    /**
-     * Tentukan role penerima pertama saat user dengan $creatorRole membuat tiket
-     */
-    public function resolveTargetRoleFor(Role $creatorRole): ?Role
+    public function hasTemplate(): bool
     {
-        if ($this->initial_target_role_id && $this->initialTargetRole) {
-            return $this->initialTargetRole;
-        }
-
-        // Default: ikuti atasan langsung (parent_id) dari role pembuat tiket
-        return $creatorRole->parent;
+        return !empty($this->template_path);
     }
 
     /**
-     * Dapatkan daftar tahapan role untuk kategori ini mulai dari role tujuan awal ke atas
+     * Ambil seluruh objek Role sesuai urutan di workflow_roles (jika dikonfigurasi)
+     */
+    public function getCustomWorkflowRoles(): Collection
+    {
+        $roleIds = array_values(array_filter((array) ($this->workflow_roles ?? []), fn ($id) => !empty($id)));
+        if (empty($roleIds)) {
+            return collect();
+        }
+
+        $rolesById = Role::whereIn('id', $roleIds)->get()->keyBy('id');
+
+        return collect($roleIds)
+            ->map(fn ($id) => $rolesById->get((int) $id))
+            ->filter()
+            ->values();
+    }
+
+    /**
+     * Dapatkan urutan lengkap seluruh role dalam alur kategori (termasuk role pemohon di awal, misal: Mahasiswa -> Akademik -> Yayasan)
+     */
+    public function getFullHierarchyRoles(?Role $creatorRole = null): Collection
+    {
+        $customRoles = $this->getCustomWorkflowRoles();
+        if ($customRoles->isNotEmpty()) {
+            if ($creatorRole && !$customRoles->contains(fn (Role $r) => (int) $r->id === (int) $creatorRole->id)) {
+                return collect([$creatorRole])->concat($customRoles)->values();
+            }
+
+            return $customRoles;
+        }
+
+        $chain = $this->getWorkflowChain($creatorRole);
+        if ($creatorRole) {
+            return collect([$creatorRole])->concat($chain)->values();
+        }
+
+        return $chain;
+    }
+
+    /**
+     * Dapatkan daftar tahapan role pemroses/penerima untuk kategori ini setelah pemohon
      */
     public function getWorkflowChain(?Role $creatorRole = null): Collection
     {
+        $customRoles = $this->getCustomWorkflowRoles();
+        if ($customRoles->isNotEmpty()) {
+            if ($creatorRole) {
+                $creatorIdx = $customRoles->search(fn (Role $r) => (int) $r->id === (int) $creatorRole->id);
+                if ($creatorIdx !== false) {
+                    $afterCreator = $customRoles->slice($creatorIdx + 1)->values();
+                    if ($afterCreator->isNotEmpty()) {
+                        return $afterCreator;
+                    }
+                }
+            }
+
+            // Jika tanpa creatorRole (misal tampilan admin) dan role pertama adalah role pemohon (seperti Mahasiswa),
+            // maka tahapan penerima adalah role setelahnya
+            if ($customRoles->count() > 1 && !$customRoles->first()->can_receive_ticket) {
+                return $customRoles->slice(1)->values();
+            }
+
+            return $customRoles;
+        }
+
         $startRole = $this->initialTargetRole ?? $creatorRole?->parent;
         if (!$startRole) {
             return collect();
@@ -66,11 +125,69 @@ class TicketCategory extends Model
         $chain = collect([$startRole]);
         foreach ($startRole->getAncestors() as $ancestor) {
             $chain->push($ancestor);
-            if ($this->max_approval_role_id && $ancestor->id === $this->max_approval_role_id) {
+            if ($this->max_approval_role_id && (int) $ancestor->id === (int) $this->max_approval_role_id) {
                 break;
             }
         }
 
         return $chain;
     }
+
+    /**
+     * Tentukan role penerima pertama saat user dengan $creatorRole membuat tiket
+     */
+    public function resolveTargetRoleFor(Role $creatorRole): ?Role
+    {
+        $chain = $this->getWorkflowChain($creatorRole);
+        if ($chain->isNotEmpty()) {
+            return $chain->first();
+        }
+
+        if ($this->initial_target_role_id && $this->initialTargetRole) {
+            return $this->initialTargetRole;
+        }
+
+        return $creatorRole->parent;
+    }
+
+    /**
+     * Cari role tahap selanjutnya setelah $currentRole berdasarkan susunan hirarki kategori layanan ini
+     */
+    public function getNextRoleAfter(?Role $currentRole, ?Role $creatorRole = null): ?Role
+    {
+        if (!$currentRole) {
+            return null;
+        }
+
+        $chain = $this->getWorkflowChain($creatorRole);
+        if ($chain->isNotEmpty()) {
+            $idx = $chain->search(fn (Role $r) => (int) $r->id === (int) $currentRole->id);
+            if ($idx !== false) {
+                return $chain->get($idx + 1);
+            }
+        }
+
+        return $currentRole->parent;
+    }
+
+    /**
+     * Cari daftar role tahap sebelumnya untuk keperluan disposisi balik
+     */
+    public function getPreviousRolesBefore(?Role $currentRole, ?Role $creatorRole = null): Collection
+    {
+        if (!$currentRole) {
+            return collect();
+        }
+
+        $chain = $this->getWorkflowChain($creatorRole);
+        if ($chain->isNotEmpty()) {
+            $idx = $chain->search(fn (Role $r) => (int) $r->id === (int) $currentRole->id);
+            if ($idx !== false && $idx > 0) {
+                return $chain->slice(0, $idx)->reverse()->values();
+            }
+        }
+
+        return $currentRole->children ?? collect();
+    }
 }
+

@@ -153,14 +153,23 @@ class TicketController extends Controller
     {
         $user = Auth::user()->load('role.parent');
 
-        $validated = $request->validate([
+        $baseValidated = $request->validate([
             'title' => ['required', 'string', 'max:180'],
             'category_id' => ['required', 'exists:ticket_categories,id'],
             'description' => ['required', 'string', 'min:5'],
-            'attachment' => ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png,zip', 'max:10240'],
         ]);
 
-        $category = TicketCategory::with('initialTargetRole')->findOrFail($validated['category_id']);
+        $category = TicketCategory::with('initialTargetRole')->findOrFail($baseValidated['category_id']);
+
+        $attachmentRules = $category->is_attachment_required
+            ? ['required', 'file', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png,zip', 'max:10240']
+            : ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png,zip', 'max:10240'];
+
+        $request->validate([
+            'attachment' => $attachmentRules,
+        ], [
+            'attachment.required' => "Layanan '{$category->name}' mewajibkan Anda mengisi dan mengunggah dokumen template layanan.",
+        ]);
 
         $targetRole = $category->resolveTargetRoleFor($user->role)
             ?? Role::where('is_superuser', true)->first()
@@ -186,8 +195,8 @@ class TicketController extends Controller
 
         $ticket = Ticket::create([
             'ticket_number' => $ticketNumber,
-            'title' => $validated['title'],
-            'description' => $validated['description'],
+            'title' => $baseValidated['title'],
+            'description' => $baseValidated['description'],
             'attachment_path' => $attachmentPath,
             'attachment_name' => $attachmentName,
             'category_id' => $category->id,
@@ -213,6 +222,40 @@ class TicketController extends Controller
 
         return redirect()->route('tickets.my')
             ->with('success', "Tiket #{$ticket->ticket_number} berhasil dibuat dan sedang diproses pada Role {$targetRole->name}.");
+    }
+
+    /**
+     * Preview Template Dokumen Kategori Layanan Secara Inline
+     */
+    public function previewCategoryTemplate(TicketCategory $category)
+    {
+        if (!$category->template_path || !Storage::disk('public')->exists($category->template_path)) {
+            abort(404, 'Template dokumen layanan tidak ditemukan.');
+        }
+
+        $fullPath = Storage::disk('public')->path($category->template_path);
+        $mimeType = Storage::disk('public')->mimeType($category->template_path) ?? 'application/octet-stream';
+        $filename = $category->template_name ?? basename($category->template_path);
+
+        return response()->file($fullPath, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . addslashes($filename) . '"',
+        ]);
+    }
+
+    /**
+     * Unduh Template Dokumen Kategori Layanan
+     */
+    public function downloadCategoryTemplate(TicketCategory $category)
+    {
+        if (!$category->template_path || !Storage::disk('public')->exists($category->template_path)) {
+            abort(404, 'Template dokumen layanan tidak ditemukan.');
+        }
+
+        return Storage::disk('public')->download(
+            $category->template_path,
+            $category->template_name ?? basename($category->template_path)
+        );
     }
 
     /**
@@ -292,7 +335,7 @@ class TicketController extends Controller
         $user = Auth::user()->load('role.parent');
         $stepper = $ticket->getHierarchyStepper();
         $nextSuperiorRole = $ticket->nextSuperiorRole();
-        $subordinateRoles = $ticket->currentRole?->children ?? collect();
+        $subordinateRoles = $ticket->previousRolesInChain();
         $canHandle = $ticket->canBeHandledBy($user);
 
         return view('tickets.show', compact(
@@ -308,7 +351,7 @@ class TicketController extends Controller
     public function handleAction(Request $request, Ticket $ticket)
     {
         $user = Auth::user()->load('role');
-        $ticket->load(['currentRole.parent', 'currentRole.children', 'category']);
+        $ticket->load(['currentRole.parent', 'currentRole.children', 'creatorRole', 'category']);
 
         if (!$ticket->canBeHandledBy($user)) {
             return back()->with('error', 'Anda tidak memiliki wewenang pada posisi hirarki tiket saat ini.');
@@ -349,9 +392,9 @@ class TicketController extends Controller
         }
 
         if ($actionType === 'escalate') {
-            $superiorRole = $fromRole->parent;
+            $superiorRole = $ticket->nextSuperiorRole();
             if (!$superiorRole) {
-                return back()->with('error', "Role {$fromRole->name} tidak memiliki atasan lagi di pohon hirarki.");
+                return back()->with('error', "Role {$fromRole->name} sudah berada di puncak tahapan hirarki layanan ini.");
             }
 
             $nextAssignee = User::where('role_id', $superiorRole->id)->first();
@@ -394,7 +437,11 @@ class TicketController extends Controller
                 return back()->with('success', "Approval final selesai pada level {$fromRole->name}.");
             }
 
-            $superiorRole = $fromRole->parent;
+            $superiorRole = $ticket->nextSuperiorRole();
+            if (!$superiorRole) {
+                return back()->with('error', 'Tahap hirarki berikutnya tidak ditemukan.');
+            }
+
             $nextAssignee = User::where('role_id', $superiorRole->id)->first();
 
             $ticket->update([
@@ -417,11 +464,11 @@ class TicketController extends Controller
         }
 
         if ($actionType === 'dispose') {
-            $subRoleId = $validated['target_subordinate_role_id'] ?? $fromRole->children->first()?->id;
+            $subRoleId = $validated['target_subordinate_role_id'] ?? $ticket->previousRolesInChain()->first()?->id;
             $subRole = Role::find($subRoleId);
 
             if (!$subRole) {
-                return back()->with('error', 'Pilih role bawahan untuk tujuan disposisi.');
+                return back()->with('error', 'Pilih role tahap sebelumnya untuk tujuan disposisi.');
             }
 
             $nextAssignee = User::where('role_id', $subRole->id)->first();

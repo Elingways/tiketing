@@ -63,7 +63,20 @@ class Ticket extends Model
 
     public function nextSuperiorRole(): ?Role
     {
+        if ($this->category) {
+            return $this->category->getNextRoleAfter($this->currentRole, $this->creatorRole);
+        }
+
         return $this->currentRole?->parent;
+    }
+
+    public function previousRolesInChain(): Collection
+    {
+        if ($this->category) {
+            return $this->category->getPreviousRolesBefore($this->currentRole, $this->creatorRole);
+        }
+
+        return $this->currentRole?->children ?? collect();
     }
 
     public function canBeHandledBy(User $user): bool
@@ -81,6 +94,10 @@ class Ticket extends Model
 
     public function isAtFinalApprovalStage(): bool
     {
+        if ($this->category && !empty($this->category->workflow_roles)) {
+            return $this->nextSuperiorRole() === null;
+        }
+
         $maxRoleId = $this->category?->max_approval_role_id;
         if ($maxRoleId && (int) $this->current_role_id === (int) $maxRoleId) {
             return true;
