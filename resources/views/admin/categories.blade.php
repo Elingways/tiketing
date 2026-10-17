@@ -60,75 +60,38 @@
     }
 }">
 
-    <!-- Header Halaman Kategori Layanan -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <!-- Header Ringkas -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
-            <div class="flex items-center gap-2">
-                <h1 class="text-lg font-bold text-slate-900">Manajemen Kategori Layanan</h1>
-                <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-teal-50 text-teal-700 border border-teal-200">
-                    Hirarki & Template Dokumen
-                </span>
-            </div>
-            <p class="text-xs text-slate-500 mt-0.5">
-                Buat kategori layanan (contoh: <strong>Pengadaan Dana</strong>), atur tahapan hirarki role (misal: <strong>Mahasiswa → Akademik → Yayasan</strong>), dan unggah template dokumen layanan.
+            <h1 class="text-lg font-bold text-slate-900">Kategori Layanan</h1>
+            <p class="text-xs text-slate-500">
+                Atur layanan tiketing, tahapan hirarki role, dan template dokumen yang perlu diisi pemohon.
             </p>
         </div>
 
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-2">
             <button type="button" @click="addRoleModal = true"
-                    class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition cursor-pointer">
-                <span>+ Buat Role Baru</span>
+                    class="px-3.5 py-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition cursor-pointer">
+                + Role Baru
             </button>
             <button type="button" @click="addCategoryModal = true"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition shadow-2xs cursor-pointer">
-                <span>+ Buat Kategori Layanan</span>
+                    class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition cursor-pointer">
+                + Tambah Layanan
             </button>
         </div>
     </div>
 
-    <!-- Statistik Ringkas -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-6">
-        <div class="bg-white rounded-xl border border-slate-200 p-4">
-            <p class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Total Kategori Layanan</p>
-            <p class="text-2xl font-bold text-slate-900 mt-1">{{ $categories->count() }}</p>
-            <p class="text-[11px] text-slate-500 mt-1">Layanan aktif di sistem tiketing</p>
-        </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-4">
-            <p class="text-[11px] font-medium text-indigo-600 uppercase tracking-wider">Approval Berjenjang</p>
-            <p class="text-2xl font-bold text-slate-900 mt-1">{{ $categories->where('workflow_type', 'tiered_approval')->count() }}</p>
-            <p class="text-[11px] text-slate-500 mt-1">Persetujuan bertahap lintas role</p>
-        </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-4">
-            <p class="text-[11px] font-medium text-emerald-600 uppercase tracking-wider">Memiliki Template Dokumen</p>
-            <p class="text-2xl font-bold text-slate-900 mt-1">{{ $categories->filter(fn ($c) => $c->hasTemplate())->count() }}</p>
-            <p class="text-[11px] text-slate-500 mt-1">Layanan dengan form/dokumen wajib</p>
-        </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-4">
-            <p class="text-[11px] font-medium text-amber-600 uppercase tracking-wider">Role Hirarki Tersedia</p>
-            <p class="text-2xl font-bold text-slate-900 mt-1">{{ $roles->count() }}</p>
-            <p class="text-[11px] text-slate-500 mt-1 truncate">{{ $roles->pluck('name')->join(', ') }}</p>
-        </div>
-    </div>
-
-    <!-- Tabel Kategori Layanan -->
+    <!-- Tabel Kategori Layanan yang Bersih -->
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-        <div class="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-            <div>
-                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Daftar Kategori Layanan & Alur Hirarki</h2>
-            </div>
-            <span class="text-[11px] text-slate-400">Klik <strong>Edit Layanan</strong> untuk mengubah urutan hirarki atau mengganti template dokumen</span>
-        </div>
-
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                        <th class="py-3 px-4">Nama Layanan & Deskripsi</th>
-                        <th class="py-3 px-4">Susunan Tahapan Hirarki Role</th>
-                        <th class="py-3 px-4 w-40">Mode Alur</th>
-                        <th class="py-3 px-4 w-64">Template Dokumen Layanan</th>
-                        <th class="py-3 px-4 w-20 text-center">Tiket</th>
-                        <th class="py-3 px-4 w-36 text-right">Aksi</th>
+                        <th class="py-3 px-4">Nama Layanan</th>
+                        <th class="py-3 px-4">Alur Hirarki Role</th>
+                        <th class="py-3 px-4 w-36">Mode Alur</th>
+                        <th class="py-3 px-4 w-56">Template Dokumen</th>
+                        <th class="py-3 px-4 w-28 text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 text-xs">
@@ -154,103 +117,73 @@
                                 'is_attachment_required' => (bool) $cat->is_attachment_required,
                             ];
                         @endphp
-                        <tr class="hover:bg-slate-50/70 transition align-top">
-                            <!-- 1. Nama Layanan & Deskripsi -->
-                            <td class="py-4 px-4">
-                                <div class="font-bold text-slate-900">{{ $cat->name }}</div>
+                        <tr class="hover:bg-slate-50/70 transition align-middle">
+                            <!-- 1. Nama Layanan -->
+                            <td class="py-3.5 px-4">
+                                <div class="font-semibold text-slate-900">{{ $cat->name }}</div>
                                 @if($cat->description)
-                                    <p class="text-[11px] text-slate-500 mt-0.5 leading-relaxed max-w-md">{{ $cat->description }}</p>
+                                    <p class="text-[11px] text-slate-400 truncate max-w-xs mt-0.5" title="{{ $cat->description }}">
+                                        {{ $cat->description }}
+                                    </p>
                                 @endif
                             </td>
 
-                            <!-- 2. Susunan Tahapan Hirarki Role -->
-                            <td class="py-4 px-4">
-                                <div class="flex items-center gap-1.5 flex-wrap">
+                            <!-- 2. Alur Hirarki Role -->
+                            <td class="py-3.5 px-4">
+                                <div class="flex items-center gap-1 flex-wrap">
                                     @foreach($fullChain as $idx => $stepRole)
                                         @if($idx > 0)
-                                            <span class="text-slate-300 font-bold text-xs">→</span>
+                                            <span class="text-slate-300 text-[10px]">→</span>
                                         @endif
-                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border {{ $idx === 0 ? 'bg-slate-100 text-slate-700 border-slate-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200' }}">
-                                            <span class="w-4 h-4 rounded-full text-[10px] flex items-center justify-center {{ $idx === 0 ? 'bg-slate-300 text-slate-800' : 'bg-indigo-600 text-white' }}">
-                                                {{ $idx + 1 }}
-                                            </span>
-                                            <span>{{ $stepRole->name }}</span>
+                                        <span class="px-2 py-0.5 rounded text-[11px] font-medium {{ $idx === 0 ? 'bg-slate-100 text-slate-600' : 'bg-indigo-50 text-indigo-700 border border-indigo-100' }}">
+                                            {{ $stepRole->name }}
                                         </span>
                                     @endforeach
                                 </div>
-                                <p class="text-[10px] text-slate-400 mt-1.5">
-                                    Total {{ $fullChain->count() }} tahapan role ({{ $fullChain->first()?->name ?? 'Pemohon' }} s/d {{ $fullChain->last()?->name ?? 'Puncak' }})
-                                </p>
                             </td>
 
                             <!-- 3. Mode Alur -->
-                            <td class="py-4 px-4 whitespace-nowrap">
+                            <td class="py-3.5 px-4 whitespace-nowrap">
                                 @if($cat->workflow_type === 'tiered_approval')
-                                    <span class="inline-block px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <span class="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                                         Approval Berjenjang
                                     </span>
                                 @else
-                                    <span class="inline-block px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                        Eskalasi / Disposisi
+                                    <span class="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                        Eskalasi
                                     </span>
                                 @endif
                             </td>
 
-                            <!-- 4. Template Dokumen Layanan -->
-                            <td class="py-4 px-4">
+                            <!-- 4. Template Dokumen -->
+                            <td class="py-3.5 px-4 whitespace-nowrap">
                                 @if($cat->hasTemplate())
-                                    <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-1.5">
-                                        <div class="flex items-center justify-between gap-1.5">
-                                            <span class="text-[11px] font-semibold text-slate-800 truncate" title="{{ $cat->template_name }}">
-                                                📄 {{ $cat->template_name }}
-                                            </span>
-                                            @if($cat->is_attachment_required)
-                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
-                                                    Wajib Diisi
-                                                </span>
-                                            @else
-                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-100 text-slate-600 shrink-0">
-                                                    Opsional
-                                                </span>
-                                            @endif
-                                        </div>
-                                        <div class="flex items-center gap-1.5">
-                                            <button type="button"
-                                                    @click="openDocPreview('{{ route('categories.template.preview', $cat) }}', '{{ route('categories.template.download', $cat) }}', '{{ addslashes($cat->template_name ?? 'Template Layanan') }}')"
-                                                    class="px-2 py-1 rounded bg-white hover:bg-indigo-50 text-indigo-600 border border-slate-200 text-[10px] font-semibold transition cursor-pointer">
-                                                📎 Preview
-                                            </button>
-                                            <a href="{{ route('categories.template.download', $cat) }}"
-                                               class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-semibold transition">
-                                                ⬇ Unduh Template
-                                            </a>
-                                        </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <button type="button"
+                                                @click="openDocPreview('{{ route('categories.template.preview', $cat) }}', '{{ route('categories.template.download', $cat) }}', '{{ addslashes($cat->template_name ?? 'Template Layanan') }}')"
+                                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-semibold transition cursor-pointer">
+                                            <span>📎 Preview</span>
+                                        </button>
+                                        <a href="{{ route('categories.template.download', $cat) }}"
+                                           class="px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 text-[11px] font-medium transition">
+                                            Unduh
+                                        </a>
+                                        @if($cat->is_attachment_required)
+                                            <span class="text-[10px] font-semibold text-rose-600">Wajib</span>
+                                        @endif
                                     </div>
                                 @else
-                                    <div class="flex items-center justify-between gap-2">
-                                        <span class="text-[11px] text-slate-400 italic">Tidak ada template khusus</span>
-                                        <button type="button" @click="openEditCategory({{ Js::from($editPayload) }})"
-                                                class="px-2 py-1 rounded border border-dashed border-slate-300 hover:border-indigo-400 text-[10px] font-semibold text-indigo-600 cursor-pointer">
-                                            + Upload
-                                        </button>
-                                    </div>
+                                    <span class="text-[11px] text-slate-400">—</span>
                                 @endif
                             </td>
 
-                            <!-- 5. Jumlah Tiket -->
-                            <td class="py-4 px-4 text-center whitespace-nowrap">
-                                <span class="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-                                    {{ $cat->tickets_count }}
-                                </span>
-                            </td>
-
-                            <!-- 6. Aksi -->
-                            <td class="py-4 px-4 text-right whitespace-nowrap">
+                            <!-- 5. Aksi -->
+                            <td class="py-3.5 px-4 text-right whitespace-nowrap">
                                 <div class="inline-flex items-center gap-1.5">
                                     <button type="button"
                                             @click="openEditCategory({{ Js::from($editPayload) }})"
-                                            class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition cursor-pointer">
-                                        Edit Layanan
+                                            class="px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 font-medium transition cursor-pointer">
+                                        Edit
                                     </button>
                                     @if($cat->tickets_count === 0)
                                         <form action="{{ route('admin.categories.destroy', $cat) }}" method="POST"
@@ -258,7 +191,7 @@
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit"
-                                                    class="px-2.5 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-medium transition cursor-pointer">
+                                                    class="px-2.5 py-1 rounded-lg text-rose-600 hover:bg-rose-50 font-medium transition cursor-pointer">
                                                 Hapus
                                             </button>
                                         </form>
@@ -268,8 +201,8 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="py-10 px-4 text-center text-xs text-slate-400">
-                                Belum ada kategori layanan. Klik tombol <strong>+ Buat Kategori Layanan</strong> di kanan atas.
+                            <td colspan="5" class="py-10 px-4 text-center text-xs text-slate-400">
+                                Belum ada kategori layanan. Klik <strong>+ Tambah Layanan</strong> di kanan atas.
                             </td>
                         </tr>
                     @endforelse
@@ -278,34 +211,30 @@
         </div>
     </div>
 
-    <!-- MODAL 1: Buat Kategori Layanan Baru (Beserta Susunan Hirarki & Upload Template Dokumen) -->
+    <!-- MODAL 1: Tambah Layanan Baru -->
     <div x-show="addCategoryModal" x-cloak
          @keydown.escape.window="addCategoryModal = false"
          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
         <div @click.outside="addCategoryModal = false"
-             class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+             class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                    <h3 class="text-sm font-bold text-slate-900">Buat Kategori Layanan Baru</h3>
-                    <p class="text-[11px] text-slate-400">Tentukan nama layanan, tahapan hirarki role, dan template dokumen wajib.</p>
-                </div>
-                <button type="button" @click="addCategoryModal = false" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">✕</button>
+                <h3 class="text-sm font-bold text-slate-900">Tambah Kategori Layanan</h3>
+                <button type="button" @click="addCategoryModal = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
             </div>
 
             <form action="{{ route('admin.categories.store') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-4 overflow-y-auto">
                 @csrf
                 <input type="hidden" name="color" value="indigo">
 
-                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
                     <div class="sm:col-span-7">
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Kategori Layanan <span class="text-rose-500">*</span></label>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Layanan</label>
                         <input type="text" name="name" required
-                               placeholder="Contoh: Pengadaan Dana Kegiatan"
+                               placeholder="Contoh: Pengadaan Dana"
                                class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
                     </div>
-
                     <div class="sm:col-span-5">
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Mode Alur Hirarki</label>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Mode Alur</label>
                         <select name="workflow_type" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-slate-900">
                             <option value="tiered_approval">Approval Berjenjang</option>
                             <option value="escalation">Eskalasi / Disposisi</option>
@@ -314,82 +243,66 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Deskripsi & Panduan Singkat Layanan</label>
-                    <textarea name="description" rows="2"
-                              placeholder="Contoh: Pengajuan pencairan dana kegiatan mahasiswa melalui persetujuan Akademik dan pengesahan Yayasan."
-                              class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900"></textarea>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Keterangan Singkat <span class="font-normal text-slate-400">(Opsional)</span></label>
+                    <input type="text" name="description"
+                           placeholder="Deskripsi singkat layanan..."
+                           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
                 </div>
 
-                <!-- Builder Tahapan Hirarki Role -->
-                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
+                <!-- Tahapan Hirarki Role -->
+                <div class="space-y-2">
                     <div class="flex items-center justify-between">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-800">Susunan Tahapan Hirarki Role Layanan</label>
-                            <p class="text-[11px] text-slate-500">Contoh: Tahap 1 (Mahasiswa) → Tahap 2 (Akademik) → Tahap 3 (Yayasan)</p>
-                        </div>
+                        <label class="text-xs font-semibold text-slate-700">Urutan Hirarki Role</label>
                         <button type="button"
                                 @click="newSteps.push({{ $defaultYayasanRole?->id ?? 1 }})"
-                                class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition cursor-pointer">
-                            + Tambah Tahap Role
+                                class="text-[11px] font-semibold text-indigo-600 hover:text-indigo-500 cursor-pointer">
+                            + Tambah Tahap
                         </button>
                     </div>
 
                     <div class="space-y-2">
                         <template x-for="(roleId, idx) in newSteps" :key="idx">
-                            <div class="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200">
-                                <span class="px-2 py-1 rounded bg-slate-100 text-slate-700 text-[11px] font-bold shrink-0"
-                                      x-text="idx === 0 ? 'Tahap 1 (Pemohon)' : 'Tahap ' + (idx + 1)"></span>
-
+                            <div class="flex items-center gap-2">
+                                <span class="w-20 text-[11px] font-medium text-slate-500 shrink-0"
+                                      x-text="idx === 0 ? '1. Pemohon' : (idx + 1) + '. Tahap ' + idx"></span>
                                 <select name="workflow_roles[]" x-model.number="newSteps[idx]"
-                                        class="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-slate-900">
+                                        class="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-slate-900">
                                     @foreach($roles as $r)
                                         <option value="{{ $r->id }}">{{ $r->name }}</option>
                                     @endforeach
                                 </select>
-
                                 <button type="button"
                                         x-show="newSteps.length > 2"
                                         @click="newSteps.splice(idx, 1)"
-                                        class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                        title="Hapus tahap ini">
+                                        class="p-1.5 text-slate-400 hover:text-rose-600">
                                     ✕
                                 </button>
                             </div>
                         </template>
                     </div>
 
-                    <div class="px-3 py-2 rounded-lg bg-indigo-50/70 border border-indigo-200/80 flex items-center justify-between text-[11px]">
-                        <span class="text-indigo-700 font-medium">Pratinjau Alur Layanan:</span>
-                        <strong class="text-indigo-950" x-text="formatPreviewChain(newSteps)"></strong>
+                    <div class="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200/70 text-[11px] text-slate-600">
+                        Alur: <strong class="text-slate-900" x-text="formatPreviewChain(newSteps)"></strong>
                     </div>
                 </div>
 
-                <!-- Upload Template Dokumen Layanan -->
-                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-800">
-                            Upload Template Dokumen Layanan <span class="font-normal text-slate-400">(PDF, DOCX, XLSX — maks 10MB)</span>
-                        </label>
-                        <p class="text-[11px] text-slate-500">
-                            Jika diisi, pemohon dapat mengunduh template dokumen ini untuk dilengkapi saat mengajukan tiket pada layanan ini.
-                        </p>
-                    </div>
-
-                    <label class="flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-dashed border-slate-300 hover:border-indigo-500 bg-white cursor-pointer transition">
-                        <div class="flex items-center gap-2 text-xs text-slate-600 truncate">
-                            <span>📄</span>
-                            <span x-text="newTemplateName || 'Pilih file template dokumen layanan (misal: Form_Pengadaan_Dana.pdf)...'" class="truncate"></span>
-                        </div>
-                        <span class="text-[11px] font-semibold text-indigo-600 shrink-0 ml-2">Pilih Template</span>
+                <!-- Upload Template Dokumen -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-semibold text-slate-700">
+                        Template Dokumen Layanan <span class="font-normal text-slate-400">(Opsional — PDF, DOCX, XLSX)</span>
+                    </label>
+                    <label class="flex items-center justify-between px-3.5 py-2 rounded-lg border border-dashed border-slate-300 hover:border-slate-400 bg-slate-50/50 cursor-pointer transition">
+                        <span class="text-xs text-slate-600 truncate" x-text="newTemplateName || 'Pilih file template dokumen...'"></span>
+                        <span class="text-[11px] font-semibold text-indigo-600 shrink-0 ml-2">Pilih File</span>
                         <input type="file" name="template_file" class="hidden"
                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip"
                                @change="newTemplateName = $event.target.files[0]?.name || ''">
                     </label>
 
-                    <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
+                    <label class="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
                         <input type="checkbox" name="is_attachment_required" value="1" checked
-                               class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
-                        <span>Wajibkan pemohon mengunggah dokumen yang sudah diisi saat mengajukan tiket layanan ini</span>
+                               class="rounded border-slate-300 text-indigo-600">
+                        <span>Wajibkan pemohon mengunggah dokumen yang sudah diisi</span>
                     </label>
                 </div>
 
@@ -399,41 +312,37 @@
                         Batal
                     </button>
                     <button type="submit"
-                            class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition">
-                        Simpan Kategori Layanan
+                            class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold">
+                        Simpan Layanan
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- MODAL 2: Edit Kategori Layanan, Hirarki Role & Template Dokumen -->
+    <!-- MODAL 2: Edit Layanan -->
     <div x-show="editCategoryModal" x-cloak
          @keydown.escape.window="editCategoryModal = false"
          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
         <div @click.outside="editCategoryModal = false"
-             class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+             class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                    <h3 class="text-sm font-bold text-slate-900">Edit Kategori Layanan & Alur Hirarki</h3>
-                    <p class="text-[11px] text-slate-400" x-text="editForm.name"></p>
-                </div>
-                <button type="button" @click="editCategoryModal = false" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">✕</button>
+                <h3 class="text-sm font-bold text-slate-900">Edit Kategori Layanan</h3>
+                <button type="button" @click="editCategoryModal = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
             </div>
 
             <form :action="editForm.actionUrl" method="POST" enctype="multipart/form-data" class="p-6 space-y-4 overflow-y-auto">
                 @csrf
                 @method('PUT')
 
-                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
                     <div class="sm:col-span-7">
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Kategori Layanan <span class="text-rose-500">*</span></label>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Layanan</label>
                         <input type="text" name="name" x-model="editForm.name" required
                                class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
                     </div>
-
                     <div class="sm:col-span-5">
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Mode Alur Hirarki</label>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Mode Alur</label>
                         <select name="workflow_type" x-model="editForm.workflow_type"
                                 class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-slate-900">
                             <option value="tiered_approval">Approval Berjenjang</option>
@@ -443,91 +352,79 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Deskripsi & Panduan Singkat Layanan</label>
-                    <textarea name="description" rows="2" x-model="editForm.description"
-                              class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900"></textarea>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Keterangan Singkat</label>
+                    <input type="text" name="description" x-model="editForm.description"
+                           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
                 </div>
 
-                <!-- Builder Tahapan Hirarki Role -->
-                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
+                <!-- Tahapan Hirarki Role -->
+                <div class="space-y-2">
                     <div class="flex items-center justify-between">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-800">Susunan Tahapan Hirarki Role Layanan</label>
-                            <p class="text-[11px] text-slate-500">Atur urutan role dari pemohon hingga pemberi persetujuan akhir.</p>
-                        </div>
+                        <label class="text-xs font-semibold text-slate-700">Urutan Hirarki Role</label>
                         <button type="button"
                                 @click="editForm.steps.push({{ $defaultYayasanRole?->id ?? 1 }})"
-                                class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition cursor-pointer">
-                            + Tambah Tahap Role
+                                class="text-[11px] font-semibold text-indigo-600 hover:text-indigo-500 cursor-pointer">
+                            + Tambah Tahap
                         </button>
                     </div>
 
                     <div class="space-y-2">
                         <template x-for="(roleId, idx) in editForm.steps" :key="idx">
-                            <div class="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200">
-                                <span class="px-2 py-1 rounded bg-slate-100 text-slate-700 text-[11px] font-bold shrink-0"
-                                      x-text="idx === 0 ? 'Tahap 1 (Pemohon)' : 'Tahap ' + (idx + 1)"></span>
-
+                            <div class="flex items-center gap-2">
+                                <span class="w-20 text-[11px] font-medium text-slate-500 shrink-0"
+                                      x-text="idx === 0 ? '1. Pemohon' : (idx + 1) + '. Tahap ' + idx"></span>
                                 <select name="workflow_roles[]" x-model.number="editForm.steps[idx]"
-                                        class="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-slate-900">
+                                        class="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-slate-900">
                                     @foreach($roles as $r)
                                         <option value="{{ $r->id }}">{{ $r->name }}</option>
                                     @endforeach
                                 </select>
-
                                 <button type="button"
                                         x-show="editForm.steps.length > 2"
                                         @click="editForm.steps.splice(idx, 1)"
-                                        class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
+                                        class="p-1.5 text-slate-400 hover:text-rose-600">
                                     ✕
                                 </button>
                             </div>
                         </template>
                     </div>
 
-                    <div class="px-3 py-2 rounded-lg bg-indigo-50/70 border border-indigo-200/80 flex items-center justify-between text-[11px]">
-                        <span class="text-indigo-700 font-medium">Pratinjau Alur Layanan:</span>
-                        <strong class="text-indigo-950" x-text="formatPreviewChain(editForm.steps)"></strong>
+                    <div class="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200/70 text-[11px] text-slate-600">
+                        Alur: <strong class="text-slate-900" x-text="formatPreviewChain(editForm.steps)"></strong>
                     </div>
                 </div>
 
-                <!-- Template Dokumen Layanan -->
-                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
+                <!-- Template Dokumen -->
+                <div class="space-y-2">
                     <div class="flex items-center justify-between">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-800">Template Dokumen Layanan</label>
-                            <p class="text-[11px] text-slate-500">Unggah atau perbarui file template yang harus diisi pemohon.</p>
-                        </div>
+                        <label class="text-xs font-semibold text-slate-700">Template Dokumen Layanan</label>
                         <template x-if="editForm.has_template">
-                            <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold"
-                                  x-text="'Saat ini: ' + editForm.template_name"></span>
+                            <span class="text-[11px] text-emerald-700 font-medium truncate max-w-[200px]" x-text="editForm.template_name"></span>
                         </template>
                     </div>
 
-                    <label class="flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-dashed border-slate-300 hover:border-indigo-500 bg-white cursor-pointer transition">
-                        <div class="flex items-center gap-2 text-xs text-slate-600 truncate">
-                            <span>📄</span>
-                            <span x-text="editForm.new_file_name || (editForm.has_template ? 'Pilih file baru untuk mengganti template saat ini...' : 'Pilih file template dokumen layanan...')" class="truncate"></span>
-                        </div>
+                    <label class="flex items-center justify-between px-3.5 py-2 rounded-lg border border-dashed border-slate-300 hover:border-slate-400 bg-slate-50/50 cursor-pointer transition">
+                        <span class="text-xs text-slate-600 truncate"
+                              x-text="editForm.new_file_name || (editForm.has_template ? 'Ganti file template...' : 'Pilih file template dokumen...')"></span>
                         <span class="text-[11px] font-semibold text-indigo-600 shrink-0 ml-2">Pilih File</span>
                         <input type="file" name="template_file" class="hidden"
                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip"
                                @change="editForm.new_file_name = $event.target.files[0]?.name || ''">
                     </label>
 
-                    <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
+                    <label class="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
                         <input type="checkbox" name="is_attachment_required" value="1"
                                x-model="editForm.is_attachment_required"
-                               class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
-                        <span>Wajibkan pemohon mengunggah dokumen yang sudah diisi saat mengajukan tiket layanan ini</span>
+                               class="rounded border-slate-300 text-indigo-600">
+                        <span>Wajibkan pemohon mengunggah dokumen yang sudah diisi</span>
                     </label>
 
                     <template x-if="editForm.has_template">
-                        <label class="flex items-center gap-2 text-xs text-rose-600 cursor-pointer select-none pt-1">
+                        <label class="flex items-center gap-2 text-xs text-rose-600 cursor-pointer">
                             <input type="checkbox" name="remove_template" value="1"
                                    x-model="editForm.remove_template"
-                                   class="rounded border-rose-300 text-rose-600 focus:ring-rose-500">
-                            <span>Hapus template dokumen dari kategori layanan ini</span>
+                                   class="rounded border-rose-300 text-rose-600">
+                            <span>Hapus template dokumen saat ini</span>
                         </label>
                     </template>
                 </div>
@@ -538,7 +435,7 @@
                         Batal
                     </button>
                     <button type="submit"
-                            class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition">
+                            class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold">
                         Simpan Perubahan
                     </button>
                 </div>
@@ -546,18 +443,15 @@
         </div>
     </div>
 
-    <!-- MODAL 3: Buat Role Baru Secara Cepat (Misal: Akademik, Yayasan, Keuangan, dll.) -->
+    <!-- MODAL 3: Tambah Role Baru -->
     <div x-show="addRoleModal" x-cloak
          @keydown.escape.window="addRoleModal = false"
          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
         <div @click.outside="addRoleModal = false"
              class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                    <h3 class="text-sm font-bold text-slate-900">Tambah Role Hirarki Baru</h3>
-                    <p class="text-[11px] text-slate-400">Role baru dapat langsung dipilih pada tahapan hirarki kategori layanan.</p>
-                </div>
-                <button type="button" @click="addRoleModal = false" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">✕</button>
+                <h3 class="text-sm font-bold text-slate-900">Tambah Role Baru</h3>
+                <button type="button" @click="addRoleModal = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
             </div>
 
             <form action="{{ route('admin.hierarchy.store') }}" method="POST" class="p-6 space-y-3.5">
@@ -567,27 +461,26 @@
                 <input type="hidden" name="can_receive_ticket" value="1">
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Role Baru <span class="text-rose-500">*</span></label>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Role</label>
                     <input type="text" name="name" required
                            placeholder="Contoh: Akademik / Yayasan / Keuangan"
                            class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Atasan Default (Parent Role)</label>
-                    <select name="parent_id" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white">
-                        <option value="">Puncak Hirarki (Root)</option>
-                        @foreach($roles as $r)
-                            <option value="{{ $r->id }}">{{ $r->name }}</option>
-                        @endforeach
-                    </select>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Keterangan Singkat <span class="font-normal text-slate-400">(Opsional)</span></label>
+                    <input type="text" name="description"
+                           placeholder="Deskripsi singkat role..."
+                           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Deskripsi Role</label>
-                    <input type="text" name="description"
-                           placeholder="Contoh: Unit Akademik / Pengurus Yayasan"
-                           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs">
+                <div class="pt-1">
+                    <p class="text-[11px] text-slate-400 mb-1.5">Role tersedia saat ini:</p>
+                    <div class="flex flex-wrap gap-1">
+                        @foreach($roles as $r)
+                            <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px]">{{ $r->name }}</span>
+                        @endforeach
+                    </div>
                 </div>
 
                 <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
@@ -596,7 +489,7 @@
                         Batal
                     </button>
                     <button type="submit"
-                            class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition">
+                            class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold">
                         Simpan Role
                     </button>
                 </div>
