@@ -12,19 +12,7 @@ class HierarchyController extends Controller
 {
     public function index()
     {
-        $roles = Role::with(['parent', 'children', 'users', 'menus'])
-            ->orderBy('is_superuser', 'desc')
-            ->orderBy('level')
-            ->orderBy('name')
-            ->get();
-
-        // Root roles untuk pohon visualisasi hirarki organisasi/tiketing
-        $treeRoots = Role::with('childrenRecursive')
-            ->whereNull('parent_id')
-            ->where('is_superuser', false)
-            ->get();
-
-        return view('admin.hierarchy', compact('roles', 'treeRoots'));
+        return redirect()->route('admin.categories');
     }
 
     /**

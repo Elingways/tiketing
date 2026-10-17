@@ -135,7 +135,7 @@ class TicketingHierarchyTest extends TestCase
         }
 
         $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
-        $this->actingAs($superuser)->get(route('admin.hierarchy'))->assertOk();
+        $this->actingAs($superuser)->get(route('admin.hierarchy'))->assertRedirect(route('admin.categories'));
         $this->actingAs($superuser)->get(route('admin.menus'))->assertOk();
         $this->actingAs($superuser)->get(route('admin.categories'))->assertOk();
         $this->actingAs($superuser)->get(route('admin.users'))->assertRedirect(route('admin.users.students'));
