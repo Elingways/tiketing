@@ -4,9 +4,9 @@
 <!-- Header Halaman Riwayat Tiket (Khusus Status Approved / Resolved) -->
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
     <div>
-        <h1 class="text-lg font-bold text-slate-900">Riwayat Tiket (Sudah Di-Approve)</h1>
+        <h1 class="text-lg font-bold text-slate-900">Riwayat Tiket (Sudah Selesai)</h1>
         <p class="text-xs text-slate-500">
-            Daftar riwayat tiket Anda yang telah disetujui / selesai diproses beserta preview dokumen lampirannya.
+            Tiket selesai yang Anda ajukan, atau yang diselesaikan pada role Anda.
         </p>
     </div>
 
@@ -131,10 +131,18 @@
 
                         <!-- 6. Aksi -->
                         <td class="py-3.5 px-4 text-right whitespace-nowrap">
-                            <a href="{{ route('tickets.show', $ticket) }}"
-                               class="inline-block px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 font-medium transition">
-                                Detail
-                            </a>
+                            <div class="inline-flex items-center gap-1.5">
+                                @if($ticket->canBeRevisedBy($user))
+                                    <a href="{{ route('tickets.show', $ticket) }}#revisi"
+                                       class="inline-block px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium transition">
+                                        Edit
+                                    </a>
+                                @endif
+                                <a href="{{ route('tickets.show', $ticket) }}"
+                                   class="inline-block px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 font-medium transition">
+                                    Detail
+                                </a>
+                            </div>
                         </td>
                     </tr>
                 @empty

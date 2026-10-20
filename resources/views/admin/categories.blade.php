@@ -16,12 +16,27 @@
         $defaultAkademikRole?->id,
         $defaultYayasanRole?->id,
     ]));
+
+    $oldStaff = old('staff');
+    if (!is_array($oldStaff) || count($oldStaff) === 0) {
+        $oldStaff = [['name' => '', 'email' => '', 'keahlian' => '']];
+    }
+    $oldRouteInput = old('routes', []);
+    $oldRoutes = [];
+    foreach (range(1, 8) as $level) {
+        $oldRoutes[$level] = (string) ($oldRouteInput[$level] ?? $oldRouteInput[(string) $level] ?? '');
+    }
 @endphp
 
 <div x-data="{
     addCategoryModal: false,
-    addRoleModal: false,
+    addRoleModal: {{ old('from_role_modal') ? 'true' : 'false' }},
+    manageRoleModal: false,
     editCategoryModal: false,
+    staffRows: {{ Js::from(array_values($oldStaff)) }},
+    routes: {{ Js::from($oldRoutes) }},
+    headIndex: '{{ (string) old('head_index', '0') }}',
+    manage: { id: null, name: '', actionUrl: '', staff: [], newStaff: [], routes: {}, headId: '', truncated: false },
     rolesMap: {{ Js::from($rolesMap) }},
     newSteps: {{ Js::from($defaultChainIds) }},
     newTemplateName: '',
@@ -57,6 +72,77 @@
             .map(id => this.rolesMap[id]?.name)
             .filter(Boolean)
             .join(' → ');
+    },
+    addStaffRow() {
+        this.staffRows.push({ name: '', email: '', keahlian: '' });
+    },
+    removeStaffRow(index) {
+        if (this.staffRows.length === 1) {
+            this.staffRows = [{ name: '', email: '', keahlian: '' }];
+            this.routes = { 1:'', 2:'', 3:'', 4:'', 5:'', 6:'', 7:'', 8:'' };
+            this.headIndex = '0';
+            return;
+        }
+        this.staffRows.splice(index, 1);
+        if (String(this.headIndex) === String(index)) {
+            this.headIndex = '0';
+        } else if (Number(this.headIndex) > index) {
+            this.headIndex = String(Number(this.headIndex) - 1);
+        }
+        const next = {};
+        for (let level = 1; level <= 8; level++) {
+            const current = this.routes[level];
+            if (current === '' || current === null || current === undefined) {
+                next[level] = '';
+            } else if (Number(current) === index) {
+                next[level] = '';
+            } else if (Number(current) > index) {
+                next[level] = String(Number(current) - 1);
+            } else {
+                next[level] = String(current);
+            }
+        }
+        this.routes = next;
+    },
+    staffChoices() {
+        return this.staffRows.map((row, i) => ({
+            value: String(i),
+            label: (row.name || '').trim() ? row.name : ('Staff ' + (i + 1)),
+        }));
+    },
+    async openManage(roleId) {
+        const response = await fetch(`{{ url('/admin/hierarchy/roles') }}/${roleId}/staff`, {
+            headers: { 'Accept': 'application/json' },
+        });
+        if (!response.ok) {
+            return;
+        }
+        const data = await response.json();
+        this.manage = {
+            id: data.id,
+            name: data.name,
+            actionUrl: data.actionUrl,
+            staff: data.staff || [],
+            newStaff: [],
+            routes: data.routes || {},
+            headId: data.head_user_id || '',
+            truncated: !!data.truncated,
+        };
+        this.manageRoleModal = true;
+    },
+    addManageStaff() {
+        this.manage.newStaff.push({ name: '', email: '', keahlian: '' });
+    },
+    manageChoices() {
+        const existing = (this.manage.staff || []).map(person => ({
+            value: String(person.id),
+            label: person.name,
+        }));
+        const fresh = (this.manage.newStaff || []).map((row, i) => ({
+            value: 'new-' + i,
+            label: (row.name || '').trim() ? row.name : ('Staff baru ' + (i + 1)),
+        }));
+        return existing.concat(fresh);
     }
 }">
 
@@ -79,6 +165,50 @@
                 + Tambah Layanan
             </button>
         </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 p-4 mb-5">
+        <div class="flex items-start justify-between gap-3 mb-3">
+            <div>
+                <h2 class="text-sm font-bold text-slate-900">Kepala & Keahlian Staff</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Tiket masuk ke kepala dulu. Setelah ditinjau, kepala mengarahkan ke staff yang keahliannya sesuai permintaan.</p>
+            </div>
+        </div>
+        @php $configuredRoles = $roles->filter(fn ($role) => $role->head_user_id || $role->priorityRoutes->isNotEmpty()); @endphp
+        @if($configuredRoles->isEmpty())
+            <p class="text-xs text-slate-400">Belum ada kepala. Buat role baru, tandai kepalanya, dan isi keahlian tiap staff.</p>
+        @else
+            <div class="space-y-3">
+                @foreach($configuredRoles as $roleItem)
+                    <div class="rounded-lg border border-slate-200 p-3">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-900">{{ $roleItem->name }}</p>
+                                <p class="text-[11px] text-slate-500">
+                                    {{ $roleItem->users_count }} orang
+                                    @if($roleItem->head) · Kepala: {{ $roleItem->head->name }} @endif
+                                </p>
+                            </div>
+                            <button type="button" @click="openManage({{ $roleItem->id }})"
+                                    class="px-3 py-1.5 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-700 hover:bg-slate-50">
+                                Ubah staff
+                            </button>
+                        </div>
+                        @if($roleItem->relationLoaded('users'))
+                            <div class="flex flex-wrap gap-1.5">
+                                @foreach($roleItem->users as $person)
+                                    @if((int) $person->id !== (int) $roleItem->head_user_id)
+                                        <span class="px-2 py-1 rounded bg-slate-100 text-[11px] text-slate-700">
+                                            {{ $person->name }}@if($person->keahlian) — {{ $person->keahlian }}@endif
+                                        </span>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @endif
     </div>
 
     <!-- Tabel Kategori Layanan yang Bersih -->
@@ -448,30 +578,67 @@
          @keydown.escape.window="addRoleModal = false"
          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
         <div @click.outside="addRoleModal = false"
-             class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <h3 class="text-sm font-bold text-slate-900">Tambah Role Baru</h3>
+             class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900">Tambah Role Baru</h3>
+                    <p class="text-[11px] text-slate-500 mt-0.5">Kepala meninjau tiap tiket dulu, lalu mengarahkan ke staff sesuai permintaan dan keahlian.</p>
+                </div>
                 <button type="button" @click="addRoleModal = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
             </div>
 
-            <form action="{{ route('admin.hierarchy.store') }}" method="POST" class="p-6 space-y-3.5">
+            <form action="{{ route('admin.hierarchy.store') }}" method="POST" class="p-6 space-y-3.5 overflow-y-auto">
                 @csrf
+                <input type="hidden" name="from_role_modal" value="1">
                 <input type="hidden" name="badge_color" value="indigo">
                 <input type="hidden" name="can_create_ticket" value="1">
                 <input type="hidden" name="can_receive_ticket" value="1">
 
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Role</label>
-                    <input type="text" name="name" required
-                           placeholder="Contoh: Akademik / Yayasan / Keuangan"
+                    <input type="text" name="name" required value="{{ old('from_role_modal') ? old('name') : '' }}"
+                           placeholder="Contoh: Admin IT"
                            class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
                 </div>
 
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 mb-1">Keterangan Singkat <span class="font-normal text-slate-400">(Opsional)</span></label>
-                    <input type="text" name="description"
+                    <input type="text" name="description" value="{{ old('from_role_modal') ? old('description') : '' }}"
                            placeholder="Deskripsi singkat role..."
                            class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
+                </div>
+
+                <div class="pt-1 border-t border-slate-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-700">Staff / User</p>
+                            <p class="text-[11px] text-slate-400">Password awal setiap staff: password</p>
+                        </div>
+                        <button type="button" @click="addStaffRow()"
+                                class="px-2.5 py-1 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-700 hover:bg-slate-50">
+                            + Staff
+                        </button>
+                    </div>
+                    <div class="space-y-2">
+                        <template x-for="(row, index) in staffRows" :key="index">
+                            <div class="rounded-lg border border-slate-200 p-2 space-y-2">
+                                <div class="grid grid-cols-[1fr_1fr_auto] gap-2">
+                                    <input type="text" :name="`staff[${index}][name]`" x-model="row.name" placeholder="Nama"
+                                           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
+                                    <input type="email" :name="`staff[${index}][email]`" x-model="row.email" placeholder="email@kampus.ac.id"
+                                           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
+                                    <button type="button" @click="removeStaffRow(index)"
+                                            class="px-2 rounded-lg text-slate-400 hover:text-rose-600 text-xs">Hapus</button>
+                                </div>
+                                <input type="text" :name="`staff[${index}][keahlian]`" x-model="row.keahlian" placeholder="Keahlian, contoh: jaringan / hardware / aplikasi"
+                                       class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
+                                <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-600">
+                                    <input type="radio" name="head_index" :value="String(index)" x-model="headIndex">
+                                    <span>Kepala — meninjau tiket dulu, baru mengarahkan</span>
+                                </label>
+                            </div>
+                        </template>
+                    </div>
                 </div>
 
                 <div class="pt-1">
@@ -491,6 +658,85 @@
                     <button type="submit"
                             class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold">
                         Simpan Role
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div x-show="manageRoleModal" x-cloak
+         @keydown.escape.window="manageRoleModal = false"
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+        <div @click.outside="manageRoleModal = false"
+             class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900" x-text="'Staff & Prioritas — ' + manage.name"></h3>
+                    <p class="text-[11px] text-slate-500 mt-0.5">Ubah staff penerima untuk nomor prioritas 1 sampai 8.</p>
+                </div>
+                <button type="button" @click="manageRoleModal = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
+            </div>
+            <form :action="manage.actionUrl" method="POST" class="p-6 space-y-3.5 overflow-y-auto">
+                @csrf
+                @method('PUT')
+                <input type="hidden" name="from_staff_modal" value="1">
+                <input type="hidden" name="manage_role_id" :value="manage.id">
+
+                <div>
+                    <p class="text-xs font-semibold text-slate-700 mb-1.5">Staff saat ini</p>
+                    <template x-if="manage.staff.length === 0">
+                        <p class="text-[11px] text-slate-400">Belum ada staff.</p>
+                    </template>
+                    <div class="space-y-1">
+                        <template x-for="person in manage.staff" :key="person.id">
+                            <label class="flex items-center gap-2 text-xs text-slate-700">
+                                <input type="radio" name="head_user_id" :value="String(person.id)" x-model="manage.headId">
+                                <span><span class="font-medium" x-text="person.name"></span> · <span class="text-slate-400" x-text="person.keahlian || person.email"></span></span>
+                                <span class="text-[11px] text-slate-400" x-show="String(manage.headId) === String(person.id)">Kepala</span>
+                            </label>
+                        </template>
+                    </div>
+                    <p class="text-[11px] text-amber-700 mt-1" x-show="manage.truncated">Daftar staff dipotong. Tambahkan staff baru di bawah jika perlu.</p>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-xs font-semibold text-slate-700">Tambah staff</p>
+                        <button type="button" @click="addManageStaff()"
+                                class="px-2.5 py-1 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-700 hover:bg-slate-50">
+                            + Staff
+                        </button>
+                    </div>
+                    <div class="space-y-2">
+                        <template x-for="(row, index) in manage.newStaff" :key="index">
+                            <div class="rounded-lg border border-slate-200 p-2 space-y-2">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input type="text" :name="`staff[${index}][name]`" x-model="row.name" placeholder="Nama staff"
+                                           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
+                                    <input type="email" :name="`staff[${index}][email]`" x-model="row.email" placeholder="email@kampus.ac.id"
+                                           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
+                                </div>
+                                <input type="text" :name="`staff[${index}][keahlian]`" x-model="row.keahlian" placeholder="Keahlian staff"
+                                       class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
+                                <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-600">
+                                    <input type="radio" name="head_user_id" :value="'new-' + index" x-model="manage.headId">
+                                    <span>Jadikan kepala</span>
+                                </label>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <p class="text-[11px] text-slate-400">Siapa yang mengerjakan ditentukan kepala saat meninjau tiket, sesuai permintaan dan keahlian staff.</p>
+
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button type="button" @click="manageRoleModal = false"
+                            class="px-4 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                        Batal
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold">
+                        Simpan Staff
                     </button>
                 </div>
             </form>

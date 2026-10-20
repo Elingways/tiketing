@@ -30,6 +30,7 @@ class User extends Authenticatable
         'semester',
         'status_akademik',
         'jabatan',
+        'keahlian',
         'phone',
         'avatar_color',
         'synced_at',

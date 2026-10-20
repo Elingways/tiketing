@@ -28,8 +28,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/tickets/{ticket}/attachment', [TicketController::class, 'downloadAttachment'])->name('tickets.attachment');
     Route::get('/categories/{category}/template/preview', [TicketController::class, 'previewCategoryTemplate'])->name('categories.template.preview');
     Route::get('/categories/{category}/template/download', [TicketController::class, 'downloadCategoryTemplate'])->name('categories.template.download');
+    Route::post('/tickets/{ticket}/problems', [TicketController::class, 'storeProblems'])->name('tickets.problems.store');
+    Route::delete('/tickets/{ticket}/problems/{problem}', [TicketController::class, 'destroyProblem'])->name('tickets.problems.destroy');
+    Route::post('/tickets/{ticket}/problems/{problem}/toggle', [TicketController::class, 'toggleProblem'])->name('tickets.problems.toggle');
+    Route::post('/tickets/{ticket}/progress', [TicketController::class, 'updateProgress'])->name('tickets.progress');
     Route::post('/tickets/{ticket}/priority', [TicketController::class, 'updatePriority'])->name('tickets.priority');
     Route::post('/tickets/{ticket}/action', [TicketController::class, 'handleAction'])->name('tickets.action');
+    Route::post('/tickets/{ticket}/reopen', [TicketController::class, 'reopen'])->name('tickets.reopen');
     Route::post('/tickets/{ticket}/comment', [TicketController::class, 'addComment'])->name('tickets.comment');
 
     // Modul Manajemen Superuser
@@ -38,6 +43,8 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/hierarchy', [HierarchyController::class, 'index'])->name('hierarchy');
         Route::post('/hierarchy/roles', [HierarchyController::class, 'storeRole'])->name('hierarchy.store');
+        Route::get('/hierarchy/roles/{role}/staff', [HierarchyController::class, 'roleStaff'])->name('hierarchy.staff');
+        Route::put('/hierarchy/roles/{role}/staff', [HierarchyController::class, 'syncStaff'])->name('hierarchy.staff.sync');
         Route::put('/hierarchy/roles/{role}', [HierarchyController::class, 'updateHierarchy'])->name('hierarchy.update');
         Route::delete('/hierarchy/roles/{role}', [HierarchyController::class, 'destroyRole'])->name('hierarchy.destroy');
 

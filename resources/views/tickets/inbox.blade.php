@@ -23,7 +23,11 @@
     <div>
         <h1 class="text-lg font-bold text-slate-900">Tiket Masuk — Role {{ $user->role?->name }}</h1>
         <p class="text-xs text-slate-500">
-            Tetapkan prioritas tiket masuk dan proses sesuai tahapan hirarki ({{ $user->role?->parent ? 'Atasan: ' . $user->role->parent->name : 'Puncak Hirarki' }}).
+            @if($isHead && $scope === 'current_role')
+                Pantau nama staff, progres pengerjaan, dan jumlah tiket yang sedang dikerjakan.
+            @else
+                Tetapkan prioritas tiket masuk dan proses sesuai tahapan hirarki ({{ $user->role?->parent ? 'Atasan: ' . $user->role->parent->name : 'Puncak Hirarki' }}).
+            @endif
         </p>
     </div>
 
@@ -45,6 +49,7 @@
     </div>
 </div>
 
+<div x-data="{ staffDetail: null }">
 <!-- Card Utama: Toolbar Search/Dropdown + Tabel Tiket Masuk -->
 <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
     <!-- Toolbar Pencarian & Filter Kategori -->
@@ -84,18 +89,75 @@
         </div>
     </form>
 
+    @if($isHead && $scope === 'current_role')
+        @php
+            $activeStaff = $staffProgress->filter(fn ($progress) => $progress['tickets'] > 0)->sortByDesc('tickets')->values();
+            $staffIds = $staffProgress->map(fn ($progress) => (int) $progress['user']->id);
+            $waitingTickets = $tickets->filter(fn ($ticket) => ! $staffIds->contains((int) $ticket->assigned_user_id))->values();
+        @endphp
+        <div class="divide-y divide-slate-100">
+            @forelse($activeStaff as $progress)
+                <div class="px-5 py-4 flex items-center justify-between gap-4">
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold text-slate-900">{{ $progress['user']->name }}</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">
+                            {{ $progress['tickets'] }} tiket sedang dikerjakan
+                            @if(($progress['blocked'] ?? 0) > 0)
+                                <span class="font-semibold text-rose-700">· {{ $progress['blocked'] }} blocked</span>
+                            @endif
+                        </p>
+                        <div class="mt-2 flex items-center gap-2">
+                            <div class="h-1.5 w-28 rounded-full bg-slate-100 overflow-hidden">
+                                <div class="h-full bg-emerald-500" style="width: {{ $progress['percent'] ?? 0 }}%"></div>
+                            </div>
+                            <span class="text-xs font-semibold text-emerald-700">{{ $progress['percent'] === null ? '—' : $progress['percent'] . '%' }}</span>
+                        </div>
+                    </div>
+                    <button type="button"
+                            @click="staffDetail = {{ (int) $progress['user']->id }}"
+                            class="shrink-0 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-xs font-medium text-slate-700">
+                        Detail
+                    </button>
+                </div>
+            @empty
+                <p class="px-5 py-8 text-center text-xs text-slate-400">Belum ada staff yang sedang mengerjakan tiket.</p>
+            @endforelse
+        </div>
+        @if($waitingTickets->isNotEmpty())
+            <div class="border-t border-slate-200">
+                <div class="px-5 py-3 bg-slate-50/80">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Belum dibagikan</p>
+                </div>
+                <div class="divide-y divide-slate-100">
+                    @foreach($waitingTickets as $ticket)
+                        <div class="px-5 py-3 flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <span class="font-mono text-[11px] font-semibold text-indigo-600">{{ $ticket->ticket_number }}</span>
+                                <p class="text-xs font-semibold text-slate-900 truncate">{{ $ticket->title }}</p>
+                                <p class="text-[11px] text-slate-500">{{ $ticket->creator?->name }} · {{ $ticket->priorityLabel() }}</p>
+                            </div>
+                            <a href="{{ route('tickets.show', $ticket) }}"
+                               class="shrink-0 px-3 py-1 rounded-lg bg-slate-900 text-white text-xs font-medium">
+                                Proses →
+                            </a>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+    @else
     <!-- Tabel Tiket Masuk -->
     <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
+        <table class="w-full min-w-[1080px] text-left border-collapse">
             <thead>
                 <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                     <th class="py-3 px-4 w-36">No. Tiket</th>
                     <th class="py-3 px-4 w-44">Pemohon</th>
-                    <th class="py-3 px-4">Judul & Kategori</th>
-                    <th class="py-3 px-4">Proses (Tahap Hirarki)</th>
-                    <th class="py-3 px-4 w-40">Set Prioritas</th>
-                    <th class="py-3 px-4 w-32">Status</th>
-                    <th class="py-3 px-4 w-36 text-right">Aksi</th>
+                    <th class="py-3 px-4 min-w-[240px]">Judul & Kategori</th>
+                    <th class="py-3 px-4 w-44">Proses (Tahap Hirarki)</th>
+                    <th class="py-3 px-4 w-44">Set Prioritas</th>
+                    <th class="py-3 px-4 w-28">Status</th>
+                    <th class="py-3 px-4 w-28 text-right">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 text-xs">
@@ -123,6 +185,18 @@
                                 {{ $ticket->title }}
                             </a>
                             <span class="text-[11px] text-slate-500 block mt-0.5">{{ $ticket->category?->name }}</span>
+                            @php $percent = $ticket->progressPercent(); @endphp
+                            @if($percent !== null)
+                                <div class="mt-2 flex items-center gap-2">
+                                    <div class="h-1.5 w-24 rounded-full bg-slate-100 overflow-hidden">
+                                        <div class="h-full bg-emerald-500" style="width: {{ $percent }}%"></div>
+                                    </div>
+                                    <span class="text-[11px] font-semibold text-emerald-700">{{ $percent }}%</span>
+                                    @if($ticket->assignedUser)
+                                        <span class="text-[11px] text-slate-400">{{ $ticket->assignedUser->name }}</span>
+                                    @endif
+                                </div>
+                            @endif
                             @if($ticket->attachment_path)
                                 <button type="button"
                                         @click="openDocPreview('{{ route('tickets.preview', $ticket) }}', '{{ route('tickets.attachment', $ticket) }}', '{{ addslashes($ticket->attachment_name ?? 'Dokumen Lampiran') }}')"
@@ -150,8 +224,46 @@
                         </td>
 
                         <!-- 5. Set Prioritas -->
-                        <td class="py-3.5 px-4 whitespace-nowrap">
-                            @if($canSetPriority)
+                        <td class="py-3.5 px-4 align-top">
+                            @php
+                                $canPickStaff = $ticket->canBeDirectedBy($user)
+                                    && $inboxStaff->isNotEmpty()
+                                    && (int) $ticket->current_role_id === (int) $user->role_id;
+                                $approveOnlyRow = (bool) $ticket->nextSuperiorRole()
+                                    && ! $ticket->currentRole?->head_user_id
+                                    && ! $user->isSuperuser();
+                            @endphp
+                            @if($canPickStaff)
+                                <form action="{{ route('tickets.priority', $ticket) }}" method="POST" class="space-y-1.5 w-40">
+                                    @csrf
+                                    @if($ticket->priority_rank)
+                                        <p class="text-[11px] font-medium text-slate-700">{{ $ticket->priorityLabel() }}</p>
+                                        <input type="hidden" name="priority_rank" value="{{ $ticket->priority_rank }}">
+                                    @else
+                                        <select name="priority_rank" required
+                                                class="w-full px-2.5 py-1 rounded-lg border border-amber-300 bg-amber-50 text-xs text-amber-800 focus:outline-none">
+                                            <option value="" disabled selected>Prioritas pemohon...</option>
+                                            @for($level = 1; $level <= 4; $level++)
+                                                <option value="{{ $level }}">{{ \App\Models\RolePriorityRoute::labelFor($level) }}</option>
+                                            @endfor
+                                        </select>
+                                    @endif
+                                    <select name="assigned_user_id" required
+                                            class="w-full px-2.5 py-1 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none">
+                                        <option value="" disabled {{ $ticket->assigned_user_id ? '' : 'selected' }}>Arahkan ke staff...</option>
+                                        @foreach($inboxStaff as $staff)
+                                            @continue((int) $staff->id === (int) $user->id)
+                                            <option value="{{ $staff->id }}" {{ (int) $ticket->assigned_user_id === (int) $staff->id ? 'selected' : '' }}>
+                                                {{ $staff->name }}@if($staff->keahlian) — {{ $staff->keahlian }}@endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <button type="submit" class="w-full px-2 py-1 rounded-lg bg-slate-900 text-white text-[11px] font-semibold">
+                                        Sesuai & bagikan
+                                    </button>
+                                    <p class="text-[10px] leading-snug text-slate-400">Hanya jika level pemohon sesuai isi permintaan. Kalau tidak, buka tiket lalu pilih tolak.</p>
+                                </form>
+                            @elseif($canSetPriority && !$ticket->currentRole?->head_user_id && !$approveOnlyRow)
                                 <form action="{{ route('tickets.priority', $ticket) }}" method="POST">
                                     @csrf
                                     <select name="priority" onchange="this.form.submit()"
@@ -167,6 +279,9 @@
                                 <span class="text-[11px] px-2 py-0.5 rounded {{ $priorityColors[$ticket->priority] ?? 'bg-slate-100 text-slate-500' }}">
                                     {{ $ticket->priorityLabel() }}
                                 </span>
+                                @if($ticket->priority_rank && $ticket->assignedUser)
+                                    <span class="mt-1 block text-[11px] text-slate-500">Ke {{ $ticket->assignedUser->name }}</span>
+                                @endif
                             @endif
                         </td>
 
@@ -179,12 +294,31 @@
 
                         <!-- 7. Aksi -->
                         <td class="py-3.5 px-4 text-right whitespace-nowrap">
-                            <a href="{{ route('tickets.show', $ticket) }}"
-                               class="inline-block px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium transition">
-                                Proses →
-                            </a>
+                            <div class="inline-flex items-center justify-end gap-1.5">
+                                <a href="{{ route('tickets.show', $ticket) }}"
+                                   class="inline-block px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium transition">
+                                    {{ $approveOnlyRow ? 'Setuju →' : 'Proses →' }}
+                                </a>
+                                @if($ticket->assignedUser && $staffProgress->contains(fn ($progress) => (int) $progress['user']->id === (int) $ticket->assigned_user_id))
+                                    <button type="button"
+                                            @click="staffDetail = {{ (int) $ticket->assigned_user_id }}"
+                                            class="inline-block px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 font-medium transition">
+                                        Detail
+                                    </button>
+                                @endif
+                            </div>
                         </td>
                     </tr>
+                    @if($ticket->progress_note)
+                        <tr class="bg-slate-50/60">
+                            <td colspan="7" class="px-4 pb-3 pt-0">
+                                <p class="text-[11px] text-slate-600 leading-relaxed">
+                                    <span class="font-semibold text-slate-700">Catatan {{ $ticket->assignedUser?->name ?? 'staff' }}:</span>
+                                    {{ $ticket->progress_note }}
+                                </p>
+                            </td>
+                        </tr>
+                    @endif
                 @empty
                     <tr>
                         <td colspan="7" class="py-10 px-4 text-center text-xs text-slate-400">
@@ -195,5 +329,69 @@
             </tbody>
         </table>
     </div>
+    @endif
+</div>
+
+<div x-show="staffDetail" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50"
+     @keydown.escape.window="staffDetail = null">
+    <div @click.outside="staffDetail = null" class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col overflow-hidden">
+        @foreach($staffProgress as $progress)
+            <div x-show="staffDetail === {{ (int) $progress['user']->id }}" class="flex flex-col min-h-0">
+                <div class="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900">Tiket {{ $progress['user']->name }}</h2>
+                        <p class="text-[11px] text-slate-500 mt-0.5">
+                            {{ $progress['tickets'] }} tiket sedang dikerjakan
+                            @if($progress['percent'] !== null) · rata-rata {{ $progress['percent'] }}% @endif
+                        </p>
+                    </div>
+                    <button type="button" @click="staffDetail = null" class="text-slate-400 hover:text-slate-700">✕</button>
+                </div>
+                <div class="overflow-y-auto divide-y divide-slate-100">
+                    @forelse($progress['open_tickets'] as $openTicket)
+                        <div class="px-5 py-3">
+                            <div class="flex items-center justify-between gap-3">
+                                <a href="{{ route('tickets.show', $openTicket) }}" class="font-mono text-[11px] font-semibold text-indigo-600 hover:underline">{{ $openTicket->ticket_number }}</a>
+                                <span class="text-[11px] font-semibold {{ $openTicket->work_status === 'blocked' ? 'text-rose-700' : 'text-slate-700' }}">
+                                    @if($openTicket->workStatusLabel()){{ $openTicket->workStatusLabel() }} · @endif{{ $openTicket->progressPercent() === null ? '—' : $openTicket->progressPercent() . '%' }}
+                                </span>
+                            </div>
+                            <a href="{{ route('tickets.show', $openTicket) }}" class="mt-1 block text-xs font-semibold text-slate-900 hover:text-indigo-600">{{ $openTicket->title }}</a>
+                            <p class="mt-0.5 text-[11px] text-slate-500">
+                                {{ $openTicket->statusLabel() }}
+                                @if($openTicket->priority_rank)
+                                    · Usulan pemohon: {{ $openTicket->priorityLabel() }}
+                                @endif
+                            </p>
+                            <form action="{{ route('tickets.priority', $openTicket) }}" method="POST" class="mt-2">
+                                @csrf
+                                <p class="text-[11px] font-medium text-slate-500 mb-1.5">
+                                    Nilai prioritas
+                                    @if(!$openTicket->assessed_priority_rank)
+                                        <span class="text-amber-700">· belum dinilai</span>
+                                    @endif
+                                </p>
+                                <div class="space-y-1.5">
+                                    @for($level = 1; $level <= 4; $level++)
+                                        <button type="submit" name="assessed_priority_rank" value="{{ $level }}"
+                                                class="px-2 py-1.5 rounded-lg border text-left text-[11px] font-medium {{ (int) $openTicket->assessed_priority_rank === $level ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50' }}">
+                                            {{ \App\Models\RolePriorityRoute::labelFor($level) }}
+                                        </button>
+                                    @endfor
+                                </div>
+                            </form>
+                            @if($openTicket->progress_note)
+                                <p class="mt-2 text-[11px] text-slate-600">{{ $openTicket->progress_note }}</p>
+                            @endif
+                        </div>
+                    @empty
+                        <p class="px-5 py-6 text-xs text-slate-400">Belum ada tiket yang sedang dikerjakan.</p>
+                    @endforelse
+                </div>
+            </div>
+        @endforeach
+    </div>
+</div>
 </div>
 @endsection

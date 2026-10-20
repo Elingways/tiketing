@@ -17,18 +17,26 @@ class Ticket extends Model
         'attachment_name',
         'category_id',
         'priority',
+        'priority_rank',
+        'assessed_priority_rank',
         'workflow_type',
         'creator_id',
         'creator_role_id',
         'current_role_id',
         'assigned_user_id',
         'status',
+        'progress_percent',
+        'progress_note',
+        'work_status',
         'approval_step',
         'resolved_at',
     ];
 
     protected $casts = [
         'resolved_at' => 'datetime',
+        'priority_rank' => 'integer',
+        'assessed_priority_rank' => 'integer',
+        'progress_percent' => 'integer',
     ];
 
     public function category(): BelongsTo
@@ -61,6 +69,46 @@ class Ticket extends Model
         return $this->hasMany(TicketLog::class)->orderBy('created_at', 'asc');
     }
 
+    public function problems(): HasMany
+    {
+        return $this->hasMany(TicketProblem::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function progressPercent(): ?int
+    {
+        if ($this->progress_percent === null) {
+            return null;
+        }
+
+        return max(0, min(100, (int) $this->progress_percent));
+    }
+
+    public function canReportProgress(User $user): bool
+    {
+        if (in_array($this->status, ['resolved', 'rejected', 'closed'], true)) {
+            return false;
+        }
+
+        if ($user->isSuperuser()) {
+            return true;
+        }
+
+        return (int) $this->assigned_user_id === (int) $user->id && $this->canBeHandledBy($user);
+    }
+
+    public function canUpdateProblemProgress(User $user): bool
+    {
+        if (in_array($this->status, ['resolved', 'rejected', 'closed'], true)) {
+            return false;
+        }
+
+        if ($user->isSuperuser() || $this->canBeDirectedBy($user)) {
+            return true;
+        }
+
+        return $this->canBeHandledBy($user) && (int) $this->assigned_user_id === (int) $user->id;
+    }
+
     public function nextSuperiorRole(): ?Role
     {
         if ($this->category) {
@@ -89,7 +137,50 @@ class Ticket extends Model
             return true;
         }
 
-        return (int) $user->role_id === (int) $this->current_role_id;
+        if ((int) $user->role_id !== (int) $this->current_role_id) {
+            return false;
+        }
+
+        $headId = $this->currentRole?->head_user_id;
+        if ($headId && (int) $user->id !== (int) $headId && (int) $this->assigned_user_id !== (int) $user->id) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function canBeDirectedBy(User $user): bool
+    {
+        if (in_array($this->status, ['resolved', 'rejected', 'closed'], true)) {
+            return false;
+        }
+
+        if ($user->isSuperuser()) {
+            return true;
+        }
+
+        $headId = $this->currentRole?->head_user_id;
+
+        return $headId
+            && (int) $user->id === (int) $headId
+            && (int) $user->role_id === (int) $this->current_role_id;
+    }
+
+    public function canBeRevisedBy(User $user): bool
+    {
+        if ($this->status !== 'resolved') {
+            return false;
+        }
+
+        if ($user->isSuperuser()) {
+            return true;
+        }
+
+        $headId = $this->currentRole?->head_user_id;
+
+        return $headId
+            && (int) $user->id === (int) $headId
+            && (int) $user->role_id === (int) $this->current_role_id;
     }
 
     public function isAtFinalApprovalStage(): bool
@@ -153,6 +244,17 @@ class Ticket extends Model
         return $steps;
     }
 
+    public function workStatusLabel(): ?string
+    {
+        return match ($this->work_status) {
+            'delivered' => 'Delivered',
+            'in_progress' => 'In progress',
+            'blocked' => 'Blocked',
+            'finished' => 'Finished',
+            default => null,
+        };
+    }
+
     public function statusLabel(): string
     {
         return match ($this->status) {
@@ -169,6 +271,10 @@ class Ticket extends Model
 
     public function priorityLabel(): string
     {
+        if ($this->priority_rank) {
+            return RolePriorityRoute::labelFor((int) $this->priority_rank);
+        }
+
         if (!$this->priority) {
             return 'Belum Diset';
         }

@@ -47,8 +47,13 @@ class TicketLog extends Model
             'approved_step' => ['label' => 'Disetujui Tahap', 'color' => 'emerald'],
             'final_approved' => ['label' => 'Disetujui Final', 'color' => 'emerald'],
             'resolved' => ['label' => 'Selesai', 'color' => 'emerald'],
+            'reopened' => ['label' => 'Diedit Ulang', 'color' => 'amber'],
             'rejected' => ['label' => 'Ditolak', 'color' => 'rose'],
             'comment' => ['label' => 'Diskusi', 'color' => 'slate'],
+            'problems_set' => ['label' => 'Masalah Ditetapkan', 'color' => 'sky'],
+            'problem_done' => ['label' => 'Masalah Selesai', 'color' => 'emerald'],
+            'problem_reopened' => ['label' => 'Masalah Dibuka Lagi', 'color' => 'amber'],
+            'progress_reported' => ['label' => 'Progres Dilaporkan', 'color' => 'sky'],
             default => ['label' => ucfirst($this->action), 'color' => 'slate'],
         };
     }

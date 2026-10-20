@@ -19,9 +19,13 @@ class CategoryController extends Controller
             ->get();
 
         $roles = Role::where('is_superuser', false)
+            ->with(['priorityRoutes.user:id,name', 'head:id,name'])
+            ->withCount('users')
             ->orderByDesc('level')
             ->orderBy('name')
             ->get();
+
+        $roles->whereNotNull('head_user_id')->load(['users:id,role_id,name,keahlian']);
 
         return view('admin.categories', compact('categories', 'roles'));
     }

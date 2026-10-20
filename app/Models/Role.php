@@ -21,6 +21,7 @@ class Role extends Model
         'is_superuser',
         'can_create_ticket',
         'can_receive_ticket',
+        'head_user_id',
     ];
 
     protected $casts = [
@@ -56,6 +57,47 @@ class Role extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    public function head(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'head_user_id');
+    }
+
+    /**
+     * Tiket yang baru masuk ke role ini diterima dulu oleh kepala, kalau ada.
+     */
+    public function defaultAssignee(): ?User
+    {
+        if ($this->head_user_id) {
+            $head = $this->relationLoaded('head') ? $this->head : $this->head()->first();
+            if ($head) {
+                return $head;
+            }
+        }
+
+        return $this->users()->orderBy('id')->first();
+    }
+
+    public function priorityRoutes(): HasMany
+    {
+        return $this->hasMany(RolePriorityRoute::class)->orderBy('priority_level');
+    }
+
+    /**
+     * Staff penerima tiket pada nomor prioritas ini.
+     * Nomor 1 paling penting. Jika nomor itu belum diarahkan, pakai staff pertama role.
+     */
+    public function assigneeForPriorityRank(?int $rank): ?User
+    {
+        if ($rank) {
+            $route = $this->priorityRoutes()->where('priority_level', $rank)->first();
+            if ($route?->user) {
+                return $route->user;
+            }
+        }
+
+        return $this->users()->orderBy('id')->first();
     }
 
     public function menus(): BelongsToMany

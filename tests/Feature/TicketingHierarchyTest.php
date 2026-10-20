@@ -62,11 +62,13 @@ class TicketingHierarchyTest extends TestCase
             'title' => 'Pengajuan Penambahan Kuota KRS',
             'category_id' => $category->id,
             'description' => 'Mohon bantuan pembukaan kuota KRS untuk mata kuliah pilihan.',
+            'priority_rank' => 2,
             'attachment' => $file,
         ])->assertRedirect();
 
         $ticket = Ticket::where('title', 'Pengajuan Penambahan Kuota KRS')->firstOrFail();
-        $this->assertNull($ticket->priority);
+        $this->assertSame(2, (int) $ticket->priority_rank);
+        $this->assertSame('high', $ticket->priority);
         $this->assertEquals('surat_permohonan.pdf', $ticket->attachment_name);
         $this->assertNotNull($ticket->attachment_path);
         $this->assertEquals($dosen->role_id, $ticket->current_role_id);
@@ -254,6 +256,7 @@ class TicketingHierarchyTest extends TestCase
             'title' => 'Pengajuan Dana Seminar Nasional AI',
             'category_id' => $category->id,
             'description' => 'Mohon persetujuan pencairan dana kegiatan seminar nasional.',
+            'priority_rank' => 1,
             'attachment' => $filledDoc,
         ])->assertRedirect();
 
@@ -319,6 +322,379 @@ class TicketingHierarchyTest extends TestCase
         $subMenu->refresh();
         $this->assertEquals('Direktori Staf & Pengajar', $subMenu->name);
         $this->assertEquals(4, $subMenu->sort_order);
+    }
+
+    public function test_admin_it_role_routes_priority_number_to_the_chosen_staff(): void
+    {
+        $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+        $mahasiswa = User::where('email', 'mahasiswa@kampus.ac.id')->firstOrFail();
+        $category = TicketCategory::firstOrFail();
+
+        $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'name' => 'Admin IT',
+            'badge_color' => 'indigo',
+            'description' => 'Menangani tiket perangkat dan jaringan.',
+            'can_create_ticket' => 1,
+            'can_receive_ticket' => 1,
+            'from_role_modal' => 1,
+            'head_index' => 0,
+            'staff' => [
+                ['name' => 'Kepala IT', 'email' => 'kepala.it@kampus.ac.id', 'keahlian' => 'Koordinasi'],
+                ['name' => 'Staff Jaringan', 'email' => 'staff.jaringan@kampus.ac.id', 'keahlian' => 'Jaringan'],
+                ['name' => 'Staff Hardware', 'email' => 'staff.hardware@kampus.ac.id', 'keahlian' => 'Perangkat keras'],
+            ],
+        ])->assertRedirect();
+
+        $role = Role::where('name', 'Admin IT')->firstOrFail();
+        $head = User::where('email', 'kepala.it@kampus.ac.id')->firstOrFail();
+        $network = User::where('email', 'staff.jaringan@kampus.ac.id')->firstOrFail();
+        $hardware = User::where('email', 'staff.hardware@kampus.ac.id')->firstOrFail();
+
+        $this->assertEquals($head->id, $role->head_user_id);
+        $this->assertEquals('Jaringan', $network->keahlian);
+        $this->assertEquals('Perangkat keras', $hardware->keahlian);
+
+        $this->actingAs($superuser)->get(route('admin.categories'))
+            ->assertOk()
+            ->assertSee('Kepala IT')
+            ->assertSee('Perangkat keras');
+
+        $ticket = Ticket::create([
+            'ticket_number' => 'TKT-TEST-9001',
+            'title' => 'Laptop lab tidak menyala',
+            'description' => 'Mohon dicek perangkat lab informatika.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $mahasiswa->id,
+            'creator_role_id' => $mahasiswa->role_id,
+            'current_role_id' => $role->id,
+            'status' => 'open',
+        ]);
+
+        $this->actingAs($network)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertDontSee('Laptop lab tidak menyala');
+
+        $this->actingAs($head)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Laptop lab tidak menyala')
+            ->assertSee('Perangkat keras');
+
+        $this->actingAs($head)->post(route('tickets.priority', $ticket), [
+            'priority_rank' => 1,
+        ])->assertRedirect()->assertSessionHas('error');
+
+        $ticket->refresh();
+        $this->assertNull($ticket->priority_rank);
+        $this->assertNotEquals($hardware->id, $ticket->assigned_user_id);
+
+        $this->actingAs($head)->post(route('tickets.priority', $ticket), [
+            'priority_rank' => 1,
+            'assigned_user_id' => $hardware->id,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $ticket->refresh();
+        $this->assertEquals(1, $ticket->priority_rank);
+        $this->assertEquals($hardware->id, $ticket->assigned_user_id);
+
+        $this->actingAs($hardware)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Laptop lab tidak menyala');
+
+        $this->actingAs($network)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertDontSee('Laptop lab tidak menyala');
+
+        $this->actingAs($head)->get(route('tickets.show', $ticket))
+            ->assertOk()
+            ->assertSee('Arahkan ke staff')
+            ->assertSee('Sesuai, proses dan bagikan ke staff')
+            ->assertSee('Tidak sesuai, tolak')
+            ->assertSee('Perangkat keras');
+
+        $mismatch = Ticket::create([
+            'ticket_number' => 'TKT-TEST-9002',
+            'title' => 'Cek printer ruang dosen',
+            'description' => 'Printer hanya macet, bukan gangguan mendesak.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $mahasiswa->id,
+            'creator_role_id' => $mahasiswa->role_id,
+            'current_role_id' => $role->id,
+            'priority_rank' => 1,
+            'priority' => 'urgent',
+            'status' => 'open',
+        ]);
+
+        $this->actingAs($head)->post(route('tickets.action', $mismatch), [
+            'action_type' => 'reject',
+            'priority_rank' => 1,
+            'note' => 'Isinya pengecekan printer, bukan level urgent.',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $mismatch->refresh();
+        $this->assertSame('rejected', $mismatch->status);
+        $this->assertSame(1, (int) $mismatch->priority_rank);
+    }
+
+    public function test_intermediate_role_only_approves_and_forwards_upward(): void
+    {
+        $kaprodi = User::where('email', 'kaprodi@kampus.ac.id')->firstOrFail();
+        $akademikUser = User::where('email', 'akademik@kampus.ac.id')->firstOrFail();
+        $akademik = Role::where('name', 'Akademik')->firstOrFail();
+        $yayasan = Role::where('name', 'Yayasan')->firstOrFail();
+
+        $category = TicketCategory::create([
+            'name' => 'Layanan Lewat Persetujuan',
+            'slug' => 'layanan-lewat-persetujuan',
+            'workflow_type' => 'escalation',
+            'workflow_roles' => [$akademik->id, $yayasan->id],
+            'initial_target_role_id' => $akademik->id,
+            'is_active' => true,
+            'is_attachment_required' => false,
+        ]);
+
+        $this->actingAs($kaprodi)->post(route('tickets.store'), [
+            'title' => 'Permintaan dari Kaprodi',
+            'category_id' => $category->id,
+            'description' => 'Akademik hanya menyetujui, lalu tiket naik.',
+            'priority_rank' => 2,
+        ])->assertRedirect();
+
+        $ticket = Ticket::where('title', 'Permintaan dari Kaprodi')->firstOrFail();
+        $this->assertSame($akademik->id, $ticket->current_role_id);
+
+        $this->actingAs($akademikUser)
+            ->get(route('tickets.show', $ticket))
+            ->assertOk()
+            ->assertSee('Setuju, lanjut ke '.$yayasan->name)
+            ->assertDontSee('Tandai Sedang Diproses')
+            ->assertDontSee('Selesaikan Tiket')
+            ->assertDontSee('Masalah &amp; Progres');
+
+        $this->actingAs($akademikUser)->post(route('tickets.action', $ticket), [
+            'action_type' => 'approve_step',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $ticket->refresh();
+        $this->assertSame($yayasan->id, $ticket->current_role_id);
+        $this->assertSame('waiting_next_approval', $ticket->status);
+    }
+
+    public function test_head_defines_ticket_problems_and_monitors_staff_progress_percent(): void
+    {
+        $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+        $mahasiswa = User::where('email', 'mahasiswa@kampus.ac.id')->firstOrFail();
+        $category = TicketCategory::firstOrFail();
+
+        $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'name' => 'Admin IT Progres',
+            'badge_color' => 'indigo',
+            'description' => 'Memantau progres staff.',
+            'can_create_ticket' => 1,
+            'can_receive_ticket' => 1,
+            'head_index' => 0,
+            'staff' => [
+                ['name' => 'Kepala Progres', 'email' => 'kepala.progres@kampus.ac.id', 'keahlian' => 'Koordinasi'],
+                ['name' => 'Staff Progres', 'email' => 'staff.progres@kampus.ac.id', 'keahlian' => 'Aplikasi'],
+            ],
+        ])->assertRedirect();
+
+        $role = Role::where('name', 'Admin IT Progres')->firstOrFail();
+        $head = User::where('email', 'kepala.progres@kampus.ac.id')->firstOrFail();
+        $staff = User::where('email', 'staff.progres@kampus.ac.id')->firstOrFail();
+
+        $ticket = Ticket::create([
+            'ticket_number' => 'TKT-TEST-9100',
+            'title' => 'Perbaikan modul nilai',
+            'description' => 'Beberapa bagian modul nilai tidak berjalan.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $mahasiswa->id,
+            'creator_role_id' => $mahasiswa->role_id,
+            'current_role_id' => $role->id,
+            'assigned_user_id' => $staff->id,
+            'status' => 'in_progress',
+        ]);
+
+        $this->actingAs($staff)->post(route('tickets.problems.store', $ticket), [
+            'title' => "Login gagal\nNilai hilang",
+        ])->assertRedirect()->assertSessionHas('error');
+
+        $this->actingAs($head)->post(route('tickets.problems.store', $ticket), [
+            'title' => "Login gagal\nNilai hilang",
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $ticket->refresh()->load('problems');
+        $this->assertNull($ticket->progressPercent());
+        $this->assertCount(2, $ticket->problems);
+
+        $this->actingAs($head)->post(route('tickets.progress', $ticket), [
+            'progress_percent' => 50,
+        ])->assertRedirect()->assertSessionHas('error');
+
+        $this->actingAs($staff)->post(route('tickets.progress', $ticket), [
+            'progress_percent' => 50,
+            'note' => 'Masih ada kendala akses database.',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $ticket->refresh();
+        $this->assertSame(50, $ticket->progressPercent());
+
+        $this->actingAs($head)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertDontSee('Progres Staff')
+            ->assertDontSee('Sesuai & bagikan')
+            ->assertSee('Staff Progres')
+            ->assertSee('1 tiket sedang dikerjakan')
+            ->assertSee('Detail')
+            ->assertSee('Perbaikan modul nilai')
+            ->assertSee('50%')
+            ->assertSee('Masih ada kendala akses database.');
+
+        $ticket->forceFill([
+            'priority_rank' => 4,
+            'priority' => 'low',
+            'created_at' => now()->subMinutes(2),
+        ])->save();
+        $urgent = Ticket::create([
+            'ticket_number' => 'TKT-TEST-9101',
+            'title' => 'Gangguan jaringan urgent',
+            'description' => 'Jaringan kampus putus.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $mahasiswa->id,
+            'creator_role_id' => $mahasiswa->role_id,
+            'current_role_id' => $role->id,
+            'assigned_user_id' => $staff->id,
+            'priority_rank' => 1,
+            'priority' => 'urgent',
+            'status' => 'in_progress',
+        ]);
+
+        $inboxHtml = $this->actingAs($head)->get(route('tickets.inbox'))->assertOk()->getContent();
+        $urgentPos = strpos($inboxHtml, 'Gangguan jaringan urgent');
+        $laterPos = strpos($inboxHtml, 'Perbaikan modul nilai');
+        $this->assertNotFalse($urgentPos);
+        $this->assertNotFalse($laterPos);
+        $this->assertLessThan($urgentPos, $laterPos);
+        $this->assertStringContainsString('belum dinilai', $inboxHtml);
+        $this->assertStringContainsString('Usulan pemohon', $inboxHtml);
+
+        $this->actingAs($head)->post(route('tickets.priority', $urgent), [
+            'assessed_priority_rank' => 1,
+        ])->assertRedirect()->assertSessionHas('success');
+        $this->actingAs($head)->post(route('tickets.priority', $ticket), [
+            'assessed_priority_rank' => 4,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $urgent->refresh();
+        $ticket->refresh();
+        $this->assertSame(1, (int) $urgent->priority_rank);
+        $this->assertSame(1, (int) $urgent->assessed_priority_rank);
+        $this->assertSame(4, (int) $ticket->assessed_priority_rank);
+        $this->assertSame($staff->id, (int) $urgent->assigned_user_id);
+
+        $orderedHtml = $this->actingAs($head)->get(route('tickets.inbox'))->assertOk()->getContent();
+        $this->assertLessThan(
+            strpos($orderedHtml, 'Perbaikan modul nilai'),
+            strpos($orderedHtml, 'Gangguan jaringan urgent')
+        );
+
+        $this->actingAs($staff)->post(route('tickets.action', $ticket), [
+            'action_type' => 'in_progress',
+            'progress_percent' => 60,
+            'note' => 'baru segini pak',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $ticket->refresh();
+        $this->assertSame(60, $ticket->progressPercent());
+
+        $this->actingAs($head)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('60%');
+
+        $this->actingAs($staff)->post(route('tickets.progress', $ticket), [
+            'progress_percent' => 60,
+            'work_status' => 'blocked',
+        ])->assertRedirect()->assertSessionHas('error');
+
+        $this->actingAs($staff)->post(route('tickets.progress', $ticket), [
+            'progress_percent' => 60,
+            'work_status' => 'blocked',
+            'note' => 'Akses database ditolak.',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $ticket->refresh();
+        $this->assertSame('blocked', $ticket->work_status);
+        $this->assertSame('in_progress', $ticket->status);
+
+        $this->actingAs($head)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Blocked')
+            ->assertSee('Akses database ditolak.');
+
+        $this->actingAs($staff)->post(route('tickets.progress', $ticket), [
+            'progress_percent' => 60,
+            'work_status' => 'finished',
+            'note' => 'Pengerjaan sudah selesai.',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $ticket->refresh();
+        $this->assertSame('finished', $ticket->work_status);
+        $this->assertSame('in_progress', $ticket->status);
+
+        $this->actingAs($staff)->get(route('tickets.show', $ticket))
+            ->assertOk()
+            ->assertSee('Delivered')
+            ->assertSee('In progress')
+            ->assertSee('Blocked')
+            ->assertSee('Finished')
+            ->assertSee('Sudah dikerjakan (%)')
+            ->assertDontSee('Tindak Lanjut Role')
+            ->assertDontSee('Setujui Final');
+
+        $this->actingAs($head)->get(route('tickets.show', $ticket))
+            ->assertOk()
+            ->assertSee('Masalah & Progres')
+            ->assertSee('Tindak Lanjut Role')
+            ->assertSee('Login gagal')
+            ->assertSee('50%')
+            ->assertDontSee('Sudah dikerjakan (%)');
+
+        $this->actingAs($head)->post(route('tickets.action', $ticket), [
+            'action_type' => 'resolve',
+            'note' => 'Pekerjaan modul nilai sudah selesai.',
+        ])->assertRedirect();
+
+        $this->actingAs($head)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertDontSee('Perbaikan modul nilai');
+
+        $this->actingAs($head)->get(route('tickets.history'))
+            ->assertOk()
+            ->assertSee('Perbaikan modul nilai')
+            ->assertSee('Edit');
+
+        $this->actingAs($staff)->post(route('tickets.reopen', $ticket), [
+            'note' => 'Saya mau ubah sendiri.',
+        ])->assertRedirect()->assertSessionHas('error');
+
+        $this->actingAs($head)->post(route('tickets.reopen', $ticket), [
+            'note' => 'Nilai transkrip masih kosong.',
+        ])->assertRedirect(route('tickets.show', $ticket));
+
+        $ticket->refresh();
+        $this->assertSame('in_progress', $ticket->status);
+        $this->assertNull($ticket->resolved_at);
+
+        $this->actingAs($head)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Perbaikan modul nilai');
+
+        $this->actingAs($mahasiswa)->get(route('tickets.history'))
+            ->assertOk()
+            ->assertDontSee('Perbaikan modul nilai');
     }
 }
 

@@ -239,19 +239,19 @@
             chains: {{ Js::from($globalCategoryChains ?? []) }},
             fileName: ''
          }"
-         class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full overflow-hidden">
+         class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
 
-        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
             <div>
                 <h2 class="text-sm font-bold text-slate-900">Buat Tiket Baru</h2>
-                <p class="text-[11px] text-slate-400">Prioritas tiket ditentukan oleh role penerima di tahap berikutnya.</p>
+                <p class="text-[11px] text-slate-400">Pilih level prioritas sesuai isi permintaan. Kepala penerima yang meninjau apakah level itu sesuai.</p>
             </div>
             <button type="button" @click="createTicketModal = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">
                 ✕
             </button>
         </div>
 
-        <form action="{{ route('tickets.store') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-4">
+        <form action="{{ route('tickets.store') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-4 overflow-y-auto">
             @csrf
             <input type="hidden" name="from_modal" value="1">
 
@@ -260,16 +260,15 @@
                 <select name="category_id" x-model="selectedCategory"
                         class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-slate-900">
                     @foreach(($globalCategories ?? collect()) as $cat)
-                        <option value="{{ $cat->id }}">
-                            {{ $cat->name }} ({{ $cat->workflow_type === 'tiered_approval' ? 'Approval Berjenjang' : 'Eskalasi/Disposisi' }})
-                        </option>
+                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
                     @endforeach
                 </select>
 
                 <div x-show="selectedCategory && chains[selectedCategory]" x-cloak
-                     class="mt-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200/70 text-[11px] text-slate-600 flex items-center justify-between gap-2">
-                    <span>Alur Hirarki: <strong class="text-slate-900" x-text="(chains[selectedCategory]?.chain_names || []).join(' → ')"></strong></span>
-                    <span class="text-slate-400 shrink-0" x-text="chains[selectedCategory]?.workflow_label"></span>
+                     class="mt-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200/70 text-[11px] text-slate-600 space-y-1">
+                    <p>Alur: <strong class="text-slate-900" x-text="(chains[selectedCategory]?.chain_names || []).join(' → ')"></strong></p>
+                    <p>Tiket Anda masuk ke <strong class="text-slate-900" x-text="chains[selectedCategory]?.target_role"></strong></p>
+                    <p class="text-slate-400" x-text="chains[selectedCategory]?.workflow_label"></p>
                 </div>
 
                 <!-- Box Template Dokumen Layanan (Tampil Otomatis Jika Kategori Memiliki Template) -->
@@ -285,7 +284,7 @@
                                 </span>
                             </p>
                             <p class="text-[11px] text-indigo-800/80 mt-0.5">
-                                Silakan unduh dan lengkapi template <strong x-text="chains[selectedCategory]?.template_name"></strong> sebelum mengunggahnya di bawah.
+                                Unduh template <strong x-text="chains[selectedCategory]?.template_name"></strong>, lengkapi, lalu unggah lewat kolom di bawah.
                             </p>
                         </div>
                     </div>
@@ -308,6 +307,19 @@
                 <input type="text" name="title" value="{{ old('title') }}" required
                        placeholder="Contoh: Pengajuan Pencairan Dana Kegiatan Seminar"
                        class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1.5">Prioritas</label>
+                <select name="priority_rank" required
+                        class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-slate-900">
+                    <option value="" disabled {{ old('priority_rank') ? '' : 'selected' }}>Pilih tingkat prioritas...</option>
+                    <option value="1" {{ (string) old('priority_rank') === '1' ? 'selected' : '' }}>1 · Urgent</option>
+                    <option value="2" {{ (string) old('priority_rank') === '2' ? 'selected' : '' }}>2 · Agak urgent</option>
+                    <option value="3" {{ (string) old('priority_rank') === '3' ? 'selected' : '' }}>3 · Vendor (jaringan / web)</option>
+                    <option value="4" {{ (string) old('priority_rank') === '4' ? 'selected' : '' }}>4 · Bisa ditunda (cek AP, printer, dll.)</option>
+                </select>
+                <p class="mt-1 text-[11px] text-slate-400">Level 1 paling mendesak. Level 4 untuk pekerjaan yang masih bisa dijadwalkan.</p>
             </div>
 
             <div>

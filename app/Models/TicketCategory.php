@@ -108,8 +108,8 @@ class TicketCategory extends Model
                 }
             }
 
-            // Jika tanpa creatorRole (misal tampilan admin) dan role pertama adalah role pemohon (seperti Mahasiswa),
-            // maka tahapan penerima adalah role setelahnya
+            // Role pertama yang tidak bisa menerima tiket (misalnya Mahasiswa) dilewati.
+            // Selain itu, role pertama tetap jadi gerbang persetujuan sebelum naik ke atas.
             if ($customRoles->count() > 1 && !$customRoles->first()->can_receive_ticket) {
                 return $customRoles->slice(1)->values();
             }
