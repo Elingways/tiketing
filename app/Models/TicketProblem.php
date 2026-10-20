@@ -10,6 +10,7 @@ class TicketProblem extends Model
     protected $fillable = [
         'ticket_id',
         'title',
+        'weight_percent',
         'is_done',
         'done_at',
         'done_by',
@@ -17,6 +18,7 @@ class TicketProblem extends Model
     ];
 
     protected $casts = [
+        'weight_percent' => 'integer',
         'is_done' => 'boolean',
         'done_at' => 'datetime',
     ];

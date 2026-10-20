@@ -83,6 +83,52 @@ class Ticket extends Model
         return max(0, min(100, (int) $this->progress_percent));
     }
 
+    /**
+     * Hitung ulang progress_percent otomatis dari bobot % (weight_percent) poin pekerjaan yang sudah dicentang staff.
+     * Hanya aktif jika poin pekerjaan memiliki bobot weight_percent > 0.
+     */
+    public function recalculateProgressFromProblems(): ?int
+    {
+        $problems = $this->relationLoaded('problems') ? $this->problems : $this->problems()->get();
+        if ($problems->isEmpty()) {
+            return $this->progress_percent;
+        }
+
+        $totalWeight = (int) $problems->sum('weight_percent');
+        if ($totalWeight <= 0) {
+            return $this->progress_percent;
+        }
+
+        $doneWeight = (int) $problems->where('is_done', true)->sum('weight_percent');
+        $percent = max(0, min(100, $doneWeight));
+
+        $updates = ['progress_percent' => $percent];
+        if ($percent >= 100 && $problems->every(fn ($p) => $p->is_done)) {
+            $updates['work_status'] = 'finished';
+        } elseif ($percent > 0 && in_array($this->work_status, [null, 'delivered', 'finished'], true)) {
+            $updates['work_status'] = 'in_progress';
+        }
+
+        $this->update($updates);
+
+        return $percent;
+    }
+
+    public function hasWeightedProblems(): bool
+    {
+        $problems = $this->relationLoaded('problems') ? $this->problems : $this->problems()->get();
+        return $problems->isNotEmpty() && (int) $problems->sum('weight_percent') > 0;
+    }
+
+    public function isImageAttachment(): bool
+    {
+        if (!$this->attachment_path) {
+            return false;
+        }
+        $ext = strtolower(pathinfo($this->attachment_name ?: $this->attachment_path, PATHINFO_EXTENSION));
+        return in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'], true);
+    }
+
     public function canReportProgress(User $user): bool
     {
         if (in_array($this->status, ['resolved', 'rejected', 'closed'], true)) {
@@ -134,6 +180,10 @@ class Ticket extends Model
         }
 
         if ($user->isSuperuser()) {
+            return true;
+        }
+
+        if ($this->assigned_user_id && (int) $this->assigned_user_id === (int) $user->id) {
             return true;
         }
 

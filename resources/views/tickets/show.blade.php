@@ -69,27 +69,36 @@
                 <h1 class="text-base font-bold text-slate-900">{{ $ticket->title }}</h1>
                 <p class="mt-2.5 text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">{{ $ticket->description }}</p>
 
-                <!-- Dokumen Lampiran dengan Tombol Preview Modal & Unduh -->
+                <!-- Dokumen / Gambar Lampiran dengan Preview Inline, Modal & Unduh -->
                 @if($ticket->attachment_path)
-                    <div class="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <span class="text-sm">📎</span>
-                            <div class="min-w-0">
-                                <p class="text-xs font-semibold text-slate-800 truncate">{{ $ticket->attachment_name ?? 'Dokumen Lampiran' }}</p>
-                                <p class="text-[10px] text-slate-400">Lampiran Pengajuan Tiket</p>
+                    <div class="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-200/80 space-y-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="text-sm">{{ $ticket->isImageAttachment() ? '🖼️' : '📎' }}</span>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-semibold text-slate-800 truncate">{{ $ticket->attachment_name ?? 'Lampiran Bukti / Dokumen' }}</p>
+                                    <p class="text-[10px] text-slate-400">{{ $ticket->isImageAttachment() ? 'Gambar Bukti Kendala / Request' : 'Lampiran Pengajuan Tiket' }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button type="button"
+                                        @click="openDocPreview('{{ route('tickets.preview', $ticket) }}', '{{ route('tickets.attachment', $ticket) }}', '{{ addslashes($ticket->attachment_name ?? 'Dokumen Lampiran') }}')"
+                                        class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
+                                    Preview Dokumen
+                                </button>
+                                <a href="{{ route('tickets.attachment', $ticket) }}"
+                                   class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition">
+                                    Unduh
+                                </a>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                            <button type="button"
-                                    @click="openDocPreview('{{ route('tickets.preview', $ticket) }}', '{{ route('tickets.attachment', $ticket) }}', '{{ addslashes($ticket->attachment_name ?? 'Dokumen Lampiran') }}')"
-                                    class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
-                                Preview Dokumen
-                            </button>
-                            <a href="{{ route('tickets.attachment', $ticket) }}"
-                               class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition">
-                                Unduh
-                            </a>
-                        </div>
+                        @if($ticket->isImageAttachment())
+                            <div class="rounded-lg overflow-hidden border border-slate-200 bg-white p-2">
+                                <img src="{{ route('tickets.preview', $ticket) }}"
+                                     alt="{{ $ticket->attachment_name ?? 'Gambar Lampiran Tiket' }}"
+                                     class="max-h-72 w-auto mx-auto rounded object-contain">
+                            </div>
+                        @endif
                     </div>
                 @endif
 
@@ -223,41 +232,136 @@
                     </form>
                 @endif
 
+                @php
+                    $totalWeightConfigured = (int) $ticket->problems->sum('weight_percent');
+                    $doneWeightConfigured = (int) $ticket->problems->where('is_done', true)->sum('weight_percent');
+                @endphp
                 <div class="mt-4 space-y-2">
                     @foreach($ticket->problems as $problem)
-                        <div class="flex items-start gap-2 rounded-lg border border-slate-200 px-3 py-2">
-                            @if($canToggleProblems)
-                                <form action="{{ route('tickets.problems.toggle', [$ticket, $problem]) }}" method="POST">
-                                    @csrf
-                                    <button type="submit" class="mt-0.5 h-4 w-4 rounded border {{ $problem->is_done ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white text-transparent' }} text-[10px] leading-4">✓</button>
-                                </form>
-                            @else
-                                <span class="mt-0.5 h-4 w-4 rounded border text-center text-[10px] leading-4 {{ $problem->is_done ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 text-transparent' }}">✓</span>
-                            @endif
-                            <div class="min-w-0 flex-1">
-                                <p class="text-xs {{ $problem->is_done ? 'text-slate-400 line-through' : 'text-slate-800' }}">{{ $problem->title }}</p>
-                                @if($problem->is_done)
-                                    <p class="text-[11px] text-slate-400">Selesai oleh {{ $problem->doneBy?->name ?? 'staff' }}</p>
+                        <div class="flex items-center justify-between gap-2.5 rounded-lg border {{ $problem->is_done ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200 bg-white' }} px-3 py-2.5">
+                            <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                                @if($canToggleProblems)
+                                    <form action="{{ route('tickets.problems.toggle', [$ticket, $problem]) }}" method="POST">
+                                        @csrf
+                                        <button type="submit" title="Klik untuk menandai selesai / batal selesai"
+                                                class="mt-0.5 h-4 w-4 rounded border {{ $problem->is_done ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white text-transparent hover:border-indigo-500' }} text-[10px] leading-4 cursor-pointer transition">✓</button>
+                                    </form>
+                                @else
+                                    <span class="mt-0.5 h-4 w-4 rounded border text-center text-[10px] leading-4 {{ $problem->is_done ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 text-transparent' }}">✓</span>
+                                @endif
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-xs font-medium {{ $problem->is_done ? 'text-slate-400 line-through' : 'text-slate-800' }}">{{ $problem->title }}</p>
+                                    @if($problem->is_done)
+                                        <p class="text-[11px] text-emerald-700 mt-0.5">Selesai oleh {{ $problem->doneBy?->name ?? 'staff' }}@if($problem->done_at) · {{ $problem->done_at->format('d M H:i') }}@endif</p>
+                                    @else
+                                        <p class="text-[10px] text-slate-400 mt-0.5">Centang saat poin pekerjaan ini selesai dikerjakan</p>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                @if($problem->weight_percent > 0)
+                                    <span class="px-2 py-0.5 rounded-full text-[11px] font-bold {{ $problem->is_done ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-indigo-50 text-indigo-700 border border-indigo-200' }}">
+                                        +{{ $problem->weight_percent }}%
+                                    </span>
+                                @endif
+                                @if($canEditProblems)
+                                    <form action="{{ route('tickets.problems.destroy', [$ticket, $problem]) }}" method="POST">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="text-[11px] text-rose-600 hover:underline">Hapus</button>
+                                    </form>
                                 @endif
                             </div>
-                            @if($canEditProblems)
-                                <form action="{{ route('tickets.problems.destroy', [$ticket, $problem]) }}" method="POST">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-[11px] text-rose-600 hover:underline">Hapus</button>
-                                </form>
-                            @endif
                         </div>
                     @endforeach
                 </div>
 
+                @if($totalWeightConfigured > 0)
+                    <div class="mt-2.5 flex items-center justify-between text-[11px] text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200/70">
+                        <span>Total bobot poin pekerjaan dari Supervisor: <strong>{{ $totalWeightConfigured }}%</strong></span>
+                        <span>Tercapai dari centang Staff: <strong class="text-emerald-700">{{ $doneWeightConfigured }}%</strong></span>
+                    </div>
+                @endif
+
                 @if($canEditProblems)
-                    <form action="{{ route('tickets.problems.store', $ticket) }}" method="POST" class="mt-4 space-y-2">
+                    <form action="{{ route('tickets.problems.store', $ticket) }}" method="POST"
+                          class="mt-4 pt-4 border-t border-slate-100 space-y-2.5"
+                          x-data="{
+                              existingWeight: {{ $totalWeightConfigured }},
+                              rows: [
+                                  { title: '', weight_percent: {{ max(0, min(100, 100 - $totalWeightConfigured)) ?: 30 }} }
+                              ],
+                              addRow() {
+                                  this.rows.push({ title: '', weight_percent: 20 });
+                              },
+                              removeRow(idx) {
+                                  if (this.rows.length > 1) this.rows.splice(idx, 1);
+                              },
+                              distributeEvenly() {
+                                  const remaining = Math.max(0, 100 - this.existingWeight);
+                                  const target = remaining > 0 ? remaining : 100;
+                                  const count = this.rows.length;
+                                  const base = Math.floor(target / count);
+                                  let rem = target - (base * count);
+                                  this.rows.forEach((r, i) => {
+                                      r.weight_percent = base + (i < rem ? 1 : 0);
+                                  });
+                              },
+                              newWeightSum() {
+                                  return this.rows.reduce((sum, r) => sum + (parseInt(r.weight_percent, 10) || 0), 0);
+                              }
+                          }">
                         @csrf
-                        <label class="block text-xs font-semibold text-slate-700">Tetapkan masalah</label>
-                        <textarea name="title" rows="3" required placeholder="Satu masalah per baris. Contoh:&#10;Login SIAKAD gagal&#10;Nilai tidak muncul"
-                                  class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900"></textarea>
-                        <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold">Simpan Masalah</button>
+                        <div class="flex items-center justify-between gap-2 flex-wrap">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-800">Tetapkan masalah / Poin Detail Pekerjaan &amp; Bobot (%)</label>
+                                <p class="text-[11px] text-slate-500">Setiap poin yang dicentang selesai oleh staff akan menambah progres % otomatis sesuai bobotnya.</p>
+                            </div>
+                            <button type="button" @click="distributeEvenly()"
+                                    class="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold transition">
+                                Bagi Rata % Otomatis
+                            </button>
+                        </div>
+
+                        <div class="space-y-2">
+                            <template x-for="(row, idx) in rows" :key="idx">
+                                <div class="flex items-center gap-2">
+                                    <input type="text"
+                                           :name="'items[' + idx + '][title]'"
+                                           x-model="row.title"
+                                           required
+                                           placeholder="Contoh: Pengecekan switch & kabel jaringan ruang lab..."
+                                           class="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
+                                    <div class="relative w-24 shrink-0">
+                                        <input type="number"
+                                               :name="'items[' + idx + '][weight_percent]'"
+                                               x-model="row.weight_percent"
+                                               min="1" max="100" required
+                                               class="w-full pl-2.5 pr-6 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900">
+                                        <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                    </div>
+                                    <button type="button" @click="removeRow(idx)" x-show="rows.length > 1"
+                                            class="px-2 py-2 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 text-xs">
+                                        ✕
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-2 pt-1 flex-wrap">
+                            <div class="flex items-center gap-2">
+                                <button type="button" @click="addRow()"
+                                        class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold">
+                                    + Tambah Poin Pekerjaan
+                                </button>
+                                <span class="text-[11px] text-slate-500">
+                                    Total Bobot: <strong :class="(existingWeight + newWeightSum()) === 100 ? 'text-emerald-600' : 'text-amber-600'" x-text="(existingWeight + newWeightSum()) + '%'"></strong>
+                                </span>
+                            </div>
+                            <button type="submit" class="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold">
+                                Simpan Masalah &amp; Bobot %
+                            </button>
+                        </div>
                     </form>
                 @endif
             </div>
@@ -344,25 +448,80 @@
                     @csrf
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">1. Prioritas pemohon</label>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">1. Set Prioritas Tiket</label>
                         @if($canDirect && $roleStaff->isNotEmpty())
-                            <p class="text-xs font-semibold text-slate-800">{{ $ticket->priority_rank ? $ticket->priorityLabel() : 'Pemohon belum memilih prioritas.' }}</p>
-                            @if($ticket->priority_rank)
-                                <input type="hidden" name="priority_rank" value="{{ $ticket->priority_rank }}">
-                            @endif
-                            <div x-show="actionType === 'in_progress'" x-cloak class="mt-3">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">2. Arahkan ke staff</label>
-                                <select name="assigned_user_id"
-                                        class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-slate-900">
-                                    <option value="">Pilih staff sesuai keahlian...</option>
-                                    @foreach($roleStaff as $staff)
-                                        @continue((int) $staff->id === (int) $ticket->currentRole?->head_user_id)
-                                        <option value="{{ $staff->id }}" {{ (int) $ticket->assigned_user_id === (int) $staff->id ? 'selected' : '' }}>
-                                            {{ $staff->name }}@if($staff->keahlian) — {{ $staff->keahlian }}@endif
-                                        </option>
-                                    @endforeach
-                                </select>
-                                <p class="text-[11px] text-slate-400 mt-1">Dipakai hanya jika level pemohon sudah sesuai dengan isi permintaan.</p>
+                            <select name="priority_rank"
+                                    class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white font-semibold text-slate-800 focus:outline-none focus:border-slate-900">
+                                @for($level = 1; $level <= 4; $level++)
+                                    <option value="{{ $level }}" {{ (int) ($ticket->priority_rank ?: 2) === $level ? 'selected' : '' }}>
+                                        {{ \App\Models\RolePriorityRoute::labelFor($level) }}
+                                    </option>
+                                @endfor
+                            </select>
+                            <p class="text-[11px] text-slate-400 mt-1">
+                                Usulan pemohon: <strong>{{ $ticket->priority_rank ? $ticket->priorityLabel() : 'Belum dipilih' }}</strong>. Supervisor dapat menyesuaikan level prioritas.
+                            </p>
+                            <div x-show="actionType === 'in_progress'" x-cloak class="mt-3 space-y-3"
+                                 x-data="{
+                                     deliveryPoints: [],
+                                     addDeliveryPoint() {
+                                         this.deliveryPoints.push({ title: '', weight_percent: 50 });
+                                     },
+                                     removeDeliveryPoint(i) {
+                                         this.deliveryPoints.splice(i, 1);
+                                     }
+                                 }">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">2. Arahkan ke staff (Delivery Tugas)</label>
+                                    <select name="assigned_user_id"
+                                            class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-slate-900">
+                                        <option value="">Pilih staff sesuai keahlian...</option>
+                                        @foreach($roleStaff as $staff)
+                                            @continue((int) $staff->id === (int) $ticket->currentRole?->head_user_id)
+                                            <option value="{{ $staff->id }}" {{ (int) $ticket->assigned_user_id === (int) $staff->id ? 'selected' : '' }}>
+                                                {{ $staff->name }}@if($staff->keahlian) — {{ $staff->keahlian }}@endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <p class="text-[11px] text-slate-400 mt-1">Pilih staff pelaksana yang akan mengerjakan tiket ini.</p>
+                                </div>
+
+                                <div class="p-3 rounded-lg bg-slate-50 border border-slate-200/80 space-y-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-[11px] font-semibold text-slate-700">Tambah Poin Pekerjaan &amp; % Sebelum Delivery</span>
+                                        <button type="button" @click="addDeliveryPoint()"
+                                                class="px-2 py-1 rounded bg-white border border-slate-200 hover:bg-slate-100 text-[11px] font-semibold text-indigo-600">
+                                            + Input Poin (%)
+                                        </button>
+                                    </div>
+                                    <template x-if="deliveryPoints.length === 0">
+                                        <p class="text-[11px] text-slate-400">
+                                            @if($ticket->problems->count() > 0)
+                                                Sudah ada {{ $ticket->problems->count() }} poin pekerjaan ({{ (int) $ticket->problems->sum('weight_percent') }}%). Klik <strong>+ Input Poin (%)</strong> jika ingin menambah lagi.
+                                            @else
+                                                Klik <strong>+ Input Poin (%)</strong> untuk langsung menambahkan rincian pekerjaan beserta bobot % sebelum diserahkan ke staff.
+                                            @endif
+                                        </p>
+                                    </template>
+                                    <template x-for="(pt, idx) in deliveryPoints" :key="idx">
+                                        <div class="flex items-center gap-1.5">
+                                            <input type="text"
+                                                   :name="'problem_items[' + idx + '][title]'"
+                                                   x-model="pt.title"
+                                                   placeholder="Detail pekerjaan untuk staff..."
+                                                   class="flex-1 px-2.5 py-1.5 rounded border border-slate-200 bg-white text-xs">
+                                            <div class="relative w-20 shrink-0">
+                                                <input type="number"
+                                                       :name="'problem_items[' + idx + '][weight_percent]'"
+                                                       x-model="pt.weight_percent"
+                                                       min="1" max="100"
+                                                       class="w-full pl-2 pr-5 py-1.5 rounded border border-slate-200 bg-white text-xs font-semibold">
+                                                <span class="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">%</span>
+                                            </div>
+                                            <button type="button" @click="removeDeliveryPoint(idx)" class="px-1.5 py-1 text-slate-400 hover:text-rose-600 text-xs">✕</button>
+                                        </div>
+                                    </template>
+                                </div>
                             </div>
                         @elseif($ticket->currentRole?->head_user_id)
                             <p class="text-xs text-slate-600">Prioritas: {{ $ticket->priorityLabel() }}</p>

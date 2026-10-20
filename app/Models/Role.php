@@ -65,6 +65,37 @@ class Role extends Model
     }
 
     /**
+     * Daftar staff yang dapat menerima distribusi tugas (delivery) dari Kepala/Supervisor Role ini.
+     * Mencakup anggota di dalam role ini maupun role bawahan operasional (seperti Staff / Admin IT di bawah Supervisor IT).
+     */
+    public function assignableStaffUsers(): Collection
+    {
+        $roleIds = [$this->id];
+
+        $childIds = self::where('parent_id', $this->id)
+            ->where('slug', '!=', 'mahasiswa')
+            ->pluck('id')
+            ->all();
+        if (!empty($childIds)) {
+            $roleIds = array_merge($roleIds, $childIds);
+            $grandChildIds = self::whereIn('parent_id', $childIds)
+                ->where('slug', '!=', 'mahasiswa')
+                ->pluck('id')
+                ->all();
+            if (!empty($grandChildIds)) {
+                $roleIds = array_merge($roleIds, $grandChildIds);
+            }
+        }
+
+        return User::with('role')
+            ->whereIn('role_id', array_unique($roleIds))
+            ->when($this->head_user_id, fn ($q) => $q->where('id', '!=', $this->head_user_id))
+            ->orderBy('name')
+            ->limit(100)
+            ->get(['id', 'name', 'role_id', 'jabatan', 'keahlian']);
+    }
+
+    /**
      * Tiket yang baru masuk ke role ini diterima dulu oleh kepala, kalau ada.
      */
     public function defaultAssignee(): ?User

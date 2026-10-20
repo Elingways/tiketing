@@ -125,19 +125,30 @@
         </div>
         @if($waitingTickets->isNotEmpty())
             <div class="border-t border-slate-200">
-                <div class="px-5 py-3 bg-slate-50/80">
-                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Belum dibagikan</p>
+                <div class="px-5 py-3 bg-amber-50/70 border-b border-amber-100 flex items-center justify-between gap-2">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-amber-800">Tiket Baru Masuk — Belum Dibagikan ke Staff ({{ $waitingTickets->count() }})</p>
+                    <span class="text-[11px] text-amber-700">Klik Proses untuk set prioritas, input poin pekerjaan (%), &amp; deliver ke staff</span>
                 </div>
                 <div class="divide-y divide-slate-100">
                     @foreach($waitingTickets as $ticket)
-                        <div class="px-5 py-3 flex items-center justify-between gap-3">
+                        <div class="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition">
                             <div class="min-w-0">
-                                <span class="font-mono text-[11px] font-semibold text-indigo-600">{{ $ticket->ticket_number }}</span>
-                                <p class="text-xs font-semibold text-slate-900 truncate">{{ $ticket->title }}</p>
-                                <p class="text-[11px] text-slate-500">{{ $ticket->creator?->name }} · {{ $ticket->priorityLabel() }}</p>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-mono text-[11px] font-semibold text-indigo-600">{{ $ticket->ticket_number }}</span>
+                                    @if($ticket->category)
+                                        <span class="px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-semibold">{{ $ticket->category->name }}</span>
+                                    @endif
+                                    @if($ticket->attachment_path)
+                                        <span class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-medium">
+                                            {{ $ticket->isImageAttachment() ? '🖼️ Gambar Bukti' : '📎 Lampiran' }}
+                                        </span>
+                                    @endif
+                                </div>
+                                <p class="text-xs font-semibold text-slate-900 truncate mt-1">{{ $ticket->title }}</p>
+                                <p class="text-[11px] text-slate-500">{{ $ticket->creator?->name }} ({{ $ticket->creatorRole?->name }}) · {{ $ticket->priorityLabel() }}</p>
                             </div>
                             <a href="{{ route('tickets.show', $ticket) }}"
-                               class="shrink-0 px-3 py-1 rounded-lg bg-slate-900 text-white text-xs font-medium">
+                               class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium">
                                 Proses →
                             </a>
                         </div>
@@ -360,6 +371,9 @@
                             <a href="{{ route('tickets.show', $openTicket) }}" class="mt-1 block text-xs font-semibold text-slate-900 hover:text-indigo-600">{{ $openTicket->title }}</a>
                             <p class="mt-0.5 text-[11px] text-slate-500">
                                 {{ $openTicket->statusLabel() }}
+                                @if(($openTicket->problems_count ?? 0) > 0)
+                                    · <span class="font-semibold text-emerald-700">{{ $openTicket->done_problems_count ?? 0 }}/{{ $openTicket->problems_count }} poin selesai</span>
+                                @endif
                                 @if($openTicket->priority_rank)
                                     · Usulan pemohon: {{ $openTicket->priorityLabel() }}
                                 @endif

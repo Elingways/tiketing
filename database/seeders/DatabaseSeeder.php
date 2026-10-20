@@ -279,6 +279,9 @@ class DatabaseSeeder extends Seeder
             'avatar_color' => 'violet',
         ]);
 
+        // Tetapkan Ir. Hendra Pratama sebagai Kepala Role Supervisor IT (menerima request IT pertama, menetapkan prioritas, poin pekerjaan %, & mendeliver ke Staff IT)
+        $supervisorItRole->update(['head_user_id' => $supervisorItUser->id]);
+
         $adminItLead = User::create([
             'name' => 'Rizky Aditya, S.Kom., M.Cs.',
             'email' => 'admin.it@kampus.ac.id',
@@ -289,57 +292,56 @@ class DatabaseSeeder extends Seeder
             'identity_number' => 'KRY-IT-002',
             'department' => 'Direktorat Teknologi Informasi (DTI)',
             'fakultas' => 'DIREKTORAT IT & INFRASTRUKTUR',
-            'jabatan' => 'Kepala / Koordinator Admin IT',
-            'keahlian' => 'Koordinasi Helpdesk & Sistem Informasi',
+            'jabatan' => 'Admin IT & Helpdesk',
+            'keahlian' => 'Administrasi Sistem & Akun Kampus',
             'avatar_color' => 'sky',
         ]);
 
-        // Tetapkan Rizky Aditya sebagai Kepala Role Admin IT (menerima tiket masuk pertama untuk didistribusikan ke teknisi Admin IT)
         $adminItRole->update(['head_user_id' => $adminItLead->id]);
 
         $adminItJaringan = User::create([
             'name' => 'Fajar Nugroho, S.T.',
             'email' => 'fajar.jaringan@kampus.ac.id',
             'password' => Hash::make('password'),
-            'role_id' => $adminItRole->id,
-            'supervisor_id' => $adminItLead->id,
+            'role_id' => $staffRole->id,
+            'supervisor_id' => $supervisorItUser->id,
             'user_type' => 'karyawan',
             'identity_number' => 'KRY-IT-003',
             'department' => 'Direktorat Teknologi Informasi (DTI)',
             'fakultas' => 'DIREKTORAT IT & INFRASTRUKTUR',
-            'jabatan' => 'Teknisi Admin IT — Jaringan',
+            'jabatan' => 'Staff IT — Spesialis Jaringan',
             'keahlian' => 'Jaringan & Server',
-            'avatar_color' => 'sky',
+            'avatar_color' => 'emerald',
         ]);
 
         $adminItHardware = User::create([
             'name' => 'Bagas Setiawan, A.Md.Kom.',
             'email' => 'bagas.hardware@kampus.ac.id',
             'password' => Hash::make('password'),
-            'role_id' => $adminItRole->id,
-            'supervisor_id' => $adminItLead->id,
+            'role_id' => $staffRole->id,
+            'supervisor_id' => $supervisorItUser->id,
             'user_type' => 'karyawan',
             'identity_number' => 'KRY-IT-004',
             'department' => 'Direktorat Teknologi Informasi (DTI)',
             'fakultas' => 'DIREKTORAT IT & INFRASTRUKTUR',
-            'jabatan' => 'Teknisi Admin IT — Hardware',
+            'jabatan' => 'Staff IT — Spesialis Hardware',
             'keahlian' => 'Perangkat keras',
-            'avatar_color' => 'sky',
+            'avatar_color' => 'emerald',
         ]);
 
         $adminItAplikasi = User::create([
             'name' => 'Nadia Kusuma, S.Kom.',
             'email' => 'nadia.aplikasi@kampus.ac.id',
             'password' => Hash::make('password'),
-            'role_id' => $adminItRole->id,
-            'supervisor_id' => $adminItLead->id,
+            'role_id' => $staffRole->id,
+            'supervisor_id' => $supervisorItUser->id,
             'user_type' => 'karyawan',
             'identity_number' => 'KRY-IT-005',
             'department' => 'Direktorat Teknologi Informasi (DTI)',
             'fakultas' => 'DIREKTORAT IT & INFRASTRUKTUR',
-            'jabatan' => 'Teknisi Admin IT — Aplikasi',
+            'jabatan' => 'Staff IT — Spesialis Aplikasi',
             'keahlian' => 'Aplikasi & SIAKAD',
-            'avatar_color' => 'sky',
+            'avatar_color' => 'emerald',
         ]);
 
         $staffItLab = User::create([
@@ -347,7 +349,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'staff.it@kampus.ac.id',
             'password' => Hash::make('password'),
             'role_id' => $staffRole->id,
-            'supervisor_id' => $adminItLead->id,
+            'supervisor_id' => $supervisorItUser->id,
             'user_type' => 'karyawan',
             'identity_number' => 'KRY-IT-006',
             'department' => 'Unit Laboratorium & Operasional IT',
@@ -362,7 +364,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'staff.umum@kampus.ac.id',
             'password' => Hash::make('password'),
             'role_id' => $staffRole->id,
-            'supervisor_id' => $adminItLead->id,
+            'supervisor_id' => $supervisorItUser->id,
             'user_type' => 'karyawan',
             'identity_number' => 'KRY-ADM-007',
             'department' => 'Bagian Umum & Sarana Prasarana',
@@ -642,30 +644,49 @@ class DatabaseSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        // Kategori Layanan Khusus Kasus IT (Staff -> Admin IT -> Supervisor IT)
-        $catGangguanIt = TicketCategory::create([
-            'name' => 'Layanan Gangguan Jaringan & Perangkat IT',
-            'slug' => 'layanan-gangguan-perangkat-it',
+        // Kategori Layanan Spesifik Divisi IT (Disetting Superadmin -> Masuk ke Supervisor IT -> Set Prioritas & Poin % -> Deliver ke Staff IT)
+        $sampleItImageSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="720" height="360" viewBox="0 0 720 360"><rect width="720" height="360" rx="16" fill="#0f172a"/><rect x="24" y="24" width="672" height="44" rx="8" fill="#1e293b"/><circle cx="48" cy="46" r="7" fill="#ef4444"/><circle cx="70" cy="46" r="7" fill="#f59e0b"/><circle cx="92" cy="46" r="7" fill="#10b981"/><text x="120" y="51" fill="#94a3b8" font-family="monospace" font-size="13">MONITORING INFRASTRUKTUR DIVISI IT KAMPUS USH</text><rect x="24" y="88" width="672" height="248" rx="10" fill="#111827" stroke="#334155"/><text x="48" y="130" fill="#f87171" font-family="monospace" font-size="16" font-weight="bold">[ALERT] TANGKAPAN LAYAR BUKTI GANGGUAN IT</text><text x="48" y="165" fill="#e2e8f0" font-family="monospace" font-size="13">• Lokasi   : Gedung Laboratorium Terpadu / Ruang Server USH</text><text x="48" y="192" fill="#e2e8f0" font-family="monospace" font-size="13">• Status   : Request Masuk ke Supervisor IT untuk Delivery ke Staff</text><text x="48" y="219" fill="#38bdf8" font-family="monospace" font-size="13">• Lampiran : Foto / Screenshot Bukti Kendala Lapangan</text><rect x="48" y="250" width="624" height="54" rx="8" fill="#1e293b"/><text x="68" y="282" fill="#fbbf24" font-family="monospace" font-size="13">Menunggu pengecekan &amp; penyelesaian poin pekerjaan oleh Staff IT</text></svg>';
+        \Illuminate\Support\Facades\Storage::disk('public')->put('attachments/bukti_gangguan_jaringan_lt3.svg', $sampleItImageSvg);
+        \Illuminate\Support\Facades\Storage::disk('public')->put('attachments/bukti_error_pc_lab_b204.svg', $sampleItImageSvg);
+        \Illuminate\Support\Facades\Storage::disk('public')->put('attachments/bukti_error_siakad_502.svg', $sampleItImageSvg);
+
+        $catItJaringan = TicketCategory::create([
+            'name' => 'IT — Gangguan Jaringan, Wi-Fi & Server',
+            'slug' => 'it-gangguan-jaringan-wifi-server',
             'icon' => 'adjustments-horizontal',
             'color' => 'sky',
-            'description' => 'Penanganan gangguan jaringan, server, PC laboratorium, dan perangkat keras oleh tim Admin IT sesuai spesialisasi keahlian dengan supervisi Supervisor IT.',
-            'workflow_roles' => [$staffRole->id, $adminItRole->id, $supervisorItRole->id],
-            'initial_target_role_id' => $adminItRole->id,
+            'description' => 'Kategori spesifik Divisi IT untuk penanganan gangguan internet, switch, access point Wi-Fi, dan server. Masuk ke Supervisor IT untuk penentuan prioritas, rincian poin pekerjaan (%), dan delivery ke Staff IT.',
+            'workflow_roles' => [$mahasiswaRole->id, $supervisorItRole->id],
+            'initial_target_role_id' => $supervisorItRole->id,
             'workflow_type' => 'escalation',
             'max_approval_role_id' => $supervisorItRole->id,
             'is_attachment_required' => false,
             'is_active' => true,
         ]);
 
-        $catInfrastrukturIt = TicketCategory::create([
-            'name' => 'Pengadaan & Upgrade Infrastruktur Server IT',
-            'slug' => 'pengadaan-upgrade-server-it',
+        $catItHardware = TicketCategory::create([
+            'name' => 'IT — Perbaikan Perangkat Keras (PC, Laptop & Proyektor)',
+            'slug' => 'it-perbaikan-perangkat-keras',
             'icon' => 'shield-check',
             'color' => 'violet',
-            'description' => 'Alur persetujuan berjenjang pengajuan upgrade kapasitas server, jaringan, dan lisensi sistem: Staff → Admin IT → Supervisor IT.',
-            'workflow_roles' => [$staffRole->id, $adminItRole->id, $supervisorItRole->id],
-            'initial_target_role_id' => $adminItRole->id,
-            'workflow_type' => 'tiered_approval',
+            'description' => 'Kategori spesifik Divisi IT untuk perbaikan PC laboratorium, proyektor ruang kuliah, printer, dan perangkat keras. Masuk ke Supervisor IT untuk dideliver ke Staff Hardware.',
+            'workflow_roles' => [$mahasiswaRole->id, $supervisorItRole->id],
+            'initial_target_role_id' => $supervisorItRole->id,
+            'workflow_type' => 'escalation',
+            'max_approval_role_id' => $supervisorItRole->id,
+            'is_attachment_required' => false,
+            'is_active' => true,
+        ]);
+
+        $catItAplikasi = TicketCategory::create([
+            'name' => 'IT — Kendala Sistem Informasi & Aplikasi SIAKAD',
+            'slug' => 'it-kendala-sistem-aplikasi-siakad',
+            'icon' => 'ticket',
+            'color' => 'emerald',
+            'description' => 'Kategori spesifik Divisi IT untuk penanganan bug aplikasi, akun portal akademik, dan database SIAKAD. Masuk ke Supervisor IT untuk dideliver ke Staff Aplikasi.',
+            'workflow_roles' => [$mahasiswaRole->id, $supervisorItRole->id],
+            'initial_target_role_id' => $supervisorItRole->id,
+            'workflow_type' => 'escalation',
             'max_approval_role_id' => $supervisorItRole->id,
             'is_attachment_required' => false,
             'is_active' => true,
@@ -831,30 +852,64 @@ class DatabaseSeeder extends Seeder
             'note' => 'Disetujui oleh Dekan. Surat tugas dan dispensasi perkuliahan resmi diterbitkan.',
         ]);
 
-        // Tiket 5 (Kasus IT #1): Staff mengajukan gangguan jaringan -> Kepala Admin IT mengarahkan ke Fajar (Keahlian: Jaringan & Server) + Progres 70%
+        // Tiket 5 (Kasus Divisi IT #1 — BARU MASUK DI SUPERVISOR IT):
+        // Request masuk dari Kategori IT spesifik + Deskripsi + Gambar Bukti -> Masuk ke Inbox Supervisor IT, siap ditentukan Priority, Poin Pekerjaan (%), dan Delivery ke Staff!
         $t5 = Ticket::create([
             'ticket_number' => 'TKT-202610-0005',
+            'title' => 'Error 502 Bad Gateway Saat Sinkronisasi KRS di Portal SIAKAD',
+            'description' => 'Selamat pagi tim Divisi IT, sejak pukul 09.15 WIB halaman sinkronisasi KRS di portal SIAKAD menampilkan pesan Error 502 Bad Gateway seperti pada gambar tangkapan layar terlampir. Mohon bantuannya untuk pengecekan service backend dan database.',
+            'attachment_path' => 'attachments/bukti_error_siakad_502.svg',
+            'attachment_name' => 'Screenshot_Error_502_SIAKAD.svg',
+            'category_id' => $catItAplikasi->id,
+            'priority' => 'urgent',
+            'priority_rank' => 1,
+            'workflow_type' => 'escalation',
+            'creator_id' => $adminItLead->id,
+            'creator_role_id' => $adminItRole->id,
+            'current_role_id' => $supervisorItRole->id,
+            'assigned_user_id' => $supervisorItUser->id,
+            'status' => 'open',
+            'approval_step' => 1,
+        ]);
+
+        TicketLog::create([
+            'ticket_id' => $t5->id,
+            'user_id' => $adminItLead->id,
+            'from_role_id' => $adminItRole->id,
+            'to_role_id' => $supervisorItRole->id,
+            'action' => 'created',
+            'note' => 'Request layanan IT dibuat dengan lampiran gambar bukti kendala dan masuk ke Inbox Supervisor IT untuk penentuan prioritas, input poin pekerjaan (%), serta delivery ke Staff IT.',
+        ]);
+
+        // Tiket 6 (Kasus Divisi IT #2 — SUDAH DIDELIVER SUPERVISOR IT KE STAFF JARINGAN DENGAN POIN % -> PROGRES 70%):
+        // Supervisor IT menetapkan 3 poin pekerjaan (30% + 40% + 30% = 100%) dan mendeliver ke Fajar Nugroho (Staff Jaringan).
+        // Fajar sudah mencentang 2 poin (30% + 40%), sehingga progres otomatis tercatat 70%!
+        $t6 = Ticket::create([
+            'ticket_number' => 'TKT-202610-0006',
             'title' => 'Gangguan Koneksi Switch & Access Point Wi-Fi Laboratorium Terpadu Lt. 3',
-            'description' => 'Koneksi internet dan jaringan lokal di Laboratorium Terpadu Lantai 3 terputus sejak pukul 08.00 WIB sehingga PC praktikum tidak dapat mengakses server lokal.',
-            'category_id' => $catGangguanIt->id,
+            'description' => 'Koneksi internet dan jaringan lokal di Laboratorium Terpadu Lantai 3 terputus sejak pukul 08.00 WIB sehingga PC praktikum tidak dapat mengakses server lokal. Foto indikator switch terlampir.',
+            'attachment_path' => 'attachments/bukti_gangguan_jaringan_lt3.svg',
+            'attachment_name' => 'Foto_Indikator_Switch_Lt3.svg',
+            'category_id' => $catItJaringan->id,
             'priority' => 'urgent',
             'priority_rank' => 1,
             'assessed_priority_rank' => 1,
             'workflow_type' => 'escalation',
-            'creator_id' => $staffItLab->id,
-            'creator_role_id' => $staffRole->id,
-            'current_role_id' => $adminItRole->id,
+            'creator_id' => $mahasiswa1->id,
+            'creator_role_id' => $mahasiswaRole->id,
+            'current_role_id' => $supervisorItRole->id,
             'assigned_user_id' => $adminItJaringan->id,
             'status' => 'in_progress',
             'work_status' => 'in_progress',
             'progress_percent' => 70,
-            'progress_note' => 'Switch distribusi lantai 3 sudah di-restart dan port uplink diganti. Saat ini sedang uji beban trafik Wi-Fi.',
+            'progress_note' => 'Switch distribusi lantai 3 dan konfigurasi VLAN sudah selesai (70%). Sedang lanjut uji ping di 30 PC klien (30%).',
             'approval_step' => 1,
         ]);
 
         TicketProblem::create([
-            'ticket_id' => $t5->id,
+            'ticket_id' => $t6->id,
             'title' => 'Pengecekan jalur kabel Fiber Optic & port uplink switch lantai 3',
+            'weight_percent' => 30,
             'is_done' => true,
             'done_by' => $adminItJaringan->id,
             'done_at' => now()->subMinutes(40),
@@ -862,8 +917,9 @@ class DatabaseSeeder extends Seeder
         ]);
 
         TicketProblem::create([
-            'ticket_id' => $t5->id,
+            'ticket_id' => $t6->id,
             'title' => 'Konfigurasi ulang VLAN laboratorium pada Mikrotik Core Router',
+            'weight_percent' => 40,
             'is_done' => true,
             'done_by' => $adminItJaringan->id,
             'done_at' => now()->subMinutes(20),
@@ -871,63 +927,76 @@ class DatabaseSeeder extends Seeder
         ]);
 
         TicketProblem::create([
-            'ticket_id' => $t5->id,
+            'ticket_id' => $t6->id,
             'title' => 'Pengujian stabilitas ping & bandwidth di 30 PC klien laboratorium',
+            'weight_percent' => 30,
             'is_done' => false,
             'sort_order' => 3,
         ]);
 
         TicketLog::create([
-            'ticket_id' => $t5->id,
-            'user_id' => $staffItLab->id,
-            'from_role_id' => $staffRole->id,
-            'to_role_id' => $adminItRole->id,
+            'ticket_id' => $t6->id,
+            'user_id' => $mahasiswa1->id,
+            'from_role_id' => $mahasiswaRole->id,
+            'to_role_id' => $supervisorItRole->id,
             'action' => 'created',
-            'note' => 'Tiket gangguan jaringan dibuat oleh Staff Lab dan masuk ke Kepala Role Admin IT.',
+            'note' => 'Request gangguan jaringan masuk ke Supervisor IT beserta foto bukti indikator switch.',
         ]);
 
         TicketLog::create([
-            'ticket_id' => $t5->id,
-            'user_id' => $adminItLead->id,
-            'from_role_id' => $adminItRole->id,
-            'to_role_id' => $adminItRole->id,
+            'ticket_id' => $t6->id,
+            'user_id' => $supervisorItUser->id,
+            'from_role_id' => $supervisorItRole->id,
+            'to_role_id' => $supervisorItRole->id,
+            'action' => 'problems_set',
+            'note' => 'Supervisor menetapkan 3 poin pekerjaan untuk staff: Pengecekan jalur kabel Fiber Optic & port uplink switch lantai 3 (30%); Konfigurasi ulang VLAN laboratorium pada Mikrotik Core Router (40%); Pengujian stabilitas ping & bandwidth di 30 PC klien laboratorium (30%).',
+        ]);
+
+        TicketLog::create([
+            'ticket_id' => $t6->id,
+            'user_id' => $supervisorItUser->id,
+            'from_role_id' => $supervisorItRole->id,
+            'to_role_id' => $supervisorItRole->id,
             'action' => 'priority_set',
-            'note' => 'Prioritas 1 (Mendesak) dikonfirmasi oleh Kepala Admin IT dan diarahkan ke Fajar Nugroho, S.T. (keahlian: Jaringan & Server).',
+            'note' => 'Prioritas 1 (Mendesak) ditetapkan oleh Supervisor IT dan tugas di-deliver ke Fajar Nugroho, S.T. (keahlian: Jaringan & Server).',
         ]);
 
         TicketLog::create([
-            'ticket_id' => $t5->id,
+            'ticket_id' => $t6->id,
             'user_id' => $adminItJaringan->id,
-            'from_role_id' => $adminItRole->id,
-            'to_role_id' => $adminItRole->id,
-            'action' => 'progress_reported',
-            'note' => 'Staff melaporkan progres pengerjaan 70%. Status: In progress. Catatan: Switch distribusi lantai 3 sudah di-restart dan port uplink diganti.',
+            'from_role_id' => $staffRole->id,
+            'to_role_id' => $supervisorItRole->id,
+            'action' => 'problem_done',
+            'note' => 'Masalah selesai: Konfigurasi ulang VLAN laboratorium pada Mikrotik Core Router (40%). Total progres pengerjaan: 70%.',
         ]);
 
-        // Tiket 6 (Kasus IT #2): Gangguan Perangkat Keras -> Ditugaskan ke Bagas (Keahlian: Perangkat keras) dengan status Blocked (menunggu sparepart)
-        $t6 = Ticket::create([
-            'ticket_number' => 'TKT-202610-0006',
+        // Tiket 7 (Kasus Divisi IT #3 — SUDAH DIDELIVER SUPERVISOR IT KE STAFF HARDWARE DENGAN POIN % -> PROGRES 30%):
+        $t7 = Ticket::create([
+            'ticket_number' => 'TKT-202610-0007',
             'title' => 'Perbaikan 4 Unit PC Praktikum & Proyektor Ruang Kelas B-204',
-            'description' => 'Mohon bantuan teknisi hardware untuk mengecek 4 unit PC yang mati total serta proyektor ruang B-204 yang tampilan warnanya bergaris.',
-            'category_id' => $catGangguanIt->id,
+            'description' => 'Mohon bantuan teknisi hardware untuk mengecek 4 unit PC yang mati total serta proyektor ruang B-204 yang tampilan warnanya bergaris seperti pada foto terlampir.',
+            'attachment_path' => 'attachments/bukti_error_pc_lab_b204.svg',
+            'attachment_name' => 'Foto_Kondisi_PC_dan_Proyektor_B204.svg',
+            'category_id' => $catItHardware->id,
             'priority' => 'high',
             'priority_rank' => 2,
             'assessed_priority_rank' => 2,
             'workflow_type' => 'escalation',
-            'creator_id' => $staffUmum->id,
-            'creator_role_id' => $staffRole->id,
-            'current_role_id' => $adminItRole->id,
+            'creator_id' => $dosen->id,
+            'creator_role_id' => $dosenRole->id,
+            'current_role_id' => $supervisorItRole->id,
             'assigned_user_id' => $adminItHardware->id,
             'status' => 'in_progress',
-            'work_status' => 'blocked',
-            'progress_percent' => 50,
-            'progress_note' => '2 unit PC dan kabel HDMI proyektor sudah diperbaiki, namun 2 unit PC lainnya membutuhkan penggantian Power Supply (PSU) baru dari gudang.',
+            'work_status' => 'in_progress',
+            'progress_percent' => 30,
+            'progress_note' => 'Konektor HDMI & kalibrasi proyektor sudah selesai (30%). Sedang lanjut penggantian PSU pada PC praktikum.',
             'approval_step' => 1,
         ]);
 
         TicketProblem::create([
-            'ticket_id' => $t6->id,
-            'title' => 'Penggantian konektor HDMI & kalibrasi lampu proyektor B-204',
+            'ticket_id' => $t7->id,
+            'title' => 'Penggantian konektor HDMI & kalibrasi fokus proyektor ruang B-204',
+            'weight_percent' => 30,
             'is_done' => true,
             'done_by' => $adminItHardware->id,
             'done_at' => now()->subHour(),
@@ -935,63 +1004,37 @@ class DatabaseSeeder extends Seeder
         ]);
 
         TicketProblem::create([
-            'ticket_id' => $t6->id,
+            'ticket_id' => $t7->id,
             'title' => 'Penggantian unit Power Supply (PSU) 500W pada PC-08 dan PC-12',
+            'weight_percent' => 50,
             'is_done' => false,
             'sort_order' => 2,
         ]);
 
-        TicketLog::create([
-            'ticket_id' => $t6->id,
-            'user_id' => $staffUmum->id,
-            'from_role_id' => $staffRole->id,
-            'to_role_id' => $adminItRole->id,
-            'action' => 'created',
-            'note' => 'Tiket perbaikan perangkat keras diajukan oleh Staff Sarpras ke Admin IT.',
-        ]);
-
-        TicketLog::create([
-            'ticket_id' => $t6->id,
-            'user_id' => $adminItLead->id,
-            'from_role_id' => $adminItRole->id,
-            'to_role_id' => $adminItRole->id,
-            'action' => 'priority_set',
-            'note' => 'Diarahkan ke Bagas Setiawan, A.Md.Kom. (keahlian: Perangkat keras) oleh Kepala Admin IT.',
-        ]);
-
-        // Tiket 7 (Kasus IT #3): Alur Hirarki Penuh Staff -> Admin IT -> Supervisor IT (Sedang di Inbox Supervisor IT)
-        $t7 = Ticket::create([
-            'ticket_number' => 'TKT-202610-0007',
-            'title' => 'Pengajuan Upgrade Storage Server SIAKAD & Lisensi Firewall Kampus',
-            'description' => 'Kapasitas partisi database server SIAKAD telah mencapai 85%. Mohon persetujuan penambahan 2 keping SSD Enterprise NVMe 4TB beserta perpanjangan lisensi Firewall.',
-            'category_id' => $catInfrastrukturIt->id,
-            'priority' => 'urgent',
-            'priority_rank' => 1,
-            'workflow_type' => 'tiered_approval',
-            'creator_id' => $staffItLab->id,
-            'creator_role_id' => $staffRole->id,
-            'current_role_id' => $supervisorItRole->id,
-            'assigned_user_id' => $supervisorItUser->id,
-            'status' => 'waiting_next_approval',
-            'approval_step' => 2,
+        TicketProblem::create([
+            'ticket_id' => $t7->id,
+            'title' => 'Uji nyala & pengecekan suhu hardware seluruh 4 PC praktikum',
+            'weight_percent' => 20,
+            'is_done' => false,
+            'sort_order' => 3,
         ]);
 
         TicketLog::create([
             'ticket_id' => $t7->id,
-            'user_id' => $staffItLab->id,
-            'from_role_id' => $staffRole->id,
-            'to_role_id' => $adminItRole->id,
-            'action' => 'created',
-            'note' => 'Pengajuan upgrade kapasitas server dibuat oleh Staff IT dan masuk ke Admin IT.',
-        ]);
-
-        TicketLog::create([
-            'ticket_id' => $t7->id,
-            'user_id' => $adminItLead->id,
-            'from_role_id' => $adminItRole->id,
+            'user_id' => $dosen->id,
+            'from_role_id' => $dosenRole->id,
             'to_role_id' => $supervisorItRole->id,
-            'action' => 'approved_step',
-            'note' => 'Spesifikasi teknis SSD NVMe dan kebutuhan beban server sudah diverifikasi oleh Admin IT. Diteruskan ke Supervisor IT untuk pengesahan.',
+            'action' => 'created',
+            'note' => 'Request perbaikan perangkat keras diajukan ke Supervisor IT.',
+        ]);
+
+        TicketLog::create([
+            'ticket_id' => $t7->id,
+            'user_id' => $supervisorItUser->id,
+            'from_role_id' => $supervisorItRole->id,
+            'to_role_id' => $supervisorItRole->id,
+            'action' => 'priority_set',
+            'note' => 'Supervisor IT menetapkan 3 poin pekerjaan (30%, 50%, 20%) dan men-deliver tugas ke Bagas Setiawan, A.Md.Kom. (keahlian: Perangkat keras).',
         ]);
     }
 }

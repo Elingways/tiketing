@@ -704,6 +704,7 @@ class TicketingHierarchyTest extends TestCase
         $supervisorIt = User::where('email', 'supervisor.it@kampus.ac.id')->firstOrFail();
         $adminItLead = User::where('email', 'admin.it@kampus.ac.id')->firstOrFail();
         $staffJaringan = User::where('email', 'fajar.jaringan@kampus.ac.id')->firstOrFail();
+        $staffAplikasi = User::where('email', 'nadia.aplikasi@kampus.ac.id')->firstOrFail();
         $staffLab = User::where('email', 'staff.it@kampus.ac.id')->firstOrFail();
 
         // 1. Sub-Sidebar Karyawan tampil dan memuat daftar karyawan IT (Supervisor IT, Admin IT, Staff)
@@ -716,17 +717,55 @@ class TicketingHierarchyTest extends TestCase
             ->assertSee('Jaringan & Server', false)
             ->assertSee($staffLab->name, false);
 
-        // 2. Kepala Admin IT melihat progres pengerjaan Fajar (70%) dan Bagas (Blocked 50%) di Inbox
-        $this->actingAs($adminItLead)->get(route('tickets.inbox'))
-            ->assertOk()
-            ->assertSee('Fajar Nugroho, S.T.')
-            ->assertSee('70%')
-            ->assertSee('Bagas Setiawan, A.Md.Kom.');
-
-        // 3. Supervisor IT melihat tiket TKT-202610-0007 yang sudah diverifikasi Admin IT dan menunggu persetujuan Supervisor IT
+        // 2. Request IT baru (TKT-202610-0005) masuk ke Inbox Supervisor IT lengkap dengan gambar bukti
+        $incomingItTicket = Ticket::where('ticket_number', 'TKT-202610-0005')->firstOrFail();
         $this->actingAs($supervisorIt)->get(route('tickets.inbox'))
             ->assertOk()
-            ->assertSee('Pengajuan Upgrade Storage Server SIAKAD & Lisensi Firewall Kampus');
+            ->assertSee('Error 502 Bad Gateway Saat Sinkronisasi KRS di Portal SIAKAD')
+            ->assertSee('Fajar Nugroho, S.T.')
+            ->assertSee('70%');
+
+        // 3. Supervisor IT menetapkan priority, menginput poin pekerjaan beserta bobot % (30%, 50%, 20%), dan men-deliver ke Staff Aplikasi (Nadia)
+        $this->actingAs($supervisorIt)->post(route('tickets.action', $incomingItTicket), [
+            'action_type' => 'in_progress',
+            'priority_rank' => 1,
+            'assigned_user_id' => $staffAplikasi->id,
+            'problem_items' => [
+                ['title' => 'Cek log error PHP-FPM & Nginx server SIAKAD', 'weight_percent' => 30],
+                ['title' => 'Optimasi query sinkronisasi KRS & restart worker', 'weight_percent' => 50],
+                ['title' => 'Uji akses halaman KRS bersama bagian Akademik', 'weight_percent' => 20],
+            ],
+            'note' => 'Tolong segera dikerjakan sesuai urutan poin prioritas.',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $incomingItTicket->refresh()->load('problems');
+        $this->assertSame($staffAplikasi->id, (int) $incomingItTicket->assigned_user_id);
+        $this->assertCount(3, $incomingItTicket->problems);
+        $this->assertSame(0, $incomingItTicket->progressPercent());
+
+        // 4. Staff (Nadia) membuka tiket, mencentang poin pertama (30%) -> progres otomatis menjadi 30%, lalu mencentang poin kedua (50%) -> progres otomatis menjadi 80%
+        $firstPoint = $incomingItTicket->problems[0];
+        $secondPoint = $incomingItTicket->problems[1];
+
+        $this->actingAs($staffAplikasi)->post(route('tickets.problems.toggle', [$incomingItTicket, $firstPoint]))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $incomingItTicket->refresh();
+        $this->assertSame(30, $incomingItTicket->progressPercent());
+
+        $this->actingAs($staffAplikasi)->post(route('tickets.problems.toggle', [$incomingItTicket, $secondPoint]))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $incomingItTicket->refresh();
+        $this->assertSame(80, $incomingItTicket->progressPercent());
+
+        // 5. Supervisor IT melihat progres pengerjaan Nadia (80%) secara real-time di Inbox Supervisor IT
+        $this->actingAs($supervisorIt)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Nadia Kusuma, S.Kom.')
+            ->assertSee('80%');
     }
 }
 

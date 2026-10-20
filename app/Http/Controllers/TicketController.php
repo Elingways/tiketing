@@ -117,12 +117,19 @@ class TicketController extends Controller
                 $q->where('from_role_id', $user->role_id);
             });
         } else {
-            $query->where('current_role_id', $user->role_id)
-                ->whereNotIn('status', ['resolved', 'rejected', 'closed']);
             $headId = $user->role?->head_user_id;
             $isHead = $headId && (int) $headId === (int) $user->id;
-            if ($headId && !$isHead && !$user->isSuperuser()) {
-                $query->where('assigned_user_id', $user->id);
+            if ($isHead) {
+                $query->where('current_role_id', $user->role_id)
+                    ->whereNotIn('status', ['resolved', 'rejected', 'closed']);
+            } elseif ($headId && !$user->isSuperuser()) {
+                $query->where('assigned_user_id', $user->id)
+                    ->whereNotIn('status', ['resolved', 'rejected', 'closed']);
+            } else {
+                $query->where(function ($q) use ($user) {
+                    $q->where('current_role_id', $user->role_id)
+                        ->orWhere('assigned_user_id', $user->id);
+                })->whereNotIn('status', ['resolved', 'rejected', 'closed']);
             }
         }
 
@@ -152,7 +159,7 @@ class TicketController extends Controller
         $isHead = $role && $role->head_user_id && (int) $role->head_user_id === (int) $user->id;
         $staffProgress = collect();
         if ($isHead) {
-            $inboxStaff = $role->users()->orderBy('name')->limit(100)->get(['id', 'name', 'jabatan', 'keahlian']);
+            $inboxStaff = $role->assignableStaffUsers();
             $staffProgress = $this->staffProgressForRole($role, $user);
         }
 
@@ -429,7 +436,7 @@ class TicketController extends Controller
         $roleStaff = collect();
         $canDirect = $ticket->canBeDirectedBy($user);
         if ($canDirect && $ticket->currentRole?->head_user_id) {
-            $roleStaff = User::where('role_id', $ticket->current_role_id)->orderBy('name')->limit(100)->get(['id', 'name', 'jabatan', 'keahlian']);
+            $roleStaff = $ticket->currentRole->assignableStaffUsers();
         }
 
         return view('tickets.show', compact(
@@ -458,6 +465,11 @@ class TicketController extends Controller
                 'progress_percent' => ['required', 'integer', 'between:0,100'],
             ])['progress_percent'];
             $this->recordReportedProgress($ticket, $user, $reportedPercent);
+        }
+
+        // Jika Supervisor ikut menginput poin detail pekerjaan + % bobot saat men-deliver ke staff
+        if ($ticket->canBeDirectedBy($user) && is_array($request->input('problem_items'))) {
+            $this->saveStructuredProblemItems($ticket, $user, $request->input('problem_items', []));
         }
 
         $validated = $request->validate([
@@ -495,10 +507,28 @@ class TicketController extends Controller
         }
 
         if ($actionType === 'in_progress') {
-            $ticket->update([
+            $chosenAssigneeId = !empty($validated['assigned_user_id'])
+                ? (int) $validated['assigned_user_id']
+                : ($ticket->assigned_user_id ?: $user->id);
+
+            $updates = [
                 'status' => 'in_progress',
-                'assigned_user_id' => $ticket->assigned_user_id ?: $user->id,
-            ]);
+                'assigned_user_id' => $chosenAssigneeId,
+            ];
+            if (!$ticket->work_status) {
+                $updates['work_status'] = 'delivered';
+            }
+
+            $ticket->update($updates);
+            $ticket->load('problems');
+            if ($ticket->hasWeightedProblems()) {
+                $ticket->recalculateProgressFromProblems();
+            }
+
+            $assignedStaff = User::find($chosenAssigneeId);
+            $deliveryNote = ($assignedStaff && (int) $assignedStaff->id !== (int) $user->id)
+                ? "Tugas di-deliver oleh {$user->name} ke staff {$assignedStaff->name}" . ($assignedStaff->keahlian ? " ({$assignedStaff->keahlian})" : '') . ". Catatan: {$note}"
+                : $note;
 
             TicketLog::create([
                 'ticket_id' => $ticket->id,
@@ -506,10 +536,15 @@ class TicketController extends Controller
                 'from_role_id' => $fromRole->id,
                 'to_role_id' => $fromRole->id,
                 'action' => 'in_progress',
-                'note' => $note,
+                'note' => $deliveryNote,
             ]);
 
-            return back()->with('success', "Tiket ditandai sedang diproses oleh {$fromRole->name}.");
+            return back()->with(
+                'success',
+                ($assignedStaff && (int) $assignedStaff->id !== (int) $user->id)
+                    ? "Tiket berhasil di-deliver ke {$assignedStaff->name} beserta poin pekerjaan."
+                    : "Tiket ditandai sedang diproses oleh {$fromRole->name}."
+            );
         }
 
         if ($actionType === 'escalate') {
@@ -711,6 +746,17 @@ class TicketController extends Controller
             return back()->with('error', 'Hanya kepala yang dapat menetapkan masalah pada tiket ini.');
         }
 
+        // Mode 1: Input terstruktur (items[][title] & items[][weight_percent]) dengan bobot %
+        if (is_array($request->input('items'))) {
+            $savedCount = $this->saveStructuredProblemItems($ticket, $user, $request->input('items', []));
+            if ($savedCount === 0) {
+                return back()->with('error', 'Tuliskan minimal satu poin detail pekerjaan beserta bobot %-nya.');
+            }
+
+            return back()->with('success', "{$savedCount} poin pekerjaan beserta bobot % berhasil disimpan. Saat staff mencentang poin, progres % otomatis bertambah.");
+        }
+
+        // Mode 2: Input multiline (title)
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:2000'],
         ]);
@@ -740,6 +786,7 @@ class TicketController extends Controller
             TicketProblem::create([
                 'ticket_id' => $ticket->id,
                 'title' => $line,
+                'weight_percent' => 0,
                 'sort_order' => $nextOrder,
             ]);
         }
@@ -756,6 +803,57 @@ class TicketController extends Controller
         $ticket->load('problems');
 
         return back()->with('success', 'Masalah tiket ditetapkan. Staff mengisi persen pengerjaan secara manual.');
+    }
+
+    /**
+     * Simpan daftar poin pekerjaan terstruktur beserta bobot % penyelesaian (weight_percent)
+     */
+    private function saveStructuredProblemItems(Ticket $ticket, User $user, array $rawItems): int
+    {
+        $items = collect($rawItems)
+            ->map(function ($row) {
+                $title = trim((string) ($row['title'] ?? ''));
+                $weight = isset($row['weight_percent']) && $row['weight_percent'] !== ''
+                    ? max(0, min(100, (int) $row['weight_percent']))
+                    : 0;
+                return ['title' => $title, 'weight_percent' => $weight];
+            })
+            ->filter(fn ($row) => $row['title'] !== '')
+            ->values();
+
+        if ($items->isEmpty()) {
+            return 0;
+        }
+
+        $nextOrder = (int) $ticket->problems()->max('sort_order');
+        $labels = [];
+        foreach ($items as $item) {
+            $nextOrder++;
+            TicketProblem::create([
+                'ticket_id' => $ticket->id,
+                'title' => mb_substr($item['title'], 0, 200),
+                'weight_percent' => $item['weight_percent'],
+                'sort_order' => $nextOrder,
+            ]);
+            $labels[] = $item['title'] . ($item['weight_percent'] > 0 ? " ({$item['weight_percent']}%)" : '');
+        }
+
+        $ticket->unsetRelation('problems');
+        $ticket->load('problems');
+        if ($ticket->hasWeightedProblems()) {
+            $ticket->recalculateProgressFromProblems();
+        }
+
+        TicketLog::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => $user->id,
+            'from_role_id' => $user->role_id,
+            'to_role_id' => $ticket->current_role_id,
+            'action' => 'problems_set',
+            'note' => 'Supervisor menetapkan ' . $items->count() . ' poin pekerjaan untuk staff: ' . implode('; ', $labels) . '.',
+        ]);
+
+        return $items->count();
     }
 
     public function destroyProblem(Ticket $ticket, TicketProblem $problem)
@@ -775,6 +873,9 @@ class TicketController extends Controller
         $problem->delete();
         $ticket->unsetRelation('problems');
         $ticket->load('problems');
+        if ($ticket->hasWeightedProblems()) {
+            $ticket->recalculateProgressFromProblems();
+        }
 
         return back()->with('success', "Masalah \"{$title}\" dihapus.");
     }
@@ -799,16 +900,33 @@ class TicketController extends Controller
             'done_by' => $done ? $user->id : null,
         ]);
 
+        $ticket->unsetRelation('problems');
+        $ticket->load('problems');
+
+        $weightNote = $problem->weight_percent > 0 ? " ({$problem->weight_percent}%)" : '';
+        $newPercent = null;
+        if ($ticket->hasWeightedProblems()) {
+            $newPercent = $ticket->recalculateProgressFromProblems();
+            if ($ticket->status === 'open' && $done) {
+                $ticket->update(['status' => 'in_progress']);
+            }
+        }
+
         TicketLog::create([
             'ticket_id' => $ticket->id,
             'user_id' => $user->id,
             'from_role_id' => $user->role_id,
             'to_role_id' => $ticket->current_role_id,
             'action' => $done ? 'problem_done' : 'problem_reopened',
-            'note' => ($done ? 'Masalah selesai: ' : 'Masalah dibuka lagi: ') . $problem->title . '.',
+            'note' => ($done ? 'Masalah selesai: ' : 'Masalah dibuka lagi: ') . $problem->title . $weightNote
+                . ($newPercent !== null ? ". Total progres pengerjaan: {$newPercent}%." : '.'),
         ]);
 
-        return back()->with('success', $done ? 'Masalah ditandai selesai.' : 'Masalah dibuka lagi.');
+        $flashMessage = $done
+            ? ($newPercent !== null ? "Poin pekerjaan selesai (+{$problem->weight_percent}%). Progres tiket naik menjadi {$newPercent}%." : 'Masalah ditandai selesai.')
+            : ($newPercent !== null ? "Poin pekerjaan dibuka kembali. Progres tiket menjadi {$newPercent}%." : 'Masalah dibuka lagi.');
+
+        return back()->with('success', $flashMessage);
     }
 
     public function updateProgress(Request $request, Ticket $ticket)
@@ -879,10 +997,7 @@ class TicketController extends Controller
 
     private function staffProgressForRole(Role $role, User $head)
     {
-        $staffUsers = User::where('role_id', $role->id)
-            ->where('id', '!=', $head->id)
-            ->orderBy('name')
-            ->get(['id', 'name', 'keahlian']);
+        $staffUsers = $role->assignableStaffUsers();
 
         $openTickets = Ticket::query()
             ->where('current_role_id', $role->id)
@@ -923,7 +1038,11 @@ class TicketController extends Controller
             return 'Tinjau permintaan tiket dulu, lalu pilih staff yang keahliannya cocok.';
         }
 
-        $staff = User::whereKey($chosenStaffId)->where('role_id', $ticket->current_role_id)->first();
+        $assignableStaff = $ticket->currentRole
+            ? $ticket->currentRole->assignableStaffUsers()
+            : collect();
+        $staff = $assignableStaff->firstWhere('id', (int) $chosenStaffId)
+            ?? User::whereKey($chosenStaffId)->where('role_id', $ticket->current_role_id)->first();
         if (!$staff) {
             return 'Staff yang dipilih bukan anggota role ini.';
         }
