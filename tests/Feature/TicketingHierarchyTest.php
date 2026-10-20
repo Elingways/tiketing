@@ -143,6 +143,7 @@ class TicketingHierarchyTest extends TestCase
         $this->actingAs($superuser)->get(route('admin.users'))->assertRedirect(route('admin.users.students'));
         $this->actingAs($superuser)->get(route('admin.users.students'))->assertOk();
         $this->actingAs($superuser)->get(route('admin.users.lecturers'))->assertOk();
+        $this->actingAs($superuser)->get(route('admin.users.employees'))->assertOk();
     }
 
     public function test_siakad_rest_api_syncs_students_and_lecturers_with_roles(): void
@@ -345,7 +346,7 @@ class TicketingHierarchyTest extends TestCase
             ],
         ])->assertRedirect();
 
-        $role = Role::where('name', 'Admin IT')->firstOrFail();
+        $role = Role::where('name', 'Admin IT')->latest('id')->firstOrFail();
         $head = User::where('email', 'kepala.it@kampus.ac.id')->firstOrFail();
         $network = User::where('email', 'staff.jaringan@kampus.ac.id')->firstOrFail();
         $hardware = User::where('email', 'staff.hardware@kampus.ac.id')->firstOrFail();
@@ -695,6 +696,37 @@ class TicketingHierarchyTest extends TestCase
         $this->actingAs($mahasiswa)->get(route('tickets.history'))
             ->assertOk()
             ->assertDontSee('Perbaikan modul nilai');
+    }
+
+    public function test_employees_sub_sidebar_and_it_dummy_workflow_work_end_to_end(): void
+    {
+        $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+        $supervisorIt = User::where('email', 'supervisor.it@kampus.ac.id')->firstOrFail();
+        $adminItLead = User::where('email', 'admin.it@kampus.ac.id')->firstOrFail();
+        $staffJaringan = User::where('email', 'fajar.jaringan@kampus.ac.id')->firstOrFail();
+        $staffLab = User::where('email', 'staff.it@kampus.ac.id')->firstOrFail();
+
+        // 1. Sub-Sidebar Karyawan tampil dan memuat daftar karyawan IT (Supervisor IT, Admin IT, Staff)
+        $this->actingAs($superuser)->get(route('admin.users.employees'))
+            ->assertOk()
+            ->assertSee('Management Karyawan', false)
+            ->assertSee($supervisorIt->name, false)
+            ->assertSee($adminItLead->name, false)
+            ->assertSee($staffJaringan->name, false)
+            ->assertSee('Jaringan & Server', false)
+            ->assertSee($staffLab->name, false);
+
+        // 2. Kepala Admin IT melihat progres pengerjaan Fajar (70%) dan Bagas (Blocked 50%) di Inbox
+        $this->actingAs($adminItLead)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Fajar Nugroho, S.T.')
+            ->assertSee('70%')
+            ->assertSee('Bagas Setiawan, A.Md.Kom.');
+
+        // 3. Supervisor IT melihat tiket TKT-202610-0007 yang sudah diverifikasi Admin IT dan menunggu persetujuan Supervisor IT
+        $this->actingAs($supervisorIt)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Pengajuan Upgrade Storage Server SIAKAD & Lisensi Firewall Kampus');
     }
 }
 

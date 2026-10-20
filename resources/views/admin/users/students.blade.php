@@ -49,7 +49,7 @@
         </div>
 
         <div class="flex items-center gap-2 flex-wrap">
-            <!-- Switcher Sub-Menu Mahasiswa / Pengajar -->
+            <!-- Switcher Sub-Menu Mahasiswa / Pengajar / Karyawan -->
             <div class="inline-flex p-1 rounded-xl bg-white border border-slate-200">
                 <a href="{{ route('admin.users.students') }}"
                    class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white">
@@ -57,7 +57,11 @@
                 </a>
                 <a href="{{ route('admin.users.lecturers') }}"
                    class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">
-                    Pengajar (Dosen / Kaprodi / Dekan)
+                    Pengajar
+                </a>
+                <a href="{{ route('admin.users.employees') }}"
+                   class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">
+                    Karyawan
                 </a>
             </div>
 

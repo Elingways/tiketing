@@ -142,20 +142,13 @@ class UserController extends Controller
         $roleFilter = $request->input('role_id');
 
         $mahasiswaRole = Role::where('slug', 'mahasiswa')->first();
-        $lecturerRoles = Role::where('slug', '!=', 'mahasiswa')
+        $employeeRoleSlugs = ['supervisor-it', 'admin-it', 'staff', 'staff-it'];
+        $lecturerRoles = Role::whereNotIn('slug', array_merge(['mahasiswa'], $employeeRoleSlugs))
             ->orderBy('level')
             ->orderBy('name')
             ->get();
 
-        $baseQuery = User::where(function ($q) use ($mahasiswaRole) {
-            $q->where('user_type', 'pengajar');
-            if ($mahasiswaRole) {
-                $q->orWhere(function ($sq) use ($mahasiswaRole) {
-                    $sq->where('role_id', '!=', $mahasiswaRole->id)
-                        ->where('user_type', '!=', 'mahasiswa');
-                });
-            }
-        });
+        $baseQuery = User::where('user_type', 'pengajar');
 
         $totalLecturers = (clone $baseQuery)->count();
         $dosenCount = (clone $baseQuery)->whereHas('role', fn ($q) => $q->where('slug', 'dosen'))->count();
@@ -222,6 +215,100 @@ class UserController extends Controller
     }
 
     /**
+     * Sub-Sidebar 3: Management Karyawan (Admin IT, Staff, Supervisor IT & Tenaga Kependidikan)
+     */
+    public function employees(Request $request)
+    {
+        $search = trim((string) $request->input('search', ''));
+        $unitKerja = trim((string) $request->input('department', ''));
+        $roleFilter = $request->input('role_id');
+
+        $employeeRoleSlugs = ['supervisor-it', 'admin-it', 'staff', 'staff-it'];
+        $employeeRoleIds = Role::whereIn('slug', $employeeRoleSlugs)->pluck('id');
+
+        $employeeRoles = Role::where('slug', '!=', 'mahasiswa')
+            ->orderByRaw("CASE WHEN slug IN ('supervisor-it', 'admin-it', 'staff', 'staff-it') THEN 0 ELSE 1 END")
+            ->orderBy('level')
+            ->orderBy('name')
+            ->get();
+
+        $baseQuery = User::where(function ($q) use ($employeeRoleIds) {
+            $q->where('user_type', 'karyawan');
+            if ($employeeRoleIds->isNotEmpty()) {
+                $q->orWhereIn('role_id', $employeeRoleIds);
+            }
+        });
+
+        $totalEmployees = (clone $baseQuery)->count();
+        $supervisorItCount = (clone $baseQuery)->whereHas('role', fn ($q) => $q->where('slug', 'supervisor-it'))->count();
+        $adminItCount = (clone $baseQuery)->whereHas('role', fn ($q) => $q->where('slug', 'admin-it'))->count();
+        $staffCount = (clone $baseQuery)->whereHas('role', fn ($q) => $q->whereIn('slug', ['staff', 'staff-it']))->count();
+
+        $unitOptions = (clone $baseQuery)
+            ->whereNotNull('department')
+            ->where('department', '!=', '')
+            ->where('department', '!=', '-')
+            ->select('department')
+            ->distinct()
+            ->orderBy('department')
+            ->pluck('department');
+
+        $query = (clone $baseQuery)
+            ->with(['role.parent', 'supervisor.role'])
+            ->withCount([
+                'assignedTickets as active_tickets_count' => function ($q) {
+                    $q->whereNotIn('status', ['resolved', 'rejected', 'closed']);
+                },
+                'createdTickets',
+            ]);
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('identity_number', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('department', 'like', "%{$search}%")
+                    ->orWhere('jabatan', 'like', "%{$search}%")
+                    ->orWhere('keahlian', 'like', "%{$search}%");
+            });
+        }
+
+        if ($unitKerja !== '') {
+            $query->where('department', $unitKerja);
+        }
+
+        if ($roleFilter) {
+            $query->where('role_id', $roleFilter);
+        }
+
+        $employees = $query
+            ->orderBy('role_id')
+            ->orderBy('name')
+            ->paginate(20)
+            ->appends($request->query());
+
+        $allPotentialSupervisors = User::with('role')
+            ->where('user_type', '!=', 'mahasiswa')
+            ->orderBy('role_id')
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.users.employees', compact(
+            'employees',
+            'employeeRoles',
+            'allPotentialSupervisors',
+            'search',
+            'unitKerja',
+            'roleFilter',
+            'unitOptions',
+            'totalEmployees',
+            'supervisorItCount',
+            'adminItCount',
+            'staffCount'
+        ));
+    }
+
+    /**
      * Tarik / Sinkronisasi Data Mahasiswa & Pengajar dari REST API SIAKAD (SIAKAD_API_KEY=ush-secret-key-2026)
      */
     public function syncFromSiakad(Request $request, SiakadApiService $siakadService)
@@ -265,7 +352,7 @@ class UserController extends Controller
             'password' => ['nullable', 'string', 'min:4'],
             'role_id' => ['required', 'exists:roles,id'],
             'supervisor_id' => ['nullable', 'exists:users,id'],
-            'user_type' => ['nullable', 'in:mahasiswa,pengajar,admin'],
+            'user_type' => ['nullable', 'in:mahasiswa,pengajar,karyawan,admin'],
             'identity_number' => ['nullable', 'string', 'max:50'],
             'department' => ['nullable', 'string', 'max:120'],
             'fakultas' => ['nullable', 'string', 'max:150'],
@@ -273,12 +360,19 @@ class UserController extends Controller
             'semester' => ['nullable', 'integer'],
             'status_akademik' => ['nullable', 'string', 'max:40'],
             'jabatan' => ['nullable', 'string', 'max:120'],
+            'keahlian' => ['nullable', 'string', 'max:120'],
+            'is_role_head' => ['nullable', 'boolean'],
         ]);
 
         $role = Role::find($validated['role_id']);
-        $userType = $validated['user_type'] ?? ($role?->slug === 'mahasiswa' ? 'mahasiswa' : 'pengajar');
+        $defaultUserType = match ($role?->slug) {
+            'mahasiswa' => 'mahasiswa',
+            'supervisor-it', 'admin-it', 'staff', 'staff-it' => 'karyawan',
+            default => 'pengajar',
+        };
+        $userType = $validated['user_type'] ?? $defaultUserType;
 
-        User::create([
+        $user = User::create([
             'name' => $validated['name'],
             'email' => strtolower($validated['email']),
             'password' => Hash::make($validated['password'] ?? '12345678'),
@@ -291,9 +385,14 @@ class UserController extends Controller
             'angkatan' => $validated['angkatan'] ?? null,
             'semester' => $validated['semester'] ?? null,
             'status_akademik' => $validated['status_akademik'] ?? 'Aktif',
-            'jabatan' => $validated['jabatan'] ?? ($role?->name ?? 'Dosen'),
+            'jabatan' => $validated['jabatan'] ?? ($role?->name ?? 'Staff'),
+            'keahlian' => !empty($validated['keahlian']) ? trim($validated['keahlian']) : null,
             'avatar_color' => $role?->badge_color ?? 'indigo',
         ]);
+
+        if ($role && $request->boolean('is_role_head')) {
+            $role->update(['head_user_id' => $user->id]);
+        }
 
         return back()->with('success', "Data '{$validated['name']}' berhasil ditambahkan dengan role {$role?->name}!");
     }
@@ -311,6 +410,8 @@ class UserController extends Controller
             'semester' => ['nullable', 'integer'],
             'status_akademik' => ['nullable', 'string', 'max:40'],
             'jabatan' => ['nullable', 'string', 'max:120'],
+            'keahlian' => ['nullable', 'string', 'max:120'],
+            'is_role_head' => ['nullable', 'boolean'],
         ]);
 
         $role = Role::find($validated['role_id']);
@@ -326,8 +427,19 @@ class UserController extends Controller
             'semester' => $validated['semester'] ?? $user->semester,
             'status_akademik' => $validated['status_akademik'] ?? $user->status_akademik,
             'jabatan' => $validated['jabatan'] ?? $user->jabatan,
+            'keahlian' => array_key_exists('keahlian', $validated)
+                ? (filled($validated['keahlian']) ? trim((string) $validated['keahlian']) : null)
+                : $user->keahlian,
             'avatar_color' => $role?->badge_color ?? $user->avatar_color,
         ]);
+
+        if ($role && $request->has('is_role_head')) {
+            if ($request->boolean('is_role_head')) {
+                $role->update(['head_user_id' => $user->id]);
+            } elseif ((int) $role->head_user_id === (int) $user->id) {
+                $role->update(['head_user_id' => null]);
+            }
+        }
 
         return back()->with('success', "Data & Role '{$user->name}' ({$role?->name}) berhasil diperbarui!");
     }

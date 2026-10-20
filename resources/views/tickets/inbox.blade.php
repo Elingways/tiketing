@@ -340,7 +340,7 @@
             <div x-show="staffDetail === {{ (int) $progress['user']->id }}" class="flex flex-col min-h-0">
                 <div class="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
                     <div>
-                        <h2 class="text-sm font-bold text-slate-900">Tiket {{ $progress['user']->name }}</h2>
+                        <h2 class="text-sm font-bold text-slate-900">Tiket {{ $progress['user']->name }}@if($progress['user']->keahlian) — {{ $progress['user']->keahlian }}@endif</h2>
                         <p class="text-[11px] text-slate-500 mt-0.5">
                             {{ $progress['tickets'] }} tiket sedang dikerjakan
                             @if($progress['percent'] !== null) · rata-rata {{ $progress['percent'] }}% @endif

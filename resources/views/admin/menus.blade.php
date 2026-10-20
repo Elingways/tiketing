@@ -27,6 +27,7 @@
         'admin.users' => 'Manajemen Pengguna (admin.users)',
         'admin.users.students' => 'Sub-Menu Mahasiswa (admin.users.students)',
         'admin.users.lecturers' => 'Sub-Menu Pengajar (admin.users.lecturers)',
+        'admin.users.employees' => 'Sub-Menu Karyawan (admin.users.employees)',
     ];
     $defaultRoleIds = $roles->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
 @endphp
