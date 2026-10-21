@@ -457,6 +457,34 @@ class DatabaseSeeder extends Seeder
                 'roles' => $allReceiverRoles,
             ],
             [
+                'name' => 'Laporan Bulanan',
+                'slug' => 'tickets-report',
+                'route_name' => 'tickets.report',
+                'icon' => 'document-check',
+                'color' => 'sky',
+                'group' => 'ticketing',
+                'badge_text' => 'Kepala Role',
+                'description' => 'Performa staff, progres, dan status pengerjaan pada bulan yang dipilih.',
+                'show_in_sidebar' => true,
+                'show_in_launcher' => false,
+                'sort_order' => 8,
+                'roles' => $allActiveRoles,
+            ],
+            [
+                'name' => 'Pekerjaan Divisi',
+                'slug' => 'tickets-workload',
+                'route_name' => 'tickets.workload',
+                'icon' => 'user-group',
+                'color' => 'indigo',
+                'group' => 'ticketing',
+                'badge_text' => 'Sedang dikerjakan',
+                'description' => 'Pekerjaan yang sedang dikerjakan IT dan setiap divisi.',
+                'show_in_sidebar' => true,
+                'show_in_launcher' => true,
+                'sort_order' => 9,
+                'roles' => $allActiveRoles,
+            ],
+            [
                 'name' => 'Kategori Layanan',
                 'slug' => 'admin-categories',
                 'route_name' => 'admin.categories',
@@ -504,7 +532,7 @@ class DatabaseSeeder extends Seeder
         foreach ($menusData as $item) {
             $roleIds = $item['roles'];
             unset($item['roles']);
-            $menu = Menu::create($item);
+            $menu = Menu::updateOrCreate(['slug' => $item['slug']], $item);
             $menu->roles()->sync($roleIds);
             $createdMenus[$menu->slug] = $menu;
         }

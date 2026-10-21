@@ -28,12 +28,16 @@ class Ticket extends Model
         'progress_percent',
         'progress_note',
         'work_status',
+        'delivered_at',
+        'finished_at',
         'approval_step',
         'resolved_at',
     ];
 
     protected $casts = [
         'resolved_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'finished_at' => 'datetime',
         'priority_rank' => 'integer',
         'assessed_priority_rank' => 'integer',
         'progress_percent' => 'integer',
@@ -104,9 +108,9 @@ class Ticket extends Model
 
         $updates = ['progress_percent' => $percent];
         if ($percent >= 100 && $problems->every(fn ($p) => $p->is_done)) {
-            $updates['work_status'] = 'finished';
+            $updates = array_merge($updates, $this->workMilestoneChanges('finished'));
         } elseif ($percent > 0 && in_array($this->work_status, [null, 'delivered', 'finished'], true)) {
-            $updates['work_status'] = 'in_progress';
+            $updates = array_merge($updates, $this->workMilestoneChanges('in_progress'));
         }
 
         $this->update($updates);
@@ -292,6 +296,43 @@ class Ticket extends Model
         }
 
         return $steps;
+    }
+
+    /**
+     * Catat bulan delivered dan bulan selesai. Selesai tetap di bulan pertama kali Finished.
+     */
+    public function workMilestoneChanges(?string $status): array
+    {
+        if (!$status) {
+            return [];
+        }
+
+        $changes = ['work_status' => $status];
+        if ($status === 'finished' && !$this->finished_at) {
+            $changes['finished_at'] = now();
+        }
+
+        return $changes;
+    }
+
+    /**
+     * Delivered dimulai saat kepala mengarahkan tiket ke staff yang mengerjakan.
+     */
+    public function deliveryStamp(User $actor, User $staff): array
+    {
+        $headId = $this->currentRole?->head_user_id;
+        $actorIsHead = $actor->isSuperuser() || ($headId && (int) $actor->id === (int) $headId);
+        $staffIsWorker = !$headId || (int) $staff->id !== (int) $headId;
+        if (!$actorIsHead || !$staffIsWorker || $this->delivered_at) {
+            return [];
+        }
+
+        $changes = ['delivered_at' => now()];
+        if (!$this->work_status) {
+            $changes['work_status'] = 'delivered';
+        }
+
+        return $changes;
     }
 
     public function workStatusLabel(): ?string

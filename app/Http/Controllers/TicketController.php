@@ -94,6 +94,166 @@ class TicketController extends Controller
     }
 
     /**
+     * Laporan performa bulanan untuk kepala role: progres staff dan status pengerjaan.
+     */
+    public function monthlyReport(Request $request)
+    {
+        $user = Auth::user()->load('role');
+        $month = (string) $request->query('month', now()->format('Y-m'));
+        if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
+            $month = now()->format('Y-m');
+        }
+        $start = \Carbon\Carbon::createFromFormat('Y-m-d', $month.'-01')->startOfMonth();
+        $end = $start->copy()->endOfMonth();
+        $isHead = $user->role && (int) $user->role->head_user_id === (int) $user->id;
+        $allowed = $isHead || $user->isSuperuser();
+
+        $role = $user->role;
+        if ($allowed && $user->isSuperuser() && $request->filled('role_id')) {
+            $role = Role::find($request->query('role_id')) ?? $role;
+        }
+
+        $tickets = collect();
+        $staffRows = collect();
+        $summary = [
+            'tickets' => 0,
+            'percent' => null,
+            'delivered' => 0,
+            'in_progress' => 0,
+            'blocked' => 0,
+            'finished' => 0,
+            'resolved' => 0,
+            'rejected' => 0,
+        ];
+
+        if ($allowed && $role) {
+            $tickets = Ticket::with(['assignedUser', 'category', 'creator'])
+                ->where('current_role_id', $role->id)
+                ->where(function ($query) use ($start, $end) {
+                    $query->whereBetween('delivered_at', [$start, $end])
+                        ->orWhereBetween('finished_at', [$start, $end])
+                        ->orWhereBetween('resolved_at', [$start, $end])
+                        ->orWhere(function ($active) use ($start, $end) {
+                            $active->whereBetween('updated_at', [$start, $end])
+                                ->where(function ($unfinished) use ($end) {
+                                    $unfinished->whereNull('finished_at')->orWhere('finished_at', '>', $end);
+                                });
+                        });
+                })
+                ->latest('updated_at')
+                ->get()
+                ->map(function (Ticket $ticket) use ($start, $end) {
+                    $ticket->report_status = $this->reportWorkStatus($ticket, $start, $end);
+
+                    return $ticket;
+                })
+                ->filter(fn (Ticket $ticket) => $ticket->report_status !== null)
+                ->values();
+
+            $headId = (int) $role->head_user_id;
+            $summary['tickets'] = $tickets->count();
+            $reported = $tickets->filter(fn (Ticket $ticket) => $ticket->progress_percent !== null);
+            $summary['percent'] = $reported->isEmpty() ? null : (int) round($reported->avg('progress_percent'));
+            foreach (['delivered', 'in_progress', 'blocked', 'finished'] as $workStatus) {
+                $summary[$workStatus] = $tickets->where('report_status', $workStatus)->count();
+            }
+            $summary['resolved'] = $tickets->filter(fn (Ticket $ticket) => $ticket->resolved_at && $ticket->resolved_at->between($start, $end))->count();
+            $summary['rejected'] = $tickets->where('status', 'rejected')->count();
+
+            $staffRows = $tickets
+                ->groupBy(fn (Ticket $ticket) => $ticket->assigned_user_id && (int) $ticket->assigned_user_id !== $headId
+                    ? (int) $ticket->assigned_user_id
+                    : 0)
+                ->map(function ($group, $staffId) use ($start, $end) {
+                    $reported = $group->filter(fn (Ticket $ticket) => $ticket->progress_percent !== null);
+
+                    return [
+                        'name' => $staffId ? ($group->first()->assignedUser?->name ?? 'Staff') : 'Belum dibagikan',
+                        'tickets' => $group->count(),
+                        'percent' => $reported->isEmpty() ? null : (int) round($reported->avg('progress_percent')),
+                        'blocked' => $group->where('report_status', 'blocked')->count(),
+                        'in_progress' => $group->where('report_status', 'in_progress')->count(),
+                        'finished' => $group->where('report_status', 'finished')->count(),
+                        'delivered' => $group->where('report_status', 'delivered')->count(),
+                        'resolved' => $group->filter(fn (Ticket $ticket) => $ticket->resolved_at && $ticket->resolved_at->between($start, $end))->count(),
+                        'items' => $group->sortByDesc(fn (Ticket $ticket) => $ticket->progressPercent() ?? -1)->map(fn (Ticket $ticket) => [
+                            'number' => $ticket->ticket_number,
+                            'title' => $ticket->title,
+                            'percent' => $ticket->progressPercent() ?? 0,
+                            'status' => $ticket->report_status,
+                        ])->values(),
+                    ];
+                })
+                ->sortBy([
+                    ['blocked', 'desc'],
+                    ['name', 'asc'],
+                ])
+                ->values();
+        }
+
+        return view('tickets.report', [
+            'user' => $user,
+            'allowed' => $allowed,
+            'role' => $role,
+            'month' => $month,
+            'monthLabel' => $start->locale('id')->translatedFormat('F Y'),
+            'prevMonth' => $start->copy()->subMonth()->format('Y-m'),
+            'nextMonth' => $start->copy()->addMonth()->format('Y-m'),
+            'tickets' => $tickets,
+            'staffRows' => $staffRows,
+            'summary' => $summary,
+        ]);
+    }
+
+    /**
+     * Status yang dicatat pada bulan laporan. Finished hanya masuk di bulan tiket itu selesai.
+     */
+    private function reportWorkStatus(Ticket $ticket, \Carbon\Carbon $start, \Carbon\Carbon $end): ?string
+    {
+        $finished = $ticket->finished_at;
+        $delivered = $ticket->delivered_at;
+
+        if ($finished && $finished->between($start, $end)) {
+            return 'finished';
+        }
+
+        $stillOpen = !$finished || $finished->gt($end);
+        $touchedThisMonth = ($delivered && $delivered->between($start, $end))
+            || ($ticket->created_at && $ticket->created_at->between($start, $end))
+            || ($ticket->updated_at && $ticket->updated_at->between($start, $end) && $stillOpen);
+
+        if (!$stillOpen || !$touchedThisMonth) {
+            return null;
+        }
+
+        if ($delivered && $delivered->between($start, $end)) {
+            return 'delivered';
+        }
+
+        if ($ticket->work_status === 'blocked') {
+            return 'blocked';
+        }
+
+        return $ticket->work_status ?: 'in_progress';
+    }
+
+    /**
+     * Papan pekerjaan yang sedang dikerjakan tiap divisi, untuk pemohon tiket.
+     */
+    public function divisionWorkload()
+    {
+        $user = Auth::user()->load('role');
+        $groups = Ticket::with(['currentRole', 'assignedUser', 'category'])
+            ->whereNotIn('status', ['resolved', 'rejected', 'closed'])
+            ->latest('updated_at')
+            ->get()
+            ->groupBy(fn (Ticket $ticket) => $ticket->currentRole?->name ?? 'Tanpa divisi')
+            ->sortKeys();
+
+        return view('tickets.workload', compact('user', 'groups'));
+    }
+
+    /**
      * Menu 3: Tiket Masuk Role (Untuk Dosen / Kaprodi / Dekan / Superuser)
      */
     public function inbox(Request $request)
@@ -515,8 +675,10 @@ class TicketController extends Controller
                 'status' => 'in_progress',
                 'assigned_user_id' => $chosenAssigneeId,
             ];
-            if (!$ticket->work_status) {
-                $updates['work_status'] = 'delivered';
+            $assignedStaff = User::find($chosenAssigneeId);
+            if ($assignedStaff) {
+                $ticket->loadMissing('currentRole');
+                $updates = array_merge($updates, $ticket->deliveryStamp($user, $assignedStaff));
             }
 
             $ticket->update($updates);
@@ -525,7 +687,6 @@ class TicketController extends Controller
                 $ticket->recalculateProgressFromProblems();
             }
 
-            $assignedStaff = User::find($chosenAssigneeId);
             $deliveryNote = ($assignedStaff && (int) $assignedStaff->id !== (int) $user->id)
                 ? "Tugas di-deliver oleh {$user->name} ke staff {$assignedStaff->name}" . ($assignedStaff->keahlian ? " ({$assignedStaff->keahlian})" : '') . ". Catatan: {$note}"
                 : $note;
@@ -938,29 +1099,38 @@ class TicketController extends Controller
             return back()->with('error', 'Hanya staff yang ditugaskan yang dapat mengisi persentase pengerjaan.');
         }
 
+        $ticket->load('problems');
+        $weighted = $ticket->hasWeightedProblems();
         $validated = $request->validate([
-            'progress_percent' => ['required', 'integer', 'between:0,100'],
+            'progress_percent' => [$weighted ? 'nullable' : 'required', 'integer', 'between:0,100'],
             'note' => ['nullable', 'string', 'max:500'],
             'work_status' => ['nullable', 'in:delivered,in_progress,blocked,finished'],
         ]);
 
-        $percent = (int) $validated['progress_percent'];
         $note = trim((string) ($validated['note'] ?? ''));
         $workStatus = $validated['work_status'] ?? null;
         if ($workStatus === 'blocked' && $note === '') {
             return back()->with('error', 'Blocked berarti ada masalah saat pengerjaan. Tuliskan masalahnya di catatan.')->withInput();
         }
 
+        if ($weighted) {
+            $this->recordReportedProgress($ticket, $user, null, $note, $workStatus);
+            $percent = $ticket->recalculateProgressFromProblems();
+
+            return back()->with('success', 'Progres '.($percent ?? 0).'% mengikuti poin pekerjaan yang dicentang.');
+        }
+
+        $percent = (int) $validated['progress_percent'];
         $this->recordReportedProgress($ticket, $user, $percent, $note, $workStatus);
 
         return back()->with('success', 'Progres ' . $percent . '% tercatat. Kepala dapat memantau angka ini.');
     }
 
-    private function recordReportedProgress(Ticket $ticket, User $user, int $percent, ?string $note = null, ?string $workStatus = null): void
+    private function recordReportedProgress(Ticket $ticket, User $user, ?int $percent, ?string $note = null, ?string $workStatus = null): void
     {
         $note = $note !== null ? trim($note) : null;
         $storedNote = $note === '' ? null : $note;
-        $percentUnchanged = $ticket->progress_percent !== null && (int) $ticket->progress_percent === $percent;
+        $percentUnchanged = $percent === null || ($ticket->progress_percent !== null && (int) $ticket->progress_percent === $percent);
         $noteUnchanged = $note === null || (string) ($ticket->progress_note ?? '') === (string) ($storedNote ?? '');
         $workUnchanged = $workStatus === null || (string) $ticket->work_status === $workStatus;
 
@@ -968,16 +1138,21 @@ class TicketController extends Controller
             return;
         }
 
-        $changes = ['progress_percent' => $percent];
+        $changes = [];
+        if ($percent !== null) {
+            $changes['progress_percent'] = $percent;
+        }
         if ($note !== null) {
             $changes['progress_note'] = $storedNote;
         }
         if ($workStatus !== null) {
-            $changes['work_status'] = $workStatus;
+            $changes = array_merge($changes, $ticket->workMilestoneChanges($workStatus));
         }
         $ticket->update($changes);
 
-        $logNote = 'Staff melaporkan progres pengerjaan ' . $percent . '%.';
+        $logNote = $percent === null
+            ? 'Staff memperbarui status pengerjaan.'
+            : 'Staff melaporkan progres pengerjaan ' . $percent . '%.';
         if ($workStatus) {
             $logNote .= ' Status: ' . $ticket->workStatusLabel() . '.';
         }
@@ -1051,11 +1226,12 @@ class TicketController extends Controller
             return null;
         }
 
-        $ticket->update([
+        $ticket->loadMissing('currentRole');
+        $ticket->update(array_merge([
             'priority_rank' => $rank,
             'priority' => RolePriorityRoute::legacyPriority($rank),
             'assigned_user_id' => $staff->id,
-        ]);
+        ], $ticket->deliveryStamp($actor, $staff)));
 
         TicketLog::create([
             'ticket_id' => $ticket->id,

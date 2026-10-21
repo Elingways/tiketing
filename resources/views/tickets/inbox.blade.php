@@ -146,6 +146,7 @@
                                 </div>
                                 <p class="text-xs font-semibold text-slate-900 truncate mt-1">{{ $ticket->title }}</p>
                                 <p class="text-[11px] text-slate-500">{{ $ticket->creator?->name }} ({{ $ticket->creatorRole?->name }}) · {{ $ticket->priorityLabel() }}</p>
+                                @include('tickets.partials.dates', ['ticket' => $ticket, 'format' => 'd M Y'])
                             </div>
                             <a href="{{ route('tickets.show', $ticket) }}"
                                class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium">
@@ -162,7 +163,7 @@
         <table class="w-full min-w-[1080px] text-left border-collapse">
             <thead>
                 <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                    <th class="py-3 px-4 w-36">No. Tiket</th>
+                    <th class="py-3 px-4 w-44">No. Tiket</th>
                     <th class="py-3 px-4 w-44">Pemohon</th>
                     <th class="py-3 px-4 min-w-[240px]">Judul & Kategori</th>
                     <th class="py-3 px-4 w-44">Proses (Tahap Hirarki)</th>
@@ -179,9 +180,9 @@
                     @endphp
                     <tr class="hover:bg-slate-50/70 transition align-top">
                         <!-- 1. No. Tiket -->
-                        <td class="py-3.5 px-4 whitespace-nowrap">
+                        <td class="py-3.5 px-4">
                             <span class="font-mono font-semibold text-indigo-600 block">{{ $ticket->ticket_number }}</span>
-                            <span class="text-[11px] text-slate-400">{{ $ticket->created_at->format('d M Y') }}</span>
+                            @include('tickets.partials.dates', ['ticket' => $ticket, 'format' => 'd M Y'])
                         </td>
 
                         <!-- 2. Pemohon -->
@@ -369,6 +370,7 @@
                                 </span>
                             </div>
                             <a href="{{ route('tickets.show', $openTicket) }}" class="mt-1 block text-xs font-semibold text-slate-900 hover:text-indigo-600">{{ $openTicket->title }}</a>
+                            @include('tickets.partials.dates', ['ticket' => $openTicket, 'format' => 'd M Y'])
                             <p class="mt-0.5 text-[11px] text-slate-500">
                                 {{ $openTicket->statusLabel() }}
                                 @if(($openTicket->problems_count ?? 0) > 0)

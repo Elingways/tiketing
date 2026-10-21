@@ -53,7 +53,9 @@
                     <div class="flex items-center gap-2">
                         <span class="font-mono text-xs font-semibold text-indigo-600">#{{ $ticket->ticket_number }}</span>
                         <span class="text-slate-300">•</span>
-                        <span class="text-xs text-slate-400">{{ $ticket->created_at->format('d M Y, H:i') }}</span>
+                        <span class="text-xs text-slate-500">Request date {{ $ticket->created_at->format('d M Y, H:i') }}</span>
+                        <span class="text-slate-300">•</span>
+                        <span class="text-xs text-slate-500">Delivered date {{ $ticket->delivered_at ? $ticket->delivered_at->format('d M Y, H:i') : 'Belum diarahkan' }}</span>
                     </div>
 
                     <div class="flex items-center gap-2">
@@ -164,6 +166,9 @@
                 <div>
                     <h2 class="text-sm font-bold text-slate-900">Masalah &amp; Progres</h2>
                     <p class="text-[11px] text-slate-500 mt-0.5">Kepala menetapkan masalah. Staff mengisi sendiri sudah berapa persen yang dikerjakan.</p>
+                    <div class="mt-2">
+                        @include('tickets.partials.dates', ['ticket' => $ticket])
+                    </div>
                 </div>
                 <span class="text-lg font-bold text-slate-900">{{ $problemPercent === null ? '—' : $problemPercent . '%' }}</span>
             </div>
@@ -172,8 +177,11 @@
                     <div class="h-full bg-emerald-500" style="width: {{ $problemPercent ?? 0 }}%"></div>
                 </div>
                 <p class="mt-2 text-[11px] text-slate-500">
-                    @if($problemPercent === null)
-                        Staff belum mengisi persentase pengerjaan.
+                    @if($ticket->hasWeightedProblems())
+                        Progres {{ $problemPercent ?? 0 }}% dihitung dari poin pekerjaan yang dicentang
+                        @if($ticket->assignedUser) · {{ $ticket->assignedUser->name }} @endif
+                    @elseif($problemPercent === null)
+                        Kepala belum memecah tiket ini. Persen belum bisa diisi perkiraan.
                     @else
                         Staff melaporkan {{ $problemPercent }}% selesai
                         @if($ticket->assignedUser) · {{ $ticket->assignedUser->name }} @endif
@@ -199,12 +207,16 @@
                 @if($canReportProgress)
                     <form action="{{ route('tickets.progress', $ticket) }}" method="POST" class="mt-3 space-y-2">
                         @csrf
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Sudah dikerjakan (%)</label>
-                            <input type="number" name="progress_percent" min="0" max="100" required
-                                   value="{{ old('progress_percent', $ticket->progress_percent) }}"
-                                   class="w-28 px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
-                        </div>
+                        @if(!$ticket->hasWeightedProblems())
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Sudah dikerjakan (%)</label>
+                                <input type="number" name="progress_percent" min="0" max="100" required
+                                       value="{{ old('progress_percent', $ticket->progress_percent) }}"
+                                       class="w-28 px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-slate-900">
+                            </div>
+                        @else
+                            <p class="text-[11px] text-slate-500">Centang poin di bawah. Persen bertambah sesuai bobot poin, bukan perkiraan.</p>
+                        @endif
                         <div>
                             <p class="text-xs font-semibold text-slate-700 mb-1">Status pengerjaan</p>
                             <div class="space-y-1.5">

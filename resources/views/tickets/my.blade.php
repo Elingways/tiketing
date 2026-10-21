@@ -79,7 +79,7 @@
         <table class="w-full text-left border-collapse">
             <thead>
                 <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                    <th class="py-3 px-4 w-36">No. Tiket</th>
+                    <th class="py-3 px-4 w-44">No. Tiket</th>
                     <th class="py-3 px-4">Judul & Kategori Tiket</th>
                     <th class="py-3 px-4">Proses (Tahap Hirarki)</th>
                     <th class="py-3 px-4 w-32">Prioritas</th>
@@ -95,9 +95,9 @@
                     @endphp
                     <tr class="hover:bg-slate-50/70 transition align-top">
                         <!-- 1. No. Tiket -->
-                        <td class="py-3.5 px-4 whitespace-nowrap">
+                        <td class="py-3.5 px-4">
                             <span class="font-mono font-semibold text-indigo-600 block">{{ $ticket->ticket_number }}</span>
-                            <span class="text-[11px] text-slate-400">{{ $ticket->created_at->format('d M Y') }}</span>
+                            @include('tickets.partials.dates', ['ticket' => $ticket, 'format' => 'd M Y'])
                         </td>
 
                         <!-- 2. Judul & Kategori -->

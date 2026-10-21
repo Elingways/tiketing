@@ -389,6 +389,7 @@ class TicketingHierarchyTest extends TestCase
         $this->assertNull($ticket->priority_rank);
         $this->assertNotEquals($hardware->id, $ticket->assigned_user_id);
 
+        $this->travel(2)->minutes();
         $this->actingAs($head)->post(route('tickets.priority', $ticket), [
             'priority_rank' => 1,
             'assigned_user_id' => $hardware->id,
@@ -397,10 +398,24 @@ class TicketingHierarchyTest extends TestCase
         $ticket->refresh();
         $this->assertEquals(1, $ticket->priority_rank);
         $this->assertEquals($hardware->id, $ticket->assigned_user_id);
+        $this->assertNotNull($ticket->delivered_at);
+        $this->assertTrue($ticket->delivered_at->greaterThan($ticket->created_at));
+        $this->assertSame('delivered', $ticket->work_status);
+
+        $deliveredAt = $ticket->delivered_at->copy();
+        $this->actingAs($hardware)->post(route('tickets.progress', $ticket), [
+            'work_status' => 'in_progress',
+            'progress_percent' => 10,
+            'progress_note' => 'Mulai cek perangkat.',
+        ])->assertRedirect();
+        $ticket->refresh();
+        $this->assertEquals($deliveredAt->format('Y-m-d H:i:s'), $ticket->delivered_at->format('Y-m-d H:i:s'));
 
         $this->actingAs($hardware)->get(route('tickets.inbox'))
             ->assertOk()
-            ->assertSee('Laptop lab tidak menyala');
+            ->assertSee('Laptop lab tidak menyala')
+            ->assertSee('Request date')
+            ->assertSee('Delivered date');
 
         $this->actingAs($network)->get(route('tickets.inbox'))
             ->assertOk()
@@ -408,6 +423,8 @@ class TicketingHierarchyTest extends TestCase
 
         $this->actingAs($head)->get(route('tickets.show', $ticket))
             ->assertOk()
+            ->assertSee('Request')
+            ->assertSee('Delivered')
             ->assertSee('Arahkan ke staff')
             ->assertSee('Sesuai, proses dan bagikan ke staff')
             ->assertSee('Tidak sesuai, tolak')
@@ -766,6 +783,96 @@ class TicketingHierarchyTest extends TestCase
             ->assertOk()
             ->assertSee('Nadia Kusuma, S.Kom.')
             ->assertSee('80%');
+    }
+
+    public function test_head_sees_monthly_work_report_and_requester_sees_division_workload(): void
+    {
+        $head = User::where('email', 'admin.it@kampus.ac.id')->firstOrFail();
+        $staff = User::where('email', 'fajar.jaringan@kampus.ac.id')->firstOrFail();
+        $pemohon = User::where('email', 'kaprodi@kampus.ac.id')->firstOrFail();
+        $role = Role::where('name', 'Admin IT')->firstOrFail();
+        $category = TicketCategory::firstOrFail();
+
+        Ticket::create([
+            'ticket_number' => 'TKT-TEST-9200',
+            'title' => 'Perbaikan jaringan lab',
+            'description' => 'Kabel lab putus.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $pemohon->id,
+            'creator_role_id' => $pemohon->role_id,
+            'current_role_id' => $role->id,
+            'assigned_user_id' => $staff->id,
+            'status' => 'in_progress',
+            'work_status' => 'blocked',
+            'progress_percent' => 40,
+            'progress_note' => 'Catatan internal jangan tampil',
+        ]);
+
+        $this->actingAs($head)->get(route('tickets.report', ['month' => now()->format('Y-m')]))
+            ->assertOk()
+            ->assertSee('Laporan Bulanan')
+            ->assertSee('Fajar Nugroho, S.T.')
+            ->assertSee('Blocked')
+            ->assertSee('Perbaikan jaringan lab')
+            ->assertSee('40%')
+            ->assertSee('Catatan internal jangan tampil');
+
+        $this->actingAs($staff)->get(route('tickets.report'))
+            ->assertOk()
+            ->assertSee('hanya untuk kepala role')
+            ->assertDontSee('Perbaikan jaringan lab');
+
+        $this->actingAs($pemohon)->get(route('tickets.workload'))
+            ->assertOk()
+            ->assertSee('Pekerjaan Divisi')
+            ->assertSee('Admin IT')
+            ->assertSee('Perbaikan jaringan lab')
+            ->assertSee('Blocked')
+            ->assertSee('Fajar Nugroho, S.T.')
+            ->assertDontSee('Catatan internal jangan tampil');
+    }
+
+    public function test_finished_work_is_counted_in_the_month_it_was_finished(): void
+    {
+        $head = User::where('email', 'admin.it@kampus.ac.id')->firstOrFail();
+        $staff = User::where('email', 'fajar.jaringan@kampus.ac.id')->firstOrFail();
+        $pemohon = User::where('email', 'kaprodi@kampus.ac.id')->firstOrFail();
+        $role = Role::where('name', 'Admin IT')->firstOrFail();
+        $category = TicketCategory::firstOrFail();
+
+        $ticket = Ticket::create([
+            'ticket_number' => 'TKT-TEST-9300',
+            'title' => 'Tiket lintas bulan',
+            'description' => 'Delivered Oktober, selesai Desember.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $pemohon->id,
+            'creator_role_id' => $pemohon->role_id,
+            'current_role_id' => $role->id,
+            'assigned_user_id' => $staff->id,
+            'status' => 'in_progress',
+            'work_status' => 'finished',
+            'progress_percent' => 100,
+        ]);
+        $ticket->forceFill([
+            'delivered_at' => '2026-10-15 09:00:00',
+            'finished_at' => '2026-12-02 09:00:00',
+            'created_at' => '2026-10-15 09:00:00',
+            'updated_at' => '2026-12-02 09:00:00',
+        ])->save();
+
+        $this->actingAs($head)->get(route('tickets.report', ['month' => '2026-10']))
+            ->assertOk()
+            ->assertSee('Tiket lintas bulan')
+            ->assertSee('Status bulan ini: Delivered')
+            ->assertDontSee('Status bulan ini: Finished');
+
+        $this->actingAs($head)->get(route('tickets.report', ['month' => '2026-12']))
+            ->assertOk()
+            ->assertSee('Tiket lintas bulan')
+            ->assertSee('Status bulan ini: Finished')
+            ->assertDontSee('Status bulan ini: Delivered');
     }
 }
 
