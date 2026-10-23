@@ -183,7 +183,7 @@ class Ticket extends Model
             return false;
         }
 
-        if ($user->isSuperuser()) {
+        if ($user->isSuperuser() || $user->isAdminIt()) {
             return true;
         }
 
@@ -209,7 +209,7 @@ class Ticket extends Model
             return false;
         }
 
-        if ($user->isSuperuser()) {
+        if ($user->isSuperuser() || $user->isAdminIt()) {
             return true;
         }
 

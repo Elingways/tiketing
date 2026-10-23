@@ -21,6 +21,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/tickets/my', [TicketController::class, 'myTickets'])->name('tickets.my');
     Route::get('/tickets/history', [TicketController::class, 'historyTickets'])->name('tickets.history');
     Route::get('/tickets/inbox', [TicketController::class, 'inbox'])->name('tickets.inbox');
+    Route::get('/tickets/staff-progress', [TicketController::class, 'staffProgressPage'])->name('tickets.staff-progress');
     Route::get('/tickets/report', [TicketController::class, 'monthlyReport'])->name('tickets.report');
     Route::get('/tickets/workload', [TicketController::class, 'divisionWorkload'])->name('tickets.workload');
     Route::get('/tickets/create', [TicketController::class, 'create'])->name('tickets.create');

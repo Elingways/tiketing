@@ -263,6 +263,8 @@ class TicketController extends Controller
         $search = trim((string) $request->query('search', ''));
         $categoryId = $request->query('category_id');
         $statusFilter = $request->query('status');
+        $priorityFilter = $request->query('priority');
+        $staffFilter = $request->query('assigned_user_id');
 
         $query = Ticket::with(['creator', 'creatorRole', 'currentRole.priorityRoutes.user', 'category', 'assignedUser'])
             ->withCount([
@@ -270,8 +272,8 @@ class TicketController extends Controller
                 'problems as done_problems_count' => fn ($problemQuery) => $problemQuery->where('is_done', true),
             ]);
 
-        if ($scope === 'all_system' && $user->isSuperuser()) {
-            // Superuser melihat seluruh tiket
+        if ($scope === 'all_system' && ($user->isSuperuser() || $user->role?->slug === 'admin-it')) {
+            // Superuser atau Admin IT melihat seluruh tiket
         } elseif ($scope === 'history_role') {
             $query->whereHas('logs', function ($q) use ($user) {
                 $q->where('from_role_id', $user->role_id);
@@ -281,6 +283,10 @@ class TicketController extends Controller
             $isHead = $headId && (int) $headId === (int) $user->id;
             if ($isHead) {
                 $query->where('current_role_id', $user->role_id)
+                    ->whereNotIn('status', ['resolved', 'rejected', 'closed']);
+            } elseif ($user->role?->slug === 'admin-it') {
+                $itRoleIds = Role::whereIn('slug', ['admin-it', 'supervisor-it'])->pluck('id')->toArray();
+                $query->whereIn('current_role_id', $itRoleIds)
                     ->whereNotIn('status', ['resolved', 'rejected', 'closed']);
             } elseif ($headId && !$user->isSuperuser()) {
                 $query->where('assigned_user_id', $user->id)
@@ -292,6 +298,15 @@ class TicketController extends Controller
                 })->whereNotIn('status', ['resolved', 'rejected', 'closed']);
             }
         }
+
+        // Stats calculation based on scoped query before extra filters
+        $statsBaseQuery = clone $query;
+        $openTicketsCount = (clone $statsBaseQuery)->where('status', 'open')->count();
+        $inProgressCount = (clone $statsBaseQuery)->where('status', 'in_progress')->count();
+        $pendingCount = (clone $statsBaseQuery)->where(function ($q) {
+            $q->whereNull('assigned_user_id')->orWhere('status', 'open');
+        })->count();
+        $totalTicketsCount = (clone $statsBaseQuery)->count();
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -312,28 +327,149 @@ class TicketController extends Controller
             $query->where('status', $statusFilter);
         }
 
+        if ($priorityFilter) {
+            $query->where(function ($q) use ($priorityFilter) {
+                $q->where('priority', $priorityFilter);
+                if (in_array($priorityFilter, ['urgent', 'high', 'medium', 'low'])) {
+                    $rankMap = ['urgent' => 1, 'high' => 2, 'medium' => 3, 'low' => 4];
+                    $rank = $rankMap[$priorityFilter];
+                    $q->orWhere('priority_rank', $rank)
+                      ->orWhere('assessed_priority_rank', $rank);
+                }
+            });
+        }
+
+        if ($staffFilter) {
+            if ($staffFilter === 'unassigned') {
+                $query->whereNull('assigned_user_id');
+            } else {
+                $query->where('assigned_user_id', $staffFilter);
+            }
+        }
+
         $tickets = $query->latest()->get();
         $categories = TicketCategory::orderBy('name')->get();
         $inboxStaff = collect();
         $role = $user->role;
-        $isHead = $role && $role->head_user_id && (int) $role->head_user_id === (int) $user->id;
+        $isHead = $user->isHeadOfRole();
+        $isAdmin = $user->isAdminIt();
+        $isStaff = $user->isStaff();
         $staffProgress = collect();
-        if ($isHead) {
-            $inboxStaff = $role->assignableStaffUsers();
-            $staffProgress = $this->staffProgressForRole($role, $user);
+
+        $roleType = 'general';
+        if ($isAdmin) {
+            $roleType = 'admin';
+        } elseif ($isHead) {
+            $roleType = 'head';
+        } elseif ($isStaff) {
+            $roleType = 'staff';
         }
+
+        // Hitung data staff & progress untuk Kepala Staff, Admin IT, dan Staff
+        $targetDepartmentRole = null;
+        if ($isHead) {
+            $targetDepartmentRole = $role;
+        } elseif ($isAdmin || $isStaff) {
+            $spvRole = Role::where('slug', 'supervisor-it')->first();
+            $targetDepartmentRole = $spvRole ?? $role;
+        }
+
+        if ($targetDepartmentRole) {
+            $inboxStaff = $targetDepartmentRole->assignableStaffUsers();
+            $staffProgress = $this->staffProgressForRole($targetDepartmentRole, $user);
+        }
+
+        // Tiket yang ditugaskan khusus ke user saat ini (untuk Staff Dashboard)
+        $myAssignedTickets = Ticket::with(['creator', 'creatorRole', 'category', 'assignedUser'])
+            ->withCount([
+                'problems',
+                'problems as done_problems_count' => fn ($problemQuery) => $problemQuery->where('is_done', true),
+            ])
+            ->where('assigned_user_id', $user->id)
+            ->whereNotIn('status', ['resolved', 'rejected', 'closed'])
+            ->latest()
+            ->get();
+
+        $myActiveCount = $myAssignedTickets->count();
+        $myResolvedCount = Ticket::where('assigned_user_id', $user->id)->where('status', 'resolved')->count();
+        $myAvgPercent = $myAssignedTickets->filter(fn ($t) => $t->progress_percent !== null)->avg('progress_percent');
 
         return view('tickets.inbox', compact(
             'tickets',
             'user',
+            'roleType',
             'scope',
             'search',
             'categoryId',
             'statusFilter',
+            'priorityFilter',
+            'staffFilter',
             'categories',
             'inboxStaff',
             'staffProgress',
-            'isHead'
+            'isHead',
+            'isAdmin',
+            'isStaff',
+            'openTicketsCount',
+            'inProgressCount',
+            'pendingCount',
+            'totalTicketsCount',
+            'myAssignedTickets',
+            'myActiveCount',
+            'myResolvedCount',
+            'myAvgPercent'
+        ));
+    }
+
+    /**
+     * Halaman Menu Khusus: Monitoring Staff Progres & Beban Kerja Tim
+     */
+    public function staffProgressPage(Request $request)
+    {
+        $user = Auth::user()->load(['role.parent', 'role.children']);
+        $role = $user->role;
+        $isHead = $user->isHeadOfRole();
+        $isAdmin = $user->isAdminIt();
+        $isStaff = $user->isStaff();
+
+        $targetDepartmentRole = null;
+        if ($isHead) {
+            $targetDepartmentRole = $role;
+        } elseif ($isAdmin || $isStaff) {
+            $spvRole = Role::where('slug', 'supervisor-it')->first();
+            $targetDepartmentRole = $spvRole ?? $role;
+        } else {
+            $targetDepartmentRole = $role;
+        }
+
+        $inboxStaff = $targetDepartmentRole ? $targetDepartmentRole->assignableStaffUsers() : collect();
+        $staffProgress = $targetDepartmentRole ? $this->staffProgressForRole($targetDepartmentRole, $user) : collect();
+
+        $totalStaffCount = $staffProgress->count();
+        $activeStaffCount = $staffProgress->filter(fn ($p) => $p['tickets'] > 0)->count();
+        $totalTicketsHandled = $staffProgress->sum('tickets');
+        $blockedCount = $staffProgress->sum(fn ($p) => $p['blocked'] ?? 0);
+        $avgProgress = $staffProgress->filter(fn ($p) => $p['percent'] !== null)->avg('percent');
+
+        // Filter per staff spesifik jika dipilih
+        $selectedStaffId = $request->query('staff_id');
+        $selectedStaff = $selectedStaffId ? $staffProgress->firstWhere('user.id', (int) $selectedStaffId) : null;
+
+        return view('tickets.staff-progress', compact(
+            'user',
+            'role',
+            'isHead',
+            'isAdmin',
+            'isStaff',
+            'inboxStaff',
+            'staffProgress',
+            'totalStaffCount',
+            'activeStaffCount',
+            'totalTicketsHandled',
+            'blockedCount',
+            'avgProgress',
+            'selectedStaffId',
+            'selectedStaff'
         ));
     }
 
@@ -495,11 +631,17 @@ class TicketController extends Controller
         $user = Auth::user()->load('role');
 
         if (!$ticket->canBeHandledBy($user)) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Hanya role penanggung jawab saat ini yang dapat mengatur prioritas tiket.'], 403);
+            }
             return back()->with('error', 'Hanya role penanggung jawab saat ini yang dapat mengatur prioritas tiket.');
         }
 
         if ($request->filled('assessed_priority_rank')) {
             if (!$ticket->canBeDirectedBy($user)) {
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json(['success' => false, 'message' => 'Hanya kepala role yang menilai prioritas tiket.'], 403);
+                }
                 return back()->with('error', 'Hanya kepala role yang menilai prioritas tiket.');
             }
 
@@ -518,6 +660,15 @@ class TicketController extends Controller
                 'action' => 'priority_set',
                 'note' => 'Kepala menilai prioritas menjadi ' . RolePriorityRoute::labelFor($rank) . '.',
             ]);
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Prioritas tiket #{$ticket->ticket_number} dinilai menjadi " . RolePriorityRoute::labelFor($rank) . '.',
+                    'priority' => $ticket->priority,
+                    'priority_label' => RolePriorityRoute::labelFor($rank),
+                ]);
+            }
 
             return back()->with('success', "Prioritas tiket #{$ticket->ticket_number} dinilai menjadi " . RolePriorityRoute::labelFor($rank) . '.');
         }
@@ -538,25 +689,42 @@ class TicketController extends Controller
                 !empty($validatedRank['assigned_user_id']) ? (int) $validatedRank['assigned_user_id'] : null
             );
             if ($error) {
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json(['success' => false, 'message' => $error], 422);
+                }
                 return back()->with('error', $error);
             }
 
             $ticket->refresh()->load('assignedUser');
 
-            if ($keptAssignee) {
-                return back()->with('success', "Prioritas tiket #{$ticket->ticket_number} diubah menjadi {$ticket->priorityLabel()}.");
+            $msg = $keptAssignee
+                ? "Prioritas tiket #{$ticket->ticket_number} diubah menjadi {$ticket->priorityLabel()}."
+                : "Prioritas tiket #{$ticket->ticket_number} ({$ticket->priorityLabel()}) diteruskan ke {$ticket->assignedUser?->name}.";
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $msg,
+                    'priority' => $ticket->priority,
+                    'priority_label' => $ticket->priorityLabel(),
+                    'assigned_user' => $ticket->assignedUser?->name,
+                ]);
             }
 
-            return back()->with('success', "Prioritas tiket #{$ticket->ticket_number} ({$ticket->priorityLabel()}) diteruskan ke {$ticket->assignedUser?->name}.");
+            return back()->with('success', $msg);
         }
 
         $validated = $request->validate([
             'priority' => ['required', 'in:low,medium,high,urgent'],
         ]);
 
+        $rankMap = ['urgent' => 1, 'high' => 2, 'medium' => 3, 'low' => 4];
+        $mappedRank = $rankMap[$validated['priority']] ?? 3;
+
         $ticket->update([
             'priority' => $validated['priority'],
-            'priority_rank' => null,
+            'priority_rank' => $mappedRank,
+            'assessed_priority_rank' => $mappedRank,
         ]);
 
         TicketLog::create([
@@ -567,6 +735,15 @@ class TicketController extends Controller
             'action' => 'priority_set',
             'note' => "Prioritas tiket diatur menjadi: {$ticket->priorityLabel()} oleh {$user->name} ({$user->role?->name}).",
         ]);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Prioritas tiket #{$ticket->ticket_number} diatur ke: {$ticket->priorityLabel()}.",
+                'priority' => $ticket->priority,
+                'priority_label' => $ticket->priorityLabel(),
+            ]);
+        }
 
         return back()->with('success', "Prioritas tiket #{$ticket->ticket_number} diatur ke: {$ticket->priorityLabel()}.");
     }

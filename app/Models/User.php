@@ -80,6 +80,26 @@ class User extends Authenticatable
         return (bool) $this->role?->is_superuser;
     }
 
+    public function isHeadOfRole(): bool
+    {
+        return (bool) ($this->role?->head_user_id && (int) $this->role->head_user_id === (int) $this->id);
+    }
+
+    public function isAdminIt(): bool
+    {
+        return in_array($this->role?->slug, ['admin-it', 'admin'], true);
+    }
+
+    public function isSupervisorIt(): bool
+    {
+        return $this->role?->slug === 'supervisor-it';
+    }
+
+    public function isStaff(): bool
+    {
+        return in_array($this->role?->slug, ['staff', 'staff-it'], true);
+    }
+
     /**
      * Ambil daftar menu dinamis yang berhak diakses oleh role user saat ini
      */

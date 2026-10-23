@@ -874,6 +874,112 @@ class TicketingHierarchyTest extends TestCase
             ->assertSee('Status bulan ini: Finished')
             ->assertDontSee('Status bulan ini: Delivered');
     }
+
+    public function test_clean_table_ui_supports_inline_priority_change_and_admin_it_triage(): void
+    {
+        $adminIt = User::where('email', 'admin.it@kampus.ac.id')->firstOrFail();
+        $supervisorIt = User::where('email', 'supervisor.it@kampus.ac.id')->firstOrFail();
+        $mahasiswa = User::where('email', 'mahasiswa@kampus.ac.id')->firstOrFail();
+        $category = TicketCategory::firstOrFail();
+
+        $ticket = Ticket::create([
+            'ticket_number' => 'TKT-TEST-ADMIN-01',
+            'title' => 'Kendala printer dan scanner lab',
+            'description' => 'Printer tidak merespon di lab komputasi.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $mahasiswa->id,
+            'creator_role_id' => $mahasiswa->role_id,
+            'current_role_id' => $adminIt->role_id,
+            'status' => 'open',
+            'priority' => 'low',
+        ]);
+
+        // 1. Inbox memuat UI clean dengan stat cards (Open Tickets, Pending Response) & table
+        $this->actingAs($adminIt)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Open Tickets')
+            ->assertSee('Pending Response')
+            ->assertSee('Set Prioritas')
+            ->assertSee($ticket->ticket_number);
+
+        // 2. Admin IT dapat mengubah priority langsung via AJAX JSON
+        $response = $this->actingAs($adminIt)->postJson(route('tickets.priority', $ticket), [
+            'priority' => 'urgent',
+        ]);
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'priority' => 'urgent',
+            ]);
+
+        $ticket->refresh();
+        $this->assertSame('urgent', $ticket->priority);
+        $this->assertSame(1, (int) $ticket->priority_rank);
+        $this->assertSame(1, (int) $ticket->assessed_priority_rank);
+
+        // 3. Filter priority di Inbox bekerja
+        $this->actingAs($adminIt)->get(route('tickets.inbox', ['priority' => 'urgent']))
+            ->assertOk()
+            ->assertSee($ticket->ticket_number);
+    }
+
+    public function test_role_based_mvc_dashboards_render_correctly_for_staff_admin_and_head(): void
+    {
+        $adminIt = User::where('email', 'admin.it@kampus.ac.id')->firstOrFail();
+        $supervisorIt = User::where('email', 'supervisor.it@kampus.ac.id')->firstOrFail();
+        $staff = User::where('email', 'fajar.jaringan@kampus.ac.id')->firstOrFail();
+
+        // 1. Staff Pelaksana (Fajar) melihat dashboard personal tiketnya, bukan widget kepala yang kosong
+        $this->actingAs($staff)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Dashboard Staff IT — Antrean Pekerjaan Saya')
+            ->assertSee('Tiket Aktif Saya')
+            ->assertSee('Profil & Beban Kerja')
+            ->assertSee('Detail')
+            ->assertDontSee('Belum ada staff yang mengerjakan tiket');
+
+        // 2. Admin IT melihat dashboard Helpdesk dengan kapasitas staf IT dan tombol Detail
+        $this->actingAs($adminIt)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Dashboard Admin IT — Manajemen & Triase Seluruh Tiket')
+            ->assertSee('Kapasitas & Beban Kerja Tim Staff')
+            ->assertSee('Detail');
+
+        // 3. Kepala Staff / Supervisor IT melihat dashboard pengawasan dengan Staff Progres dan Detail
+        $this->actingAs($supervisorIt)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Dashboard Kepala Staff — Antrean & Progres Tim')
+            ->assertSee('Staff Progres')
+            ->assertSee('Detail');
+    }
+
+    public function test_dedicated_staff_progress_page_and_sidebar_menu(): void
+    {
+        $supervisorIt = User::where('email', 'supervisor.it@kampus.ac.id')->firstOrFail();
+        $adminIt = User::where('email', 'admin.it@kampus.ac.id')->firstOrFail();
+
+        // 1. Menu 'Staff Progres' tampil di sidebar untuk supervisor dan admin IT
+        $this->actingAs($supervisorIt)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee(route('tickets.staff-progress'));
+
+        // 2. Akses halaman khusus Staff Progres
+        $response = $this->actingAs($supervisorIt)->get(route('tickets.staff-progress'));
+        $response->assertOk()
+            ->assertSee('Staff Progres')
+            ->assertSee('Total Tim Staf')
+            ->assertSee('Daftar Tiket yang Sedang Dikerjakan Seluruh Staf')
+            ->assertSee('Detail');
+
+        // 3. Admin IT juga dapat mengakses halaman Staff Progres
+        $this->actingAs($adminIt)->get(route('tickets.staff-progress'))
+            ->assertOk()
+            ->assertSee('Staff Progres')
+            ->assertSee('Total Tim Staf');
+    }
 }
+
+
 
 
