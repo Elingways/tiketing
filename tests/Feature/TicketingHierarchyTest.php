@@ -823,6 +823,21 @@ class TicketingHierarchyTest extends TestCase
             ->assertSee('hanya untuk kepala role')
             ->assertDontSee('Perbaikan jaringan lab');
 
+        Ticket::create([
+            'ticket_number' => 'TKT-TEST-9201',
+            'title' => 'Tiket yang sudah selesai',
+            'description' => 'Pekerjaan selesai.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $pemohon->id,
+            'creator_role_id' => $pemohon->role_id,
+            'current_role_id' => $role->id,
+            'assigned_user_id' => $staff->id,
+            'status' => 'in_progress',
+            'work_status' => 'finished',
+            'progress_percent' => 100,
+        ]);
+
         $this->actingAs($pemohon)->get(route('tickets.workload'))
             ->assertOk()
             ->assertSee('Pekerjaan Divisi')
@@ -830,6 +845,8 @@ class TicketingHierarchyTest extends TestCase
             ->assertSee('Perbaikan jaringan lab')
             ->assertSee('Blocked')
             ->assertSee('Fajar Nugroho, S.T.')
+            ->assertSee('Tiket yang sudah selesai')
+            ->assertSee('Selesai')
             ->assertDontSee('Catatan internal jangan tampil');
     }
 
