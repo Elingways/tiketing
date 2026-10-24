@@ -40,19 +40,6 @@ class AppServiceProvider extends ServiceProvider
                     ->whereNotIn('status', ['resolved', 'rejected', 'closed'])
                     ->count();
 
-                // Ambil sampel akun per role untuk quick switcher di header (agar ringan walau ribuan mahasiswa tersinkron)
-                $allDemoUsers = User::with('role')
-                    ->orderBy('role_id')
-                    ->orderBy('id')
-                    ->get()
-                    ->groupBy('role_id')
-                    ->flatMap(fn ($group) => $group->take(4))
-                    ->values();
-
-                if (!$allDemoUsers->contains('id', $user->id)) {
-                    $allDemoUsers->prepend($user);
-                }
-
                 // Data kategori global untuk Modal Buat Tiket di seluruh halaman
                 $globalCategories = Schema::hasTable('ticket_categories')
                     ? TicketCategory::with(['initialTargetRole.parent', 'maxApprovalRole'])
@@ -193,7 +180,6 @@ class AppServiceProvider extends ServiceProvider
                     'sidebarMenus' => $sidebarMenus,
                     'launcherMenus' => $launcherMenus,
                     'roleInboxCount' => $roleInboxCount,
-                    'allDemoUsers' => $allDemoUsers,
                     'globalCategories' => $globalCategories,
                     'globalCategoryChains' => $globalCategoryChains,
                     'headerNotifications' => $headerNotifications,

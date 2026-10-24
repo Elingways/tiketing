@@ -368,40 +368,6 @@
                         </div>
                     </div>
 
-                    <!-- Role Switcher -->
-                    <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open" type="button"
-                                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition">
-                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
-                            <span>Role: <strong>{{ $authUser->role?->name }}</strong></span>
-                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
-                        </button>
-
-                        <div x-show="open" @click.outside="open = false" x-cloak
-                             class="absolute right-0 mt-1.5 w-60 rounded-xl bg-white shadow-lg border border-slate-200 p-1.5 z-50">
-                            <div class="px-2.5 py-1 border-b border-slate-100 mb-1">
-                                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pindah Role / Akun</p>
-                            </div>
-                            <div class="max-h-72 overflow-y-auto space-y-0.5">
-                                @foreach($allDemoUsers as $demoUser)
-                                    <form action="{{ route('auth.quick-switch', $demoUser) }}" method="POST">
-                                        @csrf
-                                        <button type="submit"
-                                                class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-xs transition {{ $demoUser->id === $authUser->id ? 'bg-slate-100 text-slate-900 font-semibold' : 'hover:bg-slate-50 text-slate-600' }}">
-                                            <div class="truncate pr-2">
-                                                <p class="truncate">{{ $demoUser->name }}</p>
-                                                <p class="text-[10px] text-slate-400">{{ $demoUser->role?->name }}</p>
-                                            </div>
-                                            @if($demoUser->id === $authUser->id)
-                                                <span class="text-[10px] font-semibold text-indigo-600">Aktif</span>
-                                            @endif
-                                        </button>
-                                    </form>
-                                @endforeach
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- User Profile & Logout Dropdown (Pojok Kanan Atas) -->
                     <div class="relative" x-data="{ openUserMenu: false }">
                         <button @click="openUserMenu = !openUserMenu" type="button"

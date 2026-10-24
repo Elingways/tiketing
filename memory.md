@@ -47,6 +47,25 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ## 📝 Riwayat Log Prompt & Solusi
 
+### [2026-10-24] Pembersihan Dropdown Pindah Role / Switcher Akun pada Header
+- **User Prompt:**
+  > "pindah role itu hialngkan aja kita clean"
+- **Tindakan & Solusi:**
+  - Menghapus komponen dropdown *Pindah Role / Akun* (`auth.quick-switch`) dari header atas pada [resources/views/layouts/app.blade.php](file:///Users/mac/USH/tikecting/resources/views/layouts/app.blade.php).
+  - Mengeliminasi query `$allDemoUsers` di [app/Providers/AppServiceProvider.php](file:///Users/mac/USH/tikecting/app/Providers/AppServiceProvider.php) sehingga view composer tidak lagi menjalankan query berulang pada setiap muatan halaman.
+  - Header kini jauh lebih bersih, ringkas, dan profesional:
+    - **Sisi Kiri:** Identitas pengguna, foto profil avatar kecil, dan alur hirarki role.
+    - **Sisi Kanan:** Lonceng notifikasi tiket, dropdown menu profil pengguna (*Edit Profil & Foto* + *Logout*), dan tombol direct logout 1-klik.
+- **Hasil Pengujian:**
+  - Seluruh **21 automated tests (439 assertions)** lulus 100% (`PASS`). Waktu eksekusi tes menjadi lebih cepat (~11.12s).
+- **File Terkait:**
+  - `resources/views/layouts/app.blade.php`
+  - `app/Providers/AppServiceProvider.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [2026-10-24] Perbaikan Bug Tata Letak Header & Konten Dashboard Terbelah/Terpotong (Image Copy 3)
 - **User Prompt:**
   > "'/Users/mac/USH/tikecting/image copy 3.png' ada bug ini ada kesalahan"
