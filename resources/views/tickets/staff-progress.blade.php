@@ -169,47 +169,93 @@
                     $percent = $progress['percent'] ?? 0;
                     $ticketCount = $progress['tickets'] ?? 0;
                 @endphp
-                <div class="rounded-2xl border p-4 transition cursor-pointer flex flex-col justify-between"
+                <div class="rounded-2xl border transition cursor-pointer flex flex-col justify-between overflow-hidden group shadow-2xs hover:shadow-md"
                      :class="selectedStaffFilter === '{{ $progress['user']->id }}'
-                         ? 'border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/20 shadow-sm'
-                         : 'border-slate-200/80 bg-white hover:border-slate-300 hover:shadow-xs'"
+                         ? 'border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/20'
+                         : 'border-slate-200/80 bg-white hover:border-slate-300'"
                      @click="toggleStaffFilter('{{ $progress['user']->id }}')">
-                    <div>
-                        <!-- Header Card Staf -->
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200/60 flex items-center justify-center text-xs font-bold shrink-0">
-                                    {{ strtoupper(substr($progress['user']->name, 0, 2)) }}
-                                </div>
-                                <div class="min-w-0">
-                                    <h3 class="text-xs font-bold text-slate-900 truncate">{{ $progress['user']->name }}</h3>
-                                    <span class="text-[11px] text-slate-500 block truncate">
-                                        {{ $progress['user']->keahlian ?? ($progress['user']->jabatan ?? 'Teknisi IT') }}
-                                    </span>
-                                </div>
+                    
+                    <!-- Decorative Top Header Banner -->
+                    <div class="h-12 bg-gradient-to-r from-indigo-500/10 via-violet-500/10 to-indigo-500/5 px-4 pt-2.5 flex items-start justify-between border-b border-slate-100/80">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 text-slate-700 border border-slate-200/70 shadow-2xs">
+                            {{ $progress['user']->role?->name ?? 'Staf Unit' }}
+                        </span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 {{ $isBlocked ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse' : 'bg-emerald-50 text-emerald-700 border border-emerald-100' }}">
+                            <span class="w-1.5 h-1.5 rounded-full {{ $isBlocked ? 'bg-rose-500' : 'bg-emerald-500' }}"></span>
+                            <span>{{ $isBlocked ? 'Blocked' : 'Normal' }}</span>
+                        </span>
+                    </div>
+
+                    <div class="p-4 pt-0">
+                        <!-- Profile Identity Section -->
+                        <div class="flex items-start gap-3 -mt-5">
+                            <!-- Avatar / Photo -->
+                            <div class="relative shrink-0">
+                                @if($progress['user']->avatar_url)
+                                    <img src="{{ $progress['user']->avatar_url }}" alt="{{ $progress['user']->name }}"
+                                         class="w-12 h-12 rounded-2xl object-cover ring-2 ring-white shadow-md bg-white">
+                                @else
+                                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-600 text-white flex items-center justify-center text-sm font-bold shadow-md shadow-indigo-500/20 ring-2 ring-white">
+                                        {{ strtoupper(substr($progress['user']->name, 0, 2)) }}
+                                    </div>
+                                @endif
+                                <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white {{ $ticketCount > 0 ? ($isBlocked ? 'bg-rose-500' : 'bg-emerald-500') : 'bg-slate-300' }}"
+                                      title="{{ $ticketCount > 0 ? 'Sedang menangani tiket' : 'Tersedia' }}"></span>
                             </div>
-                            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider {{ $isBlocked ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-100' }}">
-                                {{ $isBlocked ? 'Blocked' : 'Normal' }}
-                            </span>
+
+                            <!-- Name & Email -->
+                            <div class="min-w-0 pt-5">
+                                <h3 class="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition truncate">{{ $progress['user']->name }}</h3>
+                                <p class="text-[11px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                                    <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                                    </svg>
+                                    <span class="truncate">{{ $progress['user']->email }}</span>
+                                </p>
+                            </div>
                         </div>
 
-                        <!-- Progress Bar & Tiket Count -->
-                        <div class="mt-3.5 pt-3 border-t border-slate-100">
-                            <div class="flex items-center justify-between text-xs mb-1.5">
-                                <span class="font-medium text-slate-600">{{ $ticketCount }} tiket berjalan</span>
-                                <span class="font-bold text-emerald-700">{{ $progress['percent'] === null ? '0%' : $progress['percent'] . '%' }}</span>
+                        <!-- Badge Keahlian / Spesialisasi -->
+                        @if($progress['user']->keahlian)
+                            <div class="mt-2.5">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-indigo-50/80 text-indigo-700 border border-indigo-100">
+                                    <svg class="w-3 h-3 text-indigo-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877m-3.703 3.797l-2.073-2.073m0 0l-1.06-1.06a8.25 8.25 0 00-11.668 0 8.25 8.25 0 000 11.668 8.25 8.25 0 0011.668 0l1.06-1.06m-2.073-2.073l2.073 2.073" />
+                                    </svg>
+                                    <span class="truncate">{{ $progress['user']->keahlian }}</span>
+                                </span>
                             </div>
+                        @endif
+
+                        <!-- Mini Stats Bar -->
+                        <div class="grid grid-cols-3 gap-2 p-2 mt-3 rounded-xl bg-slate-50 border border-slate-100 text-center">
+                            <div>
+                                <span class="text-[10px] text-slate-400 block font-medium">Tiket Aktif</span>
+                                <span class="text-xs font-bold text-slate-800">{{ $ticketCount }}</span>
+                            </div>
+                            <div class="border-x border-slate-200/60">
+                                <span class="text-[10px] text-slate-400 block font-medium">Progres</span>
+                                <span class="text-xs font-bold text-emerald-600">{{ $progress['percent'] === null ? '0%' : $progress['percent'] . '%' }}</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-slate-400 block font-medium">Kendala</span>
+                                <span class="text-xs font-bold {{ $isBlocked ? 'text-rose-600' : 'text-slate-500' }}">{{ $progress['blocked'] ?? 0 }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div class="mt-3">
                             <div class="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
                                 <div class="h-full bg-emerald-500 transition-all duration-300" style="width: {{ $percent }}%"></div>
                             </div>
                         </div>
 
-                        <!-- Content Preview: Jika ada tiket atau jika kosong -->
+                        <!-- Content Preview: Tiket yang sedang ditangani -->
                         <div class="mt-3">
                             @if($ticketCount > 0)
                                 <div class="space-y-1.5">
                                     @foreach($progress['open_tickets']->take(2) as $ot)
-                                        <div class="text-[11px] p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2">
+                                        <div class="text-[11px] p-2 rounded-xl bg-slate-50/80 border border-slate-100 flex items-center justify-between gap-2">
                                             <div class="truncate min-w-0">
                                                 <span class="font-mono font-bold text-indigo-600 mr-1">{{ $ot->ticket_number }}</span>
                                                 <span class="text-slate-700 truncate">{{ $ot->title }}</span>
@@ -234,7 +280,7 @@
                     </div>
 
                     <!-- Footer Tombol Detail & Filter -->
-                    <div class="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <div class="p-3 px-4 border-t border-slate-100 bg-slate-50/40 flex items-center justify-between">
                         <span class="text-[11px] font-medium"
                               :class="selectedStaffFilter === '{{ $progress['user']->id }}' ? 'text-indigo-600 font-bold' : 'text-slate-400'">
                             <span x-text="selectedStaffFilter === '{{ $progress['user']->id }}' ? '● Sedang difilter' : 'Klik untuk filter'"></span>
@@ -376,9 +422,14 @@
 
                                     <td class="py-4 px-4 align-top whitespace-nowrap">
                                         <div class="flex items-center gap-2.5">
-                                            <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200/60 flex items-center justify-center text-xs font-bold shrink-0">
-                                                {{ strtoupper(substr($progress['user']->name, 0, 2)) }}
-                                            </div>
+                                            @if($progress['user']->avatar_url)
+                                                <img src="{{ $progress['user']->avatar_url }}" alt="{{ $progress['user']->name }}"
+                                                     class="w-8 h-8 rounded-xl object-cover ring-1 ring-slate-200 shrink-0">
+                                            @else
+                                                <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200/60 flex items-center justify-center text-xs font-bold shrink-0">
+                                                    {{ strtoupper(substr($progress['user']->name, 0, 2)) }}
+                                                </div>
+                                            @endif
                                             <div class="min-w-0">
                                                 <span class="font-bold text-slate-900 block truncate">{{ $progress['user']->name }}</span>
                                                 <button type="button" @click="toggleStaffFilter('{{ $progress['user']->id }}')"

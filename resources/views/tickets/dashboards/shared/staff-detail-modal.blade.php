@@ -9,9 +9,14 @@
                 <!-- Modal Header -->
                 <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/80">
                     <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center text-sm font-bold shadow-sm shadow-indigo-500/25 shrink-0">
-                            {{ strtoupper(substr($progress['user']->name, 0, 1)) }}
-                        </div>
+                        @if($progress['user']->avatar_url)
+                            <img src="{{ $progress['user']->avatar_url }}" alt="{{ $progress['user']->name }}"
+                                 class="w-10 h-10 rounded-xl object-cover ring-2 ring-white shadow-sm shrink-0">
+                        @else
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center text-sm font-bold shadow-sm shadow-indigo-500/25 shrink-0">
+                                {{ strtoupper(substr($progress['user']->name, 0, 1)) }}
+                            </div>
+                        @endif
                         <div class="min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <h2 class="text-sm font-bold text-slate-900 truncate">{{ $progress['user']->name }}</h2>

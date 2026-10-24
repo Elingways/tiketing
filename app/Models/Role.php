@@ -92,7 +92,7 @@ class Role extends Model
             ->when($this->head_user_id, fn ($q) => $q->where('id', '!=', $this->head_user_id))
             ->orderBy('name')
             ->limit(100)
-            ->get(['id', 'name', 'role_id', 'jabatan', 'keahlian']);
+            ->get(['id', 'name', 'email', 'role_id', 'jabatan', 'keahlian', 'avatar_path', 'avatar_color', 'updated_at']);
     }
 
     /**

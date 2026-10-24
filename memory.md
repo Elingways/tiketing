@@ -639,6 +639,37 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ---
 
+### [2026-10-25] Redesain Kartu Staff Progres dengan Tampilan Profil Lengkap & Foto
+- **User Prompt:**
+  > "oke dibagian itu nnti kita pikirkan, sekarang, dibagin STAFF PROGRES kan ada card kan, nah kita akan ganti biar menampilkan profile sesuai staff itu , biar ga polos"
+- **Analisis & Kebutuhan:**
+  - Sebelumnya, kartu pada halaman Staff Progres (`resources/views/tickets/staff-progress.blade.php`) tampak sangat polos dengan inisial kotak 2 huruf generik, tanpa foto profil, tanpa email kontak staf, dan tanpa dekorasi identitas peran.
+  - Perlu diubah menjadi kartu profil yang profesional: menampilkan foto profil asli staf (jika ada) atau inisial bergradien modern dengan indikator status kehadiran, email login, jabatan & spesialisasi keahlian, dekorasi banner atas, serta metrik mini tiket & progres yang informatif.
+- **Tindakan & Solusi:**
+  - **Model Role (`app/Models/Role.php`):**
+    - Memperbarui `assignableStaffUsers()` untuk turut mengambil kolom `email`, `avatar_path`, `avatar_color`, dan `updated_at`, sehingga URL foto profil dan email staf tersedia di kartu.
+  - **Desain Kartu Profil Staff Progres (`resources/views/tickets/staff-progress.blade.php`):**
+    - Menambahkan banner atas bergradien modern dengan badge unit kerja dan indikator status kerja (*Normal* / *Blocked* dengan dot warna).
+    - Menampilkan avatar foto profil pengguna (`$progress['user']->avatar_url`) dengan ring dan shadow elegan, serta dot indikator beban kerja di sudut avatar.
+    - Menampilkan identitas profil lengkap: Nama staf, Email dengan ikon email, dan badge spesialisasi keahlian berikon.
+    - Menambahkan strip metrik ringkas: Tiket Aktif, Progres (%), dan Kendala (Blocked).
+    - Mempercantik progress bar, chip daftar tiket berjalan, dan footer aksi detail.
+  - **Pembaruan Konsisten pada Tampilan Lain:**
+    - Memperbarui avatar staf pada tabel pekerjaan berjalan di `staff-progress.blade.php`.
+    - Memperbarui avatar pada modal detail staf di `resources/views/tickets/dashboards/shared/staff-detail-modal.blade.php`.
+    - Memperbarui avatar pada dashboard pemantauan kepala unit di `resources/views/tickets/dashboards/head/index.blade.php`.
+  - **Pengujian:**
+    - Seluruh 22 automated test lulus dengan status **PASS (100%)** (467 assertions).
+- **File Terkait:**
+  - `resources/views/tickets/staff-progress.blade.php`
+  - `resources/views/tickets/dashboards/shared/staff-detail-modal.blade.php`
+  - `resources/views/tickets/dashboards/head/index.blade.php`
+  - `app/Models/Role.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [2026-10-25] Perbaikan Tombol Kelola Staf, Tampilan Email, dan Tombol Hapus pada Manajemen Role
 - **User Prompt:**
   > "bug tombol kelola tidak bisa di klik, kemudian saran saya dibagian kelola staff dia ada juga menampilkan email nya juga , kemudian di aksi tambahkan tombol hapus nya yaa"

@@ -95,9 +95,14 @@
         @forelse($staffProgress as $progress)
             <div class="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition">
                 <div class="flex items-center gap-3 min-w-0">
-                    <div class="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                        {{ strtoupper(substr($progress['user']->name, 0, 1)) }}
-                    </div>
+                    @if($progress['user']->avatar_url)
+                        <img src="{{ $progress['user']->avatar_url }}" alt="{{ $progress['user']->name }}"
+                             class="w-9 h-9 rounded-xl object-cover ring-1 ring-slate-200 shrink-0">
+                    @else
+                        <div class="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                            {{ strtoupper(substr($progress['user']->name, 0, 1)) }}
+                        </div>
+                    @endif
                     <div class="min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="text-sm font-bold text-slate-900">{{ $progress['user']->name }}</span>
