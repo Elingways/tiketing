@@ -146,6 +146,16 @@ class Role extends Model
         return $this->hasMany(Ticket::class, 'creator_role_id');
     }
 
+    public function initialTargetCategories(): HasMany
+    {
+        return $this->hasMany(TicketCategory::class, 'initial_target_role_id');
+    }
+
+    public function maxApprovalCategories(): HasMany
+    {
+        return $this->hasMany(TicketCategory::class, 'max_approval_role_id');
+    }
+
     /**
      * Dapatkan urutan rantai atasan dari role ini ke atas (misal: [Dosen, Kaprodi, Dekan])
      */

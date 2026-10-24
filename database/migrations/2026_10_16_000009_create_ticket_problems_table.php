@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('ticket_id')->constrained('tickets')->cascadeOnDelete();
             $table->string('title');
+            $table->unsignedTinyInteger('weight_percent')->default(0);
             $table->boolean('is_done')->default(false);
             $table->timestamp('done_at')->nullable();
             $table->foreignId('done_by')->nullable()->constrained('users')->nullOnDelete();

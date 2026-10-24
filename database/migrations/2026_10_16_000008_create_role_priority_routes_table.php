@@ -17,18 +17,10 @@ return new class extends Migration
 
             $table->unique(['role_id', 'priority_level']);
         });
-
-        Schema::table('tickets', function (Blueprint $table) {
-            $table->unsignedTinyInteger('priority_rank')->nullable()->after('priority');
-        });
     }
 
     public function down(): void
     {
-        Schema::table('tickets', function (Blueprint $table) {
-            $table->dropColumn('priority_rank');
-        });
-
         Schema::dropIfExists('role_priority_routes');
     }
 };

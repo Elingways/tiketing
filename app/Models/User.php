@@ -75,6 +75,26 @@ class User extends Authenticatable
         return $this->hasMany(Ticket::class, 'assigned_user_id');
     }
 
+    public function headedRoles(): HasMany
+    {
+        return $this->hasMany(Role::class, 'head_user_id');
+    }
+
+    public function ticketLogs(): HasMany
+    {
+        return $this->hasMany(TicketLog::class, 'user_id');
+    }
+
+    public function doneProblems(): HasMany
+    {
+        return $this->hasMany(TicketProblem::class, 'done_by');
+    }
+
+    public function priorityRoutes(): HasMany
+    {
+        return $this->hasMany(RolePriorityRoute::class, 'user_id');
+    }
+
     public function isSuperuser(): bool
     {
         return (bool) $this->role?->is_superuser;

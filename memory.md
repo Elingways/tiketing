@@ -47,6 +47,44 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ## 📝 Riwayat Log Prompt & Solusi
 
+### [2026-10-24] Refactor Database: Pemisahan Migrasi Per Tabel & Kelengkapan Relasi Eloquent
+- **User Prompt:**
+  > "sekarang kita refactor databasenya yaa, itu kamu jadikan satu soalnya migratenya, harusnya dipisah, dan relasinya juga okey ,"
+- **Tindakan & Solusi:**
+  - **Pemisahan File Migrasi (Single Responsibility):**
+    - Memisahkan file monolitik `create_ticketing_hierarchy_tables.php` serta 11 file migrasi patch alter kolom ke dalam migrasi mandiri per entitas/tabel:
+      1. `2026_10_16_000001_create_roles_table.php` (Tabel roles lengkap dengan `head_user_id` nullOnDelete)
+      2. `2026_10_16_000002_add_role_and_profile_columns_to_users_table.php` (Kolom role & data profil SIAKAD)
+      3. `2026_10_16_000003_create_menus_table.php` (Tabel menu dinamis SuperApp & sub-sidebar)
+      4. `2026_10_16_000004_create_menu_role_table.php` (Tabel pivot hak akses menu per role)
+      5. `2026_10_16_000005_create_ticket_categories_table.php` (Tabel kategori tiket & workflow template)
+      6. `2026_10_16_000006_create_tickets_table.php` (Tabel tiket lengkap: rank, bobot progress, work_status, milestone dates)
+      7. `2026_10_16_000007_create_ticket_logs_table.php` (Tabel timeline riwayat audit & eskalasi)
+      8. `2026_10_16_000008_create_role_priority_routes_table.php` (Tabel routing prioritas penugasan role)
+      9. `2026_10_16_000009_create_ticket_problems_table.php` (Tabel checklist poin masalah tiket & bobot %)
+  - **Penyempurnaan Relasi Model Eloquent:**
+    - Pada [app/Models/User.php](file:///Users/mac/USH/tikecting/app/Models/User.php): Menambahkan relasi inverse `headedRoles()`, `ticketLogs()`, `doneProblems()`, dan `priorityRoutes()`.
+    - Pada [app/Models/Role.php](file:///Users/mac/USH/tikecting/app/Models/Role.php): Menambahkan relasi bidirectional `initialTargetCategories()` dan `maxApprovalCategories()`.
+  - **Verifikasi Eksekusi:**
+    - Menjalankan `php artisan migrate:fresh --seed` berhasil 100% tanpa kendala foreign key dependency.
+    - Menjalankan seluruh unit & feature test suite (`php artisan test`): 19 passed (410 assertions).
+- **File Terkait:**
+  - `database/migrations/2026_10_16_000001_create_roles_table.php`
+  - `database/migrations/2026_10_16_000002_add_role_and_profile_columns_to_users_table.php`
+  - `database/migrations/2026_10_16_000003_create_menus_table.php`
+  - `database/migrations/2026_10_16_000004_create_menu_role_table.php`
+  - `database/migrations/2026_10_16_000005_create_ticket_categories_table.php`
+  - `database/migrations/2026_10_16_000006_create_tickets_table.php`
+  - `database/migrations/2026_10_16_000007_create_ticket_logs_table.php`
+  - `database/migrations/2026_10_16_000008_create_role_priority_routes_table.php`
+  - `database/migrations/2026_10_16_000009_create_ticket_problems_table.php`
+  - `app/Models/User.php`
+  - `app/Models/Role.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [2026-10-24] Redesign Sidebar Clean Light Modern & Professional Shell
 - **User Prompt:**
   > "sekarang kita akan membuat side bar yang lebih profesional yaa"
