@@ -149,7 +149,12 @@ class HierarchyController extends Controller
             }
         });
 
-        return back()->with('success', "Staff dan urutan prioritas role '{$role->name}' berhasil disimpan. Password awal staff baru: password.");
+        $count = count($staffRows);
+        $msg = $count > 0
+            ? "{$count} staf baru berhasil ditambahkan ke role '{$role->name}'! Akun langsung aktif dan dapat digunakan login (password: 'password' atau password kustom yang diinputkan)."
+            : "Data staf dan pengaturan Kepala Unit role '{$role->name}' berhasil disimpan.";
+
+        return back()->with('success', $msg);
     }
 
     public function removeStaff(Role $role, User $user)
@@ -273,6 +278,7 @@ class HierarchyController extends Controller
             $rows[(int) $index] = [
                 'name' => $name,
                 'email' => $email,
+                'password' => trim((string) ($row['password'] ?? '')),
                 'keahlian' => trim((string) ($row['keahlian'] ?? '')),
             ];
         }
@@ -338,7 +344,7 @@ class HierarchyController extends Controller
             $created[$index] = User::create([
                 'name' => trim($row['name']),
                 'email' => strtolower(trim($row['email'])),
-                'password' => 'password',
+                'password' => !empty($row['password']) ? trim($row['password']) : 'password',
                 'role_id' => $role->id,
                 'user_type' => 'admin',
                 'status_akademik' => 'Aktif',

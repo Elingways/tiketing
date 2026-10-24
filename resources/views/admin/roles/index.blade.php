@@ -67,7 +67,7 @@
                 });
             },
             addManageStaff() {
-                this.manage.newStaff.push({ name: '', email: '', keahlian: '' });
+                this.manage.newStaff.push({ name: '', email: '', password: '', keahlian: '' });
             }
         };
     }
@@ -491,21 +491,33 @@
 
                 <!-- Tambah Staf Baru -->
                 <div class="pt-3 border-t border-slate-100">
-                    <div class="flex items-center justify-between mb-2.5">
-                        <p class="text-xs font-bold text-slate-800">Tambah Staf Baru</p>
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <p class="text-xs font-bold text-slate-800">Tambah Staf Baru</p>
+                            <p class="text-[11px] text-slate-500">Daftarkan personel staf pelaksana teknis ke role ini</p>
+                        </div>
                         <button type="button" @click="addManageStaff()"
                                 class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition cursor-pointer">
                             <span>+ Tambah Baris</span>
                         </button>
                     </div>
 
+                    <!-- Notice Password Login -->
+                    <div class="mb-3 p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-[11px] text-indigo-900 flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold shrink-0">🔑</span>
+                        <div class="space-y-0.5">
+                            <span class="font-semibold block">Informasi Login Staf Baru:</span>
+                            <span class="text-indigo-800">Akun dapat langsung login dengan email terdaftar dan password default: <code class="font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-900">password</code> (atau tentukan password khusus pada kolom password).</span>
+                        </div>
+                    </div>
+
                     <div class="space-y-2.5">
                         <template x-for="(row, index) in manage.newStaff" :key="index">
                             <div class="rounded-xl border border-slate-200/80 p-3 bg-slate-50/50 space-y-2">
                                 <div class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-center">
-                                    <input type="text" :name="`staff[${index}][name]`" x-model="row.name" placeholder="Nama staf"
+                                    <input type="text" :name="`staff[${index}][name]`" x-model="row.name" placeholder="Nama lengkap staf" required
                                            class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">
-                                    <input type="email" :name="`staff[${index}][email]`" x-model="row.email" placeholder="email@kampus.ac.id"
+                                    <input type="email" :name="`staff[${index}][email]`" x-model="row.email" placeholder="email@kampus.ac.id" required
                                            class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">
                                     <button type="button" @click="manage.newStaff.splice(index, 1)"
                                             class="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition text-xs shrink-0"
@@ -515,8 +527,12 @@
                                         </svg>
                                     </button>
                                 </div>
-                                <input type="text" :name="`staff[${index}][keahlian]`" x-model="row.keahlian" placeholder="Keahlian / Spesialisasi teknis"
-                                       class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <input type="text" :name="`staff[${index}][keahlian]`" x-model="row.keahlian" placeholder="Keahlian / Spesialisasi teknis (opsional)"
+                                           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">
+                                    <input type="text" :name="`staff[${index}][password]`" x-model="row.password" placeholder="Password login (default: password)"
+                                           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">
+                                </div>
                                 <label class="flex items-center gap-2 p-2 rounded-lg border bg-white border-slate-200 text-slate-700 text-[11px] cursor-pointer">
                                     <input type="radio" name="head_user_id" :value="'new-' + index" x-model="manage.headId"
                                            class="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-500/20">
