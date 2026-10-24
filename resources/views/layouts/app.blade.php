@@ -229,11 +229,11 @@
                     }">
                         <button @click="openNotif = !openNotif" type="button"
                                 title="Notifikasi Tiket"
-                                class="relative w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-600 hover:text-slate-900 flex items-center justify-center transition cursor-pointer shadow-2xs">
-                            @include('partials.icon', ['name' => 'bell', 'class' => 'w-4.5 h-4.5'])
+                                class="relative w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-600 hover:text-slate-900 flex items-center justify-center transition cursor-pointer shadow-2xs">
+                            @include('partials.icon', ['name' => 'bell', 'class' => 'w-4 h-4 text-slate-600'])
 
                             @if(($totalNotifCount ?? 0) > 0)
-                                <span class="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-white font-bold text-[9px] shadow-sm animate-pulse">
+                                <span class="absolute -top-1 -right-1 flex h-3.5 min-w-[14px] px-1 items-center justify-center rounded-full bg-rose-500 text-white font-bold text-[8px] shadow-xs animate-pulse">
                                     {{ $totalNotifCount > 9 ? '9+' : $totalNotifCount }}
                                 </span>
                             @endif
@@ -284,18 +284,18 @@
                             <div class="max-h-80 overflow-y-auto divide-y divide-slate-100">
                                 <template x-for="notif in filteredNotifications" :key="notif.id">
                                     <a :href="notif.url"
-                                       class="block p-3.5 hover:bg-slate-50 transition group">
+                                       class="block p-3 hover:bg-slate-50 transition group">
                                         <div class="flex items-start gap-3">
                                             <!-- Icon Indicator -->
-                                            <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                                            <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
                                                  :class="notif.type === 'incoming' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'">
                                                 <template x-if="notif.type === 'incoming'">
-                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                                                     </svg>
                                                 </template>
                                                 <template x-if="notif.type === 'completed'">
-                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                     </svg>
                                                 </template>
@@ -329,9 +329,9 @@
 
                                 <!-- Empty State -->
                                 <template x-if="filteredNotifications.length === 0">
-                                    <div class="py-10 px-4 text-center">
-                                        <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
-                                            @include('partials.icon', ['name' => 'bell', 'class' => 'w-5 h-5'])
+                                    <div class="py-8 px-4 text-center">
+                                        <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
+                                            @include('partials.icon', ['name' => 'bell', 'class' => 'w-4 h-4 text-slate-400'])
                                         </div>
                                         <p class="text-xs font-semibold text-slate-700">Belum ada notifikasi baru</p>
                                         <p class="text-[11px] text-slate-400 mt-0.5">Semua tiket masuk dan proses selesai sudah ditinjau.</p>
