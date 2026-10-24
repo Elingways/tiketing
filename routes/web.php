@@ -49,7 +49,7 @@ Route::middleware('auth')->group(function () {
 
     // Modul Manajemen Superuser
     Route::prefix('admin')->name('admin.')->group(function () {
-        Route::get('/', fn () => redirect()->route('admin.users.students'))->name('index');
+        Route::get('/', fn () => redirect()->route('admin.users'))->name('index');
 
         Route::get('/hierarchy', [HierarchyController::class, 'index'])->name('hierarchy');
         Route::post('/hierarchy/roles', [HierarchyController::class, 'storeRole'])->name('hierarchy.store');
@@ -77,6 +77,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users');
         Route::get('/users/role/{role:slug}', [UserController::class, 'roleUsers'])->name('users.role');
         Route::get('/users/employees', [UserController::class, 'employees'])->name('users.employees');
+        Route::get('/users/students', fn () => redirect()->route('admin.users'))->name('users.students');
+        Route::get('/users/lecturers', fn () => redirect()->route('admin.users'))->name('users.lecturers');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
