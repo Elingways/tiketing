@@ -47,6 +47,24 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ## 📝 Riwayat Log Prompt & Solusi
 
+### [2026-10-24] Pembersihan Seluruh Data Dummy Pengguna & Menyisakan Akun Superadmin
+- **User Prompt:**
+  > "sekarang kita hapus semua data users dan sisakan superadmin yaa"
+- **Tindakan & Solusi:**
+  - Melakukan pembersihan data relasi secara aman (`head_user_id`, `supervisor_id`, `ticket_problems`, `ticket_logs`, `role_priority_routes`, `tickets`) dan menghapus seluruh dummy users selain Superadmin pada database aktif.
+  - Memastikan hanya ada 1 akun aktif yang tersisa di database:
+    - **Nama:** Super Admin Kampus
+    - **Email:** `superuser@kampus.ac.id`
+    - **Role:** Superuser
+  - Seluruh struktur hirarki role (10 role), kategori layanan, dan menu dinamis (14 menu) tetap utuh siap digunakan untuk input data baru atau sinkronisasi SIAKAD.
+- **Hasil Pengujian:**
+  - Seluruh **21 automated tests (440 assertions)** tetap lulus 100% (`PASS`).
+- **File Terkait:**
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [2026-10-24] Perbaikan Foto Avatar Rusak (Broken Image) Akibat Mismatch Port / APP_URL (Image Copy 4)
 - **User Prompt:**
   > "'/Users/mac/USH/tikecting/image copy 4.png' saya coba ganti tetapi hasilnya seperti ini"
