@@ -14,7 +14,24 @@ class AuthController extends Controller
             return redirect()->route('dashboard');
         }
 
-        $demoUsers = User::with('role.parent')->orderBy('role_id')->get();
+        // Ambil perwakilan akun per role untuk pengujian cepat jika diperlukan (maks 8 peran)
+        $demoUsers = User::with('role.parent')
+            ->whereIn('email', [
+                'superuser@kampus.ac.id',
+                'adminit@gmail.com',
+                'spv@gmail.com',
+                'syahrul@gmail.com',
+                'bahasa-indonesia@mail.com',
+                'lourencasoares104@gmail.com',
+            ])
+            ->orWhere(function ($query) {
+                $query->whereNotNull('role_id');
+            })
+            ->get()
+            ->unique(fn ($u) => $u->role?->name ?? $u->email)
+            ->take(8)
+            ->values();
+
         return view('auth.login', compact('demoUsers'));
     }
 

@@ -995,6 +995,55 @@ class TicketingHierarchyTest extends TestCase
             ->assertSee('Staff Progres')
             ->assertSee('Total Tim Staf');
     }
+
+    public function test_clean_login_page_renders_and_supports_authentication(): void
+    {
+        // 1. Halaman login bersih tanpa hardcoded dummy password dan tanpa ratusan user
+        $response = $this->get(route('login'));
+        $response->assertOk()
+            ->assertSee('SuperTicket')
+            ->assertSee('Masuk ke Akun')
+            ->assertSee('Alamat Email')
+            ->assertSee('Kata Sandi')
+            ->assertDontSee('Password default akun demo:');
+
+        // 2. Login dengan kredensial yang valid
+        $loginResponse = $this->post(route('login.submit'), [
+            'email' => 'superuser@kampus.ac.id',
+            'password' => 'password',
+        ]);
+        $loginResponse->assertRedirect(route('dashboard'));
+        $this->assertAuthenticated();
+
+        // 3. Akses kembali ke /login saat sudah authenticated akan di-redirect ke dashboard
+        $this->get(route('login'))->assertRedirect(route('dashboard'));
+    }
+
+    public function test_superadmin_dashboard_refactor_clean_ui_and_removes_role_hierarchy_tree(): void
+    {
+        $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+        $mahasiswa = User::where('email', 'mahasiswa@kampus.ac.id')->firstOrFail();
+
+        // 1. Dashboard Superadmin tampil dengan UI modern & KPI eksekutif (tanpa hirarki role & tanpa pintasan sistem)
+        $response = $this->actingAs($superuser)->get(route('dashboard'));
+        $response->assertOk()
+            ->assertSee('Dashboard Super Admin')
+            ->assertSee('Total Tiket')
+            ->assertSee('Sedang Diproses')
+            ->assertSee('Tiket Selesai')
+            ->assertSee('Pengguna Civitas')
+            ->assertSee('Tiket Terbaru Seluruh Kampus')
+            ->assertSee('Distribusi Status Tiket')
+            ->assertSee('Aktivitas Terkini Sistem')
+            ->assertDontSee('Struktur Hirarki Role')
+            ->assertDontSee('Pintasan Sistem');
+
+        // 2. Dashboard Mahasiswa / civitas umum juga bersih tanpa Struktur Hirarki Role
+        $mhsResponse = $this->actingAs($mahasiswa)->get(route('dashboard'));
+        $mhsResponse->assertOk()
+            ->assertSee('Tiket Terbaru Saya')
+            ->assertDontSee('Struktur Hirarki Role');
+    }
 }
 
 

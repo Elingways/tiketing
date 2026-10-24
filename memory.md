@@ -47,6 +47,91 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ## 📝 Riwayat Log Prompt & Solusi
 
+### [2026-10-24] Pembersihan Widget "Pintasan Sistem" pada Dashboard Superadmin
+- **User Prompt:**
+  > "saya ga perlu pintasan sistem"
+- **Tindakan & Solusi:**
+  - Menghapus widget kartu *"Pintasan Sistem"* yang menduplikasi menu navigasi sidebar (Database Mahasiswa SIAKAD, Data Pengajar, Karyawan, Manajemen Menu).
+  - Merapikan header superadmin agar tetap minimalis (hanya mempertahankan tombol *Inbox Antrean* dan *+ Buat Tiket*).
+  - Memberikan ruang lebih lega pada kolom kanan untuk fokus pada metrik analitik: **Distribusi Status Tiket** dan **Aktivitas Terkini Sistem (*Live Log*)**.
+  - Mengupdate test di `TicketingHierarchyTest.php` untuk memastikan `assertDontSee('Pintasan Sistem')`.
+- **File Terkait:**
+  - `resources/views/dashboard.blade.php`
+  - `app/Http/Controllers/DashboardController.php`
+  - `tests/Feature/TicketingHierarchyTest.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
+### [2026-10-24] Refactor Dashboard Superadmin (Clean UI, Professional SaaS Overview & Penghapusan Hirarki Role)
+- **User Prompt:**
+  > "tolong refactor desain dashboard superadmin, dan clean ui dan buat lebih profesional dashboard, dan hapus juga Struktur Hirarki Role"
+- **Analisis & Kebutuhan:**
+  - Sebelumnya, tampilan dashboard utama (`resources/views/dashboard.blade.php`) memperlakukan Superadmin layaknya civitas biasa dengan kartu metrik generik dan kolom samping "Struktur Hirarki Role" yang memakan tempat 4-kolom serta menambah *visual clutter*.
+  - Superadmin membutuhkan tampilan eksekutif & operasional yang profesional: KPI kesehatan tiket kampus, monitoring tiket terbaru sistem, rasio penyelesaian, distribusi per status & kategori layanan, live system activity timeline, dan pintasan administrasi cepat (*Quick Actions*).
+  - "Struktur Hirarki Role" harus dihapus sepenuhnya dari dashboard agar layout luas, bersih, dan proporsional.
+- **Tindakan & Solusi:**
+  - **Pembersihan UI (*Hapus Struktur Hirarki Role*):**
+    - Menghapus komponen tree node `Struktur Hirarki Role` dari [resources/views/dashboard.blade.php](file:///Users/mac/USH/tikecting/resources/views/dashboard.blade.php).
+    - Menghapus query `$rootRoles` dari [DashboardController.php](file:///Users/mac/USH/tikecting/app/Http/Controllers/DashboardController.php) sehingga loading dashboard jauh lebih ringan.
+  - **Desain Dashboard Eksekutif Superadmin Modern:**
+    - **Header Eksekutif:** Header Super Admin dengan status badge real-time ("🟢 Sistem Aktif") dan tombol pintasan (Inbox Antrean, Kategori Layanan, Kelola Pengguna, Buat Tiket).
+    - **4 Stat Cards KPI:** Total Tiket Masuk (beserta rasio penyelesaian %), Tiket Sedang Diproses (beserta jumlah tiket baru), Tiket Selesai Tuntas, dan Total Civitas Terdaftar (breakdown Mahasiswa SIAKAD, Dosen, dan Karyawan/Staff).
+    - **Tabel Monitoring Tiket Seluruh Kampus (8-kolom):** Menampilkan tiket terbaru sistem dengan avatar inisial, badge prioritas (Urgent, High, Medium, Low dengan indikator dot warna), badge status, penugasan teknisi/role, dan tombol aksi "Buka →".
+    - **Widget Kategori Layanan Teraktif:** Menampilkan volume tiket per kategori dan unit target penanganan.
+    - **Widget Distribusi Status (4-kolom):** Visual progress bar untuk status Open, In Progress, Resolved, dan Rejected.
+    - **Live Activity Log:** Menampilkan riwayat aksi tiket terkini (*real-time timeline*) dari `TicketLog` dengan relative timestamp (`diffForHumans()`).
+    - **Pintasan Sistem Cepat:** Akses instan ke database Mahasiswa SIAKAD, Pengajar, Karyawan, dan Manajemen Menu.
+  - **Dashboard Peran Civitas (Non-Superadmin):**
+    - Di-refactor ke layout lebar yang bersih (*full-width clean cards*) tanpa kolom samping yang sempit, dengan metrik tiket masuk, approval berjenjang, dan tabel permohonan saya yang rapi.
+  - **Ikon & Testing:**
+    - Menambahkan ikon `clock` dan `check-circle` di [resources/views/partials/icon.blade.php](file:///Users/mac/USH/tikecting/resources/views/partials/icon.blade.php).
+    - Menambahkan automated test `test_superadmin_dashboard_refactor_clean_ui_and_removes_role_hierarchy_tree` di [tests/Feature/TicketingHierarchyTest.php](file:///Users/mac/USH/tikecting/tests/Feature/TicketingHierarchyTest.php).
+    - Seluruh **19 tests (405 assertions)** lulus 100% (`PASS`).
+- **File Terkait:**
+  - `resources/views/dashboard.blade.php`
+  - `app/Http/Controllers/DashboardController.php`
+  - `resources/views/partials/icon.blade.php`
+  - `tests/Feature/TicketingHierarchyTest.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
+### [2026-10-24] Redesign Clean UI Halaman Login (Pembersihan Clutter & Standar Auth Modern)
+- **User Prompt:**
+  > "sekarang kita build halaman login yaa rapikan dan hapus yang tidak perlu karena sekarang kita tahap clean ui"
+- **Analisis & Masalah Sebelum Refactor:**
+  - Halaman login sebelumnya memiliki panel kanan 6-kolom yang memuat dump seluruh akun pengguna database (`$demoUsers = User::all()`) yang mencapai ratusan pengguna setelah sinkronisasi SIAKAD, menyebabkan tampilan penuh sesak dan lambat dimuat.
+  - Terdapat teks debug prototype ("Password default akun demo: password") dan nilai input form yang di-hardcode (`superuser@kampus.ac.id` dan `password`).
+  - Kurangnya elemen UX penting seperti toggle show/hide password, dialog informasi pemulihan akun/lupa password, dan styling card modern berstandar enterprise.
+- **Tindakan & Solusi Clean UI:**
+  - **Pembersihan Clutter (Hapus yang Tidak Perlu):**
+    - Menghapus kolom kanan yang me-render ratusan akun demo dari tampilan utama.
+    - Menghapus teks instruksi dummy password dan hardcoded value pada input email/password.
+    - Input kini bersih, mendukung `autofocus`, `autocomplete`, dan hanya menyimpan `old('email')` saat terjadi kegagalan validasi.
+  - **Desain Auth Card Terfokus (Modern Minimalist):**
+    - Layout terpusat (*centered container*) `max-w-[420px]` dengan ambient background lighting halus (soft blur mesh orbs).
+    - Header brand SuperTicket dengan icon squircle gradien indigo-600 dan tipografi Plus Jakarta Sans.
+    - Input email dan kata sandi dilengkapi icon SVG (`envelope` dan `lock`) serta tombol interaktif toggle lihat/sembunyikan kata sandi (`eye` / `eye-slash` via Alpine.js).
+    - Checkbox "Ingat sesi saya di peramban ini" dan tautan "Lupa kata sandi?" yang membuka modal informasi bantuan resmi IT Helpdesk.
+    - Drawer pengujian role demo diringkas ke accordion minimalis yang tersembunyi secara default (*collapsed*), hanya memuat maks 8 perwakilan peran unik (Superuser, Admin IT, Supervisor IT, Staff, Dosen, Mahasiswa) agar tidak membebani UI dan query database.
+  - **Controller & Ikon:**
+    - Memperbarui [AuthController.php](file:///Users/mac/USH/tikecting/app/Http/Controllers/AuthController.php) agar mengambil perwakilan role penting secara unik (`unique()`) tanpa querying ratusan akun mahasiswa.
+    - Menambahkan icon SVG reusable: `envelope`, `lock`, `eye`, `eye-slash`, dan `arrow-right` pada [resources/views/partials/icon.blade.php](file:///Users/mac/USH/tikecting/resources/views/partials/icon.blade.php).
+  - **Testing:**
+    - Menambahkan automated feature test `test_clean_login_page_renders_and_supports_authentication` di [tests/Feature/TicketingHierarchyTest.php](file:///Users/mac/USH/tikecting/tests/Feature/TicketingHierarchyTest.php). Seluruh 18 tests (392 assertions) lulus 100%.
+- **File Terkait:**
+  - `resources/views/auth/login.blade.php`
+  - `app/Http/Controllers/AuthController.php`
+  - `resources/views/partials/icon.blade.php`
+  - `tests/Feature/TicketingHierarchyTest.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [2026-10-23] Menu Sidebar Khusus "Staff Progres" untuk Pemantauan Kinerja & Beban Kerja Terfokus
 - **User Prompt:**
   > "Staff Progres, dibagian staff progres baiknya dibuatkan 1 menu sidebar baru untuk memfokuskan gitu bisa ga ?"
