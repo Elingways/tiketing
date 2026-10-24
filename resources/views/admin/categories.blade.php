@@ -59,31 +59,17 @@
     }
 }">
 
-    <!-- Page Header Modern dengan Tab Switcher Layanan / Role -->
+    <!-- Page Header Modern -->
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
-        <div>
-            <!-- Switcher Sub-Sidebar Layanan / Role -->
-            <div class="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200 mb-3">
-                <a href="{{ route('admin.categories') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-2xs transition">
-                    Kategori Layanan ({{ $categories->count() }})
-                </a>
-                <a href="{{ route('admin.roles') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition">
-                    Manajemen Role
-                </a>
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 border border-teal-100">
+                @include('partials.icon', ['name' => 'squares-plus', 'class' => 'w-5 h-5'])
             </div>
-
-            <div class="flex items-center gap-2.5">
-                <div class="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
-                    @include('partials.icon', ['name' => 'squares-plus', 'class' => 'w-5 h-5'])
-                </div>
-                <div>
-                    <h1 class="text-lg font-bold text-slate-900 tracking-tight">Kategori Layanan</h1>
-                    <p class="text-xs text-slate-500 mt-0.5">
-                        Konfigurasi alur approval tiket bertingkat, penugasan target penanganan, dan berkas template persyaratan.
-                    </p>
-                </div>
+            <div>
+                <h1 class="text-lg font-bold text-slate-900 tracking-tight">Kategori Layanan</h1>
+                <p class="text-xs text-slate-500 mt-0.5">
+                    Konfigurasi alur approval tiket bertingkat, penugasan target penanganan, dan berkas template persyaratan.
+                </p>
             </div>
         </div>
 

@@ -47,6 +47,23 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ## 📝 Riwayat Log Prompt & Solusi
 
+### [2026-10-24] Penghapusan Tombol Switcher Halaman pada Header (Clean UI)
+- **User Prompt:**
+  > "oke tetapi itu ada button 2 untuk switch halaman ga perlu yaa"
+- **Tindakan & Solusi:**
+  - Menghapus komponen tab/button switcher ganda ("Kategori Layanan" dan "Manajemen Role") dari header:
+    - [resources/views/admin/categories.blade.php](file:///Users/mac/USH/tikecting/resources/views/admin/categories.blade.php)
+    - [resources/views/admin/roles/index.blade.php](file:///Users/mac/USH/tikecting/resources/views/admin/roles/index.blade.php)
+  - Desain header kini lebih bersih (*clean UI*), fokus menampilkan icon squircle, judul halaman, dan deskripsi singkat tanpa tombol switcher redundan, karena navigasi antar halaman sudah sepenuhnya ditangani oleh sub-sidebar "Layanan & Role".
+  - **Testing:** Seluruh **19 automated tests (410 assertions)** tetap lulus 100%.
+- **File Terkait:**
+  - `resources/views/admin/categories.blade.php`
+  - `resources/views/admin/roles/index.blade.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [2026-10-24] Pemisahan Halaman Kategori Layanan & Manajemen Role dengan Sub-Sidebar
 - **User Prompt:**
   > "baiknya kita pisah juga role baru dan tambah layanan, jadi buat sub sidebar untuk manajement role dan layanan aja"
