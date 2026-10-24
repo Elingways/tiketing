@@ -218,7 +218,7 @@
                     <span class="hidden sm:inline truncate">Alur Hirarki: <strong class="text-slate-700">{{ implode(' → ', $authUser->role?->getUpwardChainNames() ?? []) }}</strong></span>
                 </div>
 
-                <div class="flex items-center gap-2.5">
+                <div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
                     <!-- Notification Bell Dropdown -->
                     @php
                         $encodedNotifs = bin2hex(json_encode(($headerNotifications ?? collect())->values()->all()));
@@ -475,8 +475,7 @@
                     </form>
                 </div>
             </div>
-        </div>
-    </header>
+        </header>
 
         <!-- Alerts -->
         <div class="max-w-6xl w-full mx-auto px-4 sm:px-6 pt-4">
