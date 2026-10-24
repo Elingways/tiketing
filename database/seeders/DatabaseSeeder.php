@@ -540,6 +540,20 @@ class DatabaseSeeder extends Seeder
                 'sort_order' => 7,
                 'roles' => [$superuserRole->id],
             ],
+            [
+                'name' => 'Profil Saya',
+                'slug' => 'profile-edit',
+                'route_name' => 'profile.edit',
+                'icon' => 'user',
+                'color' => 'indigo',
+                'group' => 'main',
+                'badge_text' => 'Akun',
+                'description' => 'Pengaturan profil, kontak, dan unggah foto profil pengguna.',
+                'show_in_sidebar' => true,
+                'show_in_launcher' => true,
+                'sort_order' => 8,
+                'roles' => $allActiveRoles,
+            ],
         ];
 
         $createdMenus = [];

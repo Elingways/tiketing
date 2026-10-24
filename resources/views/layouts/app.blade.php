@@ -65,16 +65,20 @@
     <aside class="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 bg-white border-r border-slate-200/80 z-30 shadow-[1px_0_10px_rgba(0,0,0,0.02)]">
         <!-- Brand Header -->
         <div class="flex items-center justify-between px-5 h-16 border-b border-slate-100">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-sm shadow-indigo-500/25 ring-1 ring-black/5">
-                    @include('partials.icon', ['name' => 'ticket', 'class' => 'w-5 h-5 text-white'])
+            <a href="{{ route('profile.edit') }}" title="Pengaturan Profil" class="flex items-center gap-3 group min-w-0">
+                @if($authUser->avatar_url)
+                    <img src="{{ $authUser->avatar_url }}" alt="{{ $authUser->name }}" class="w-9 h-9 rounded-xl object-cover shadow-sm ring-1 ring-slate-200/80 group-hover:ring-indigo-500 transition shrink-0">
+                @else
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-sm shadow-indigo-500/25 ring-1 ring-black/5 shrink-0">
+                        @include('partials.icon', ['name' => 'ticket', 'class' => 'w-5 h-5 text-white'])
+                    </div>
+                @endif
+                <div class="leading-tight min-w-0">
+                    <span class="font-bold text-sm text-slate-900 tracking-tight block truncate group-hover:text-indigo-600 transition">SuperTicket</span>
+                    <span class="text-[10px] font-medium text-slate-400 block tracking-normal truncate">Sistem Layanan Kampus</span>
                 </div>
-                <div class="leading-tight">
-                    <span class="font-bold text-sm text-slate-900 tracking-tight block">SuperTicket</span>
-                    <span class="text-[10px] font-medium text-slate-400 block tracking-normal">Sistem Layanan Kampus</span>
-                </div>
-            </div>
-            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100/60">
+            </a>
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100/60 shrink-0">
                 v2.0
             </span>
         </div>
@@ -162,24 +166,28 @@
         <!-- Modern User Profile Card & Logout -->
         <div class="p-3 border-t border-slate-100 bg-slate-50/60">
             <div class="p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2.5">
-                <div class="flex items-center gap-2.5 min-w-0">
-                    <!-- Avatar with Initials & Online Status -->
+                <a href="{{ route('profile.edit') }}" title="Pengaturan Profil" class="flex items-center gap-2.5 min-w-0 group flex-1">
+                    <!-- Avatar with Image or Initials & Online Status -->
                     <div class="relative shrink-0">
-                        <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center border border-indigo-200/70">
-                            {{ strtoupper(substr($authUser->name, 0, 2)) }}
-                        </div>
+                        @if($authUser->avatar_url)
+                            <img src="{{ $authUser->avatar_url }}" alt="{{ $authUser->name }}" class="w-8 h-8 rounded-lg object-cover ring-1 ring-slate-200 group-hover:ring-indigo-500 transition">
+                        @else
+                            <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center border border-indigo-200/70 group-hover:bg-indigo-100 transition">
+                                {{ $authUser->initials() }}
+                            </div>
+                        @endif
                         <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" title="Online"></span>
                     </div>
-                    <div class="min-w-0">
-                        <p class="text-xs font-bold text-slate-900 truncate leading-tight">{{ $authUser->name }}</p>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition truncate leading-tight">{{ $authUser->name }}</p>
                         <span class="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded mt-0.5 truncate max-w-[110px] border border-slate-200/50">
                             {{ $authUser->role?->name }}
                         </span>
                     </div>
-                </div>
+                </a>
                 <form action="{{ route('logout') }}" method="POST" class="shrink-0">
                     @csrf
-                    <button type="submit" title="Keluar dari Sistem"
+                    <button type="submit" title="Keluar dari Sistem (Logout)"
                             class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
@@ -195,10 +203,19 @@
         <!-- Top Header -->
         <header class="sticky top-0 z-20 bg-white/95 backdrop-blur-xs border-b border-slate-200/80">
             <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-                <div class="flex items-center gap-2 text-xs text-slate-500">
-                    <span class="font-semibold text-slate-800">{{ $authUser->name }}</span>
-                    <span class="text-slate-300">•</span>
-                    <span>Alur Hirarki: <strong class="text-slate-700">{{ implode(' → ', $authUser->role?->getUpwardChainNames() ?? []) }}</strong></span>
+                <div class="flex items-center gap-2.5 text-xs text-slate-500 min-w-0">
+                    <a href="{{ route('profile.edit') }}" title="Pengaturan Profil" class="flex items-center gap-2 group shrink-0">
+                        @if($authUser->avatar_url)
+                            <img src="{{ $authUser->avatar_url }}" alt="{{ $authUser->name }}" class="w-6 h-6 rounded-md object-cover ring-1 ring-slate-200 group-hover:ring-indigo-500 transition">
+                        @else
+                            <div class="w-6 h-6 rounded-md bg-indigo-50 text-indigo-700 font-bold text-[10px] flex items-center justify-center border border-indigo-200/70 group-hover:bg-indigo-100 transition">
+                                {{ $authUser->initials() }}
+                            </div>
+                        @endif
+                        <span class="font-semibold text-slate-800 group-hover:text-indigo-600 transition truncate max-w-[140px] sm:max-w-none">{{ $authUser->name }}</span>
+                    </a>
+                    <span class="text-slate-300 hidden sm:inline">•</span>
+                    <span class="hidden sm:inline truncate">Alur Hirarki: <strong class="text-slate-700">{{ implode(' → ', $authUser->role?->getUpwardChainNames() ?? []) }}</strong></span>
                 </div>
 
                 <div class="flex items-center gap-2.5">
@@ -353,36 +370,109 @@
 
                     <!-- Role Switcher -->
                     <div class="relative" x-data="{ open: false }">
-                    <button @click="open = !open" type="button"
-                            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition">
-                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
-                        <span>Role: <strong>{{ $authUser->role?->name }}</strong></span>
-                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
-                    </button>
+                        <button @click="open = !open" type="button"
+                                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition">
+                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+                            <span>Role: <strong>{{ $authUser->role?->name }}</strong></span>
+                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                        </button>
 
-                    <div x-show="open" @click.outside="open = false" x-cloak
-                         class="absolute right-0 mt-1.5 w-60 rounded-xl bg-white shadow-lg border border-slate-200 p-1.5 z-50">
-                        <div class="px-2.5 py-1 border-b border-slate-100 mb-1">
-                            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pindah Role / Akun</p>
-                        </div>
-                        <div class="max-h-72 overflow-y-auto space-y-0.5">
-                            @foreach($allDemoUsers as $demoUser)
-                                <form action="{{ route('auth.quick-switch', $demoUser) }}" method="POST">
-                                    @csrf
-                                    <button type="submit"
-                                            class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-xs transition {{ $demoUser->id === $authUser->id ? 'bg-slate-100 text-slate-900 font-semibold' : 'hover:bg-slate-50 text-slate-600' }}">
-                                        <div class="truncate pr-2">
-                                            <p class="truncate">{{ $demoUser->name }}</p>
-                                            <p class="text-[10px] text-slate-400">{{ $demoUser->role?->name }}</p>
-                                        </div>
-                                        @if($demoUser->id === $authUser->id)
-                                            <span class="text-[10px] font-semibold text-indigo-600">Aktif</span>
-                                        @endif
-                                    </button>
-                                </form>
-                            @endforeach
+                        <div x-show="open" @click.outside="open = false" x-cloak
+                             class="absolute right-0 mt-1.5 w-60 rounded-xl bg-white shadow-lg border border-slate-200 p-1.5 z-50">
+                            <div class="px-2.5 py-1 border-b border-slate-100 mb-1">
+                                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pindah Role / Akun</p>
+                            </div>
+                            <div class="max-h-72 overflow-y-auto space-y-0.5">
+                                @foreach($allDemoUsers as $demoUser)
+                                    <form action="{{ route('auth.quick-switch', $demoUser) }}" method="POST">
+                                        @csrf
+                                        <button type="submit"
+                                                class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-xs transition {{ $demoUser->id === $authUser->id ? 'bg-slate-100 text-slate-900 font-semibold' : 'hover:bg-slate-50 text-slate-600' }}">
+                                            <div class="truncate pr-2">
+                                                <p class="truncate">{{ $demoUser->name }}</p>
+                                                <p class="text-[10px] text-slate-400">{{ $demoUser->role?->name }}</p>
+                                            </div>
+                                            @if($demoUser->id === $authUser->id)
+                                                <span class="text-[10px] font-semibold text-indigo-600">Aktif</span>
+                                            @endif
+                                        </button>
+                                    </form>
+                                @endforeach
+                            </div>
                         </div>
                     </div>
+
+                    <!-- User Profile & Logout Dropdown (Pojok Kanan Atas) -->
+                    <div class="relative" x-data="{ openUserMenu: false }">
+                        <button @click="openUserMenu = !openUserMenu" type="button"
+                                title="Menu Profil & Akun"
+                                class="inline-flex items-center gap-1.5 p-1 pl-1.5 pr-2 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition cursor-pointer">
+                            @if($authUser->avatar_url)
+                                <img src="{{ $authUser->avatar_url }}" alt="{{ $authUser->name }}" class="w-6 h-6 rounded-md object-cover ring-1 ring-slate-300 shrink-0">
+                            @else
+                                <div class="w-6 h-6 rounded-md bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                                    {{ $authUser->initials() }}
+                                </div>
+                            @endif
+                            <span class="hidden md:inline font-semibold max-w-[100px] truncate">{{ $authUser->name }}</span>
+                            <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+                            </svg>
+                        </button>
+
+                        <div x-show="openUserMenu" @click.outside="openUserMenu = false" x-cloak
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 scale-95 translate-y-1"
+                             x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                             x-transition:leave="transition ease-in duration-100"
+                             x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+                             x-transition:leave-end="opacity-0 scale-95 translate-y-1"
+                             class="absolute right-0 mt-1.5 w-60 rounded-2xl bg-white shadow-xl border border-slate-200/90 p-2 z-50">
+                            <!-- User Info Header -->
+                            <div class="px-2.5 py-2 border-b border-slate-100 mb-1">
+                                <p class="font-bold text-xs text-slate-900 truncate">{{ $authUser->name }}</p>
+                                <p class="text-[11px] text-slate-400 truncate">{{ $authUser->email }}</p>
+                                <span class="inline-flex items-center text-[9px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100/70 px-1.5 py-0.5 rounded-md mt-1">
+                                    Role: {{ $authUser->role?->name }}
+                                </span>
+                            </div>
+
+                            <!-- Menu Items -->
+                            <div class="space-y-0.5">
+                                <a href="{{ route('profile.edit') }}"
+                                   class="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100 transition">
+                                    <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+                                    </svg>
+                                    <span>Edit Profil & Foto</span>
+                                </a>
+
+                                <div class="border-t border-slate-100 my-1"></div>
+
+                                <form action="{{ route('logout') }}" method="POST">
+                                    @csrf
+                                    <button type="submit"
+                                            class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer">
+                                        <svg class="w-4 h-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
+                                        </svg>
+                                        <span>Keluar (Logout)</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Direct Quick Logout Button (Pojok Kanan Atas) -->
+                    <form action="{{ route('logout') }}" method="POST" class="inline-flex">
+                        @csrf
+                        <button type="submit" title="Keluar dari Sistem (Logout)"
+                                class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 flex items-center justify-center transition cursor-pointer shadow-2xs">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
+                            </svg>
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

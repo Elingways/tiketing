@@ -47,6 +47,42 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ## 📝 Riwayat Log Prompt & Solusi
 
+### [2026-10-24] Fitur Edit Profil, Unggah Foto Avatar & Penempatan Profil/Logout di Pojok Kanan Atas
+- **User Prompt:**
+  > "tombol logout dan profile itu juga dikasih ke pojok kanan atas yaa, dan buatkan satu menu untuk edit profile dan upload foto pun ada, jika upload foto icon di pojok kiri atas juga akan menyesuaikan fotonya"
+- **Analisis Kebutuhan & Fitur:**
+  1. **Tombol Profil & Logout di Pojok Kanan Atas:**
+     - Menempatkan menu dropdown profil pengguna di header kanan atas berdampingan dengan switcher role dan tombol lonceng.
+     - Dropdown memuat info ringkas user (nama, email, role badge), tautan *Edit Profil & Foto*, dan tombol *Keluar (Logout)*.
+     - Menambahkan tombol shortcut *Direct Quick Logout* di samping menu profil untuk aksi cepat 1-klik.
+  2. **Halaman & Menu Edit Profil:**
+     - Rute baru `GET /profile` dan `POST /profile` ditangani oleh [app/Http/Controllers/ProfileController.php](file:///Users/mac/USH/tikecting/app/Http/Controllers/ProfileController.php).
+     - Tampilan formulir di [resources/views/profile/edit.blade.php](file:///Users/mac/USH/tikecting/resources/views/profile/edit.blade.php) yang mendukung pratinjau instan (*live image preview*) berbasis Alpine.js, unggah foto (JPG, PNG, WEBP, GIF maks 2MB), opsi hapus foto, pembaruan data kontak (telepon, unit, jabatan, keahlian), serta opsi ubah password akun.
+     - Menu dinamis *Profil Saya* ditambahkan ke daftar menu sistem di [database/seeders/DatabaseSeeder.php](file:///Users/mac/USH/tikecting/database/seeders/DatabaseSeeder.php).
+  3. **Ikon Pojok Kiri Atas Menyesuaikan Foto Profil:**
+     - Menambahkan kolom `avatar_path` pada tabel `users` via migration [database/migrations/2026_10_16_000010_add_avatar_path_to_users_table.php](file:///Users/mac/USH/tikecting/database/migrations/2026_10_16_000010_add_avatar_path_to_users_table.php).
+     - Menambahkan accessor `avatar_url` pada [app/Models/User.php](file:///Users/mac/USH/tikecting/app/Models/User.php).
+     - Di [resources/views/layouts/app.blade.php](file:///Users/mac/USH/tikecting/resources/views/layouts/app.blade.php):
+       - Ikon pojok kiri atas pada brand sidebar (`w-9 h-9`) otomatis menampilkan foto yang diunggah pengguna jika tersedia (fallback ke ikon tiket jika belum ada foto).
+       - Ikon avatar di samping nama pengguna pada top header kiri (`w-6 h-6`) otomatis menampilkan foto profil pengguna.
+       - Avatar pada menu pojok kanan atas dan kartu sidebar bawah juga otomatis menampilkan foto profil.
+- **Hasil Pengujian:**
+  - Ditambahkan automated test `test_user_can_edit_profile_upload_avatar_and_see_it_in_header_and_brand_icon` pada [tests/Feature/TicketingHierarchyTest.php](file:///Users/mac/USH/tikecting/tests/Feature/TicketingHierarchyTest.php).
+  - Seluruh **21 automated tests (439 assertions)** lulus 100% (`PASS`).
+- **File Terkait:**
+  - `database/migrations/2026_10_16_000010_add_avatar_path_to_users_table.php`
+  - `app/Models/User.php`
+  - `app/Http/Controllers/ProfileController.php`
+  - `routes/web.php`
+  - `resources/views/profile/edit.blade.php`
+  - `resources/views/layouts/app.blade.php`
+  - `database/seeders/DatabaseSeeder.php`
+  - `tests/Feature/TicketingHierarchyTest.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [2026-10-24] Penyesuaian Ukuran Ikon Notifikasi Header Menjadi Ringkas & Presisi
 - **User Prompt:**
   > "icons notifikasinya terlalu besar,"

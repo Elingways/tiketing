@@ -1107,6 +1107,60 @@ class TicketingHierarchyTest extends TestCase
         $this->assertStringContainsString('Tiket Masuk', $decodedJson);
         $this->assertStringContainsString('Tiket Selesai', $decodedJson);
     }
+
+    public function test_user_can_edit_profile_upload_avatar_and_see_it_in_header_and_brand_icon(): void
+    {
+        Storage::fake('public');
+
+        $user = User::where('email', 'fajar.jaringan@kampus.ac.id')->firstOrFail();
+
+        // 1. Akses halaman edit profil
+        $this->actingAs($user)->get(route('profile.edit'))
+            ->assertOk()
+            ->assertSee('Pengaturan Profil')
+            ->assertSee('Foto Profil')
+            ->assertSee('Informasi Pribadi')
+            ->assertSee($user->name);
+
+        // 2. Upload foto profil baru dan update informasi pribadi
+        $fakePhoto = UploadedFile::fake()->image('fajar-profile.jpg', 300, 300);
+
+        $response = $this->actingAs($user)->post(route('profile.update'), [
+            'name' => 'Fajar Nugroho Senior, S.T.',
+            'email' => 'fajar.jaringan@kampus.ac.id',
+            'phone' => '081234567899',
+            'department' => 'Direktorat TI & Jaringan',
+            'jabatan' => 'Lead Network Engineer',
+            'avatar' => $fakePhoto,
+        ]);
+
+        $response->assertRedirect(route('profile.edit'))
+            ->assertSessionHas('success');
+
+        $user->refresh();
+        $this->assertSame('Fajar Nugroho Senior, S.T.', $user->name);
+        $this->assertSame('081234567899', $user->phone);
+        $this->assertNotNull($user->avatar_path);
+        Storage::disk('public')->assertExists($user->avatar_path);
+
+        // 3. Akses dashboard, pastikan foto profil tampil di pojok kiri atas dan pojok kanan atas
+        $dashboardResponse = $this->actingAs($user)->get(route('dashboard'));
+        $dashboardResponse->assertOk()
+            ->assertSee($user->avatar_url)
+            ->assertSee('Keluar (Logout)')
+            ->assertSee('Edit Profil');
+
+        // 4. Pengguna dapat menghapus foto profil kembali ke inisial
+        $removeResponse = $this->actingAs($user)->post(route('profile.update'), [
+            'name' => 'Fajar Nugroho Senior, S.T.',
+            'email' => 'fajar.jaringan@kampus.ac.id',
+            'remove_avatar' => 1,
+        ]);
+
+        $removeResponse->assertRedirect(route('profile.edit'));
+        $user->refresh();
+        $this->assertNull($user->avatar_path);
+    }
 }
 
 

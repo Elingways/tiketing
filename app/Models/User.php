@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -33,6 +34,7 @@ class User extends Authenticatable
         'keahlian',
         'phone',
         'avatar_color',
+        'avatar_path',
         'synced_at',
     ];
 
@@ -146,5 +148,13 @@ class User extends Authenticatable
         $first = mb_substr($parts[0] ?? 'U', 0, 1);
         $second = isset($parts[1]) ? mb_substr($parts[1], 0, 1) : '';
         return mb_strtoupper($first . $second);
+    }
+
+    public function getAvatarUrlAttribute(): ?string
+    {
+        if ($this->avatar_path) {
+            return Storage::disk('public')->url($this->avatar_path);
+        }
+        return null;
     }
 }
