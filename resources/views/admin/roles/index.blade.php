@@ -18,52 +18,62 @@
     ]);
 @endphp
 
-<div x-data="{
-    addRoleModal: {{ old('from_role_modal') ? 'true' : 'false' }},
-    manageRoleModal: false,
-    rolesMap: {{ Js::from($rolesData) }},
-    manage: { id: null, name: '', actionUrl: '', staff: [], newStaff: [], headId: '', truncated: false },
-    openManage(roleId) {
-        const cached = this.rolesMap[roleId];
-        if (cached) {
-            this.manage = {
-                id: cached.id,
-                name: cached.name,
-                actionUrl: cached.actionUrl,
-                staff: JSON.parse(JSON.stringify(cached.staff || [])),
-                newStaff: [],
-                headId: cached.head_user_id || (cached.staff[0]?.id ? String(cached.staff[0].id) : ''),
-                truncated: false,
-            };
-            this.manageRoleModal = true;
-            return;
-        }
+<script>
+    function roleManagerComponent() {
+        return {
+            addRoleModal: {{ old('from_role_modal') ? 'true' : 'false' }},
+            manageRoleModal: false,
+            rolesMap: @json($rolesData),
+            manage: { id: null, name: '', actionUrl: '', staff: [], newStaff: [], headId: '', truncated: false },
+            openManage(roleId) {
+                const cached = this.rolesMap && this.rolesMap[roleId];
+                if (cached) {
+                    this.manage = {
+                        id: cached.id,
+                        name: cached.name,
+                        actionUrl: cached.actionUrl,
+                        staff: JSON.parse(JSON.stringify(cached.staff || [])),
+                        newStaff: [],
+                        headId: cached.head_user_id || (cached.staff[0]?.id ? String(cached.staff[0].id) : ''),
+                        truncated: false,
+                    };
+                    this.manageRoleModal = true;
+                    return;
+                }
 
-        fetch(`/admin/hierarchy/roles/${roleId}/staff`, {
-            headers: { 'Accept': 'application/json' },
-        })
-        .then(res => res.json())
-        .then(data => {
-            this.manage = {
-                id: data.id,
-                name: data.name,
-                actionUrl: `/admin/hierarchy/roles/${data.id}/staff`,
-                staff: data.staff || [],
-                newStaff: [],
-                headId: data.head_user_id || '',
-                truncated: !!data.truncated,
-            };
-            this.manageRoleModal = true;
-        })
-        .catch(err => {
-            console.error('Error fetching staff:', err);
-            alert('Gagal memuat data staf role.');
-        });
-    },
-    addManageStaff() {
-        this.manage.newStaff.push({ name: '', email: '', keahlian: '' });
+                const self = this;
+                fetch('/admin/hierarchy/roles/' + roleId + '/staff', {
+                    headers: { 'Accept': 'application/json' },
+                })
+                .then(function(res) {
+                    if (!res.ok) throw new Error('Status ' + res.status);
+                    return res.json();
+                })
+                .then(function(data) {
+                    self.manage = {
+                        id: data.id,
+                        name: data.name,
+                        actionUrl: '/admin/hierarchy/roles/' + data.id + '/staff',
+                        staff: data.staff || [],
+                        newStaff: [],
+                        headId: data.head_user_id || '',
+                        truncated: !!data.truncated,
+                    };
+                    self.manageRoleModal = true;
+                })
+                .catch(function(err) {
+                    console.error('Error fetching staff:', err);
+                    alert('Gagal memuat data staf role: ' + err.message);
+                });
+            },
+            addManageStaff() {
+                this.manage.newStaff.push({ name: '', email: '', keahlian: '' });
+            }
+        };
     }
-}">
+</script>
+
+<div x-data="roleManagerComponent()">
 
     <!-- Page Header Modern -->
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
