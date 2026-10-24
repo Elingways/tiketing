@@ -639,6 +639,36 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ---
 
+### [2026-10-25] Perbaikan Tombol Kelola Staf, Tampilan Email, dan Tombol Hapus pada Manajemen Role
+- **User Prompt:**
+  > "bug tombol kelola tidak bisa di klik, kemudian saran saya dibagian kelola staff dia ada juga menampilkan email nya juga , kemudian di aksi tambahkan tombol hapus nya yaa"
+- **Analisis & Masalah:**
+  - **Tombol Kelola Staf Tidak Bisa Diklik:** `openManage(roleId)` sebelumnya melakukan `fetch` menggunakan absolute URL `{{ url('/admin/hierarchy/roles') }}`, yang jika diakses pada port berbeda (misal `127.0.0.1:8888` sementara `.env` memiliki `APP_URL=http://localhost:8000`), menyebabkan browser memblokir request karena CORS/Connection Refused sehingga modal tidak pernah terbuka.
+  - **Email Staf Tidak Ditampilkan:** Di dalam modal "Kelola Staf", template sebelumnya menggunakan `person.keahlian ? person.keahlian : person.email` sehingga saat staf memiliki keahlian, emailnya tersembunyi.
+  - **Tombol Hapus:** Belum ada tombol hapus role pada kolom "Aksi" di tabel, dan belum ada tombol hapus anggota staf individual di dalam modal "Kelola Staf".
+- **Tindakan & Solusi:**
+  - **Instant Modal Open (Preloaded Data & Relative Fetch):**
+    - Di `RoleController::index`, data `users` beserta `id, role_id, name, email, keahlian` dimuat untuk seluruh peran dan dipetakan ke `$rolesData`.
+    - Di `resources/views/admin/roles/index.blade.php`, `openManage(roleId)` langsung membuka modal secara instan (0ms) dari `rolesMap`, tanpa bergantung pada HTTP request eksternal yang rentan terhadap perbedaan port.
+  - **Tampilan Email Lengkap di Kelola Staf:**
+    - Di dalam modal "Kelola Staf", setiap anggota staf kini menampilkan **Nama Lengkap**, **Email Login** (`• email@kampus.ac.id`), dan badge/keterangan keahlian.
+  - **Tombol Hapus:**
+    - **Kolom Aksi Tabel Role:** Ditambahkan tombol `Hapus` role di samping `Kelola Staf →` dengan dialog konfirmasi aman.
+    - **Aksi Hapus Staf di Modal:** Setiap baris staf kini memiliki tombol hapus (ikon tempat sampah) yang memanggil route `hierarchy.staff.destroy` (`removeStaff`) untuk menghapus/melepaskan staf dari role tersebut.
+    - **HierarchyController::destroyRole & removeStaff:** Role dan staf dapat dihapus dengan aman; jika role/staf tidak memiliki tiket tertaut, data akan dibersihkan dari database, sedangkan jika ada tiket tertaut, role dicegah terhapus untuk integritas data.
+  - **Pengujian Fitur:**
+    - Pengujian diperbarui di `tests/Feature/TicketingHierarchyTest.php` untuk memvalidasi render tombol hapus, email staf, penghapusan staf, dan penghapusan role. Seluruh 22 pengujian berjalan sukses 100% (467 assertions).
+- **File Terkait:**
+  - `resources/views/admin/roles/index.blade.php`
+  - `app/Http/Controllers/Admin/HierarchyController.php`
+  - `app/Http/Controllers/Admin/RoleController.php`
+  - `routes/web.php`
+  - `tests/Feature/TicketingHierarchyTest.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [2026-10-25] Pemisahan Form Tambah Role (Pemegang Role / Kepala Unit) dan Manajemen Staf
 - **User Prompt:**
   > "ini ada bug, disini saya coba menambahkan role baru , terus aku menambahkan staff di role tersebut, tetapi kok yang dipake buat login itu akun staff pertama yang saya inputkan ?, kemudian saya coba ganti kelola staff dan memindahkan ke kepala unit saya coba login ga bisa dia tiap yang diinputkan ke role tadi, jadi menurut saya kita pisahkan saja , ditambah kan role baru, itu harusya menginputkan nama yang memegang role tersebut , lalu emailnya, dan untuk personil dan staff pelaksana itu hapus aja kan nnti bisa ditambahkan ke aksi kelola staff aja"

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Menu;
 use App\Models\Role;
 use App\Models\RolePriorityRoute;
+use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -118,7 +119,7 @@ class HierarchyController extends Controller
         return response()->json([
             'id' => $role->id,
             'name' => $role->name,
-            'actionUrl' => route('admin.hierarchy.staff.sync', $role),
+            'actionUrl' => "/admin/hierarchy/roles/{$role->id}/staff",
             'staff' => $role->users->map(fn (User $user) => [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -149,6 +150,38 @@ class HierarchyController extends Controller
         });
 
         return back()->with('success', "Staff dan urutan prioritas role '{$role->name}' berhasil disimpan. Password awal staff baru: password.");
+    }
+
+    public function removeStaff(Role $role, User $user)
+    {
+        if ($user->role_id !== $role->id) {
+            return back()->with('error', 'Pengguna tidak terdaftar dalam role ini.');
+        }
+
+        if ($user->id === auth()->id()) {
+            return back()->with('error', 'Anda tidak dapat menghapus akun Anda sendiri.');
+        }
+
+        // Jika user ini adalah kepala unit, alihkan ke staf lain atau kosongkan
+        if ((int) $role->head_user_id === (int) $user->id) {
+            $otherStaff = $role->users()->where('id', '!=', $user->id)->first();
+            $role->update(['head_user_id' => $otherStaff?->id]);
+            if ($otherStaff) {
+                $otherStaff->update(['jabatan' => 'Kepala ' . $role->name]);
+            }
+        }
+
+        // Hapus prioritas routing yang diarahkan ke user ini
+        $role->priorityRoutes()->where('user_id', $user->id)->delete();
+
+        $name = $user->name;
+        if ($user->createdTickets()->doesntExist() && $user->assignedTickets()->doesntExist()) {
+            $user->delete();
+            return back()->with('success', "Staf '{$name}' berhasil dihapus dari sistem.");
+        }
+
+        $user->update(['role_id' => null, 'jabatan' => 'Nonaktif']);
+        return back()->with('success', "Staf '{$name}' telah dilepaskan dari role '{$role->name}'.");
     }
 
     /**
@@ -193,8 +226,22 @@ class HierarchyController extends Controller
             return back()->with('error', 'Role Superuser tidak dapat dihapus.');
         }
 
-        if ($role->users()->exists()) {
-            return back()->with('error', "Role '{$role->name}' masih digunakan oleh pengguna aktif. Pindahkan role pengguna terlebih dahulu.");
+        if (Ticket::where('current_role_id', $role->id)->orWhere('creator_role_id', $role->id)->exists()) {
+            return back()->with('error', "Role '{$role->name}' tidak dapat dihapus karena masih terkait dengan riwayat tiket di sistem.");
+        }
+
+        // Hapus konfigurasi rute prioritas
+        $role->priorityRoutes()->delete();
+
+        // Lepaskan atau hapus akun pengguna pada role ini jika bukan superuser
+        foreach ($role->users as $user) {
+            if ($user->id !== auth()->id() && !$user->role?->is_superuser) {
+                if ($user->createdTickets()->doesntExist() && $user->assignedTickets()->doesntExist()) {
+                    $user->delete();
+                } else {
+                    $user->update(['role_id' => null, 'jabatan' => 'Nonaktif']);
+                }
+            }
         }
 
         // Sambungkan anak-anak dari role ini ke parent di atasnya agar rantai hirarki tidak terputus
@@ -204,7 +251,7 @@ class HierarchyController extends Controller
         $role->delete();
         Role::recalculateLevels();
 
-        return back()->with('success', "Role '{$name}' berhasil dihapus dan rantai hirarki telah disesuaikan.");
+        return back()->with('success', "Role '{$name}' berhasil dihapus dari sistem.");
     }
 
     /**

@@ -55,6 +55,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/hierarchy/roles', [HierarchyController::class, 'storeRole'])->name('hierarchy.store');
         Route::get('/hierarchy/roles/{role}/staff', [HierarchyController::class, 'roleStaff'])->name('hierarchy.staff');
         Route::put('/hierarchy/roles/{role}/staff', [HierarchyController::class, 'syncStaff'])->name('hierarchy.staff.sync');
+        Route::delete('/hierarchy/roles/{role}/staff/{user}', [HierarchyController::class, 'removeStaff'])->name('hierarchy.staff.destroy');
         Route::put('/hierarchy/roles/{role}', [HierarchyController::class, 'updateHierarchy'])->name('hierarchy.update');
         Route::delete('/hierarchy/roles/{role}', [HierarchyController::class, 'destroyRole'])->name('hierarchy.destroy');
 

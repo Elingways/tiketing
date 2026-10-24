@@ -1,29 +1,64 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $rolesData = $roles->mapWithKeys(fn ($r) => [
+        $r->id => [
+            'id' => $r->id,
+            'name' => $r->name,
+            'actionUrl' => "/admin/hierarchy/roles/{$r->id}/staff",
+            'head_user_id' => $r->head_user_id ? (string) $r->head_user_id : '',
+            'staff' => $r->users->map(fn ($u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+                'keahlian' => $u->keahlian,
+            ])->values(),
+        ]
+    ]);
+@endphp
 
 <div x-data="{
     addRoleModal: {{ old('from_role_modal') ? 'true' : 'false' }},
     manageRoleModal: false,
+    rolesMap: {{ Js::from($rolesData) }},
     manage: { id: null, name: '', actionUrl: '', staff: [], newStaff: [], headId: '', truncated: false },
-    async openManage(roleId) {
-        const response = await fetch(`{{ url('/admin/hierarchy/roles') }}/${roleId}/staff`, {
-            headers: { 'Accept': 'application/json' },
-        });
-        if (!response.ok) {
+    openManage(roleId) {
+        const cached = this.rolesMap[roleId];
+        if (cached) {
+            this.manage = {
+                id: cached.id,
+                name: cached.name,
+                actionUrl: cached.actionUrl,
+                staff: JSON.parse(JSON.stringify(cached.staff || [])),
+                newStaff: [],
+                headId: cached.head_user_id || (cached.staff[0]?.id ? String(cached.staff[0].id) : ''),
+                truncated: false,
+            };
+            this.manageRoleModal = true;
             return;
         }
-        const data = await response.json();
-        this.manage = {
-            id: data.id,
-            name: data.name,
-            actionUrl: data.actionUrl,
-            staff: data.staff || [],
-            newStaff: [],
-            headId: data.head_user_id || '',
-            truncated: !!data.truncated,
-        };
-        this.manageRoleModal = true;
+
+        fetch(`/admin/hierarchy/roles/${roleId}/staff`, {
+            headers: { 'Accept': 'application/json' },
+        })
+        .then(res => res.json())
+        .then(data => {
+            this.manage = {
+                id: data.id,
+                name: data.name,
+                actionUrl: `/admin/hierarchy/roles/${data.id}/staff`,
+                staff: data.staff || [],
+                newStaff: [],
+                headId: data.head_user_id || '',
+                truncated: !!data.truncated,
+            };
+            this.manageRoleModal = true;
+        })
+        .catch(err => {
+            console.error('Error fetching staff:', err);
+            alert('Gagal memuat data staf role.');
+        });
     },
     addManageStaff() {
         this.manage.newStaff.push({ name: '', email: '', keahlian: '' });
@@ -202,10 +237,23 @@
 
                             <!-- 5. Aksi -->
                             <td class="py-3.5 px-4 text-right whitespace-nowrap">
-                                <button type="button" @click="openManage({{ $r->id }})"
-                                        class="px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-slate-700 hover:text-indigo-700 text-xs font-semibold transition cursor-pointer">
-                                    Kelola Staf &rarr;
-                                </button>
+                                <div class="flex items-center justify-end gap-1.5">
+                                    <button type="button" @click="openManage({{ $r->id }})"
+                                            class="px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-slate-700 hover:text-indigo-700 text-xs font-semibold transition cursor-pointer">
+                                        Kelola Staf &rarr;
+                                    </button>
+                                    <form action="{{ route('admin.hierarchy.destroy', $r) }}" method="POST"
+                                          onsubmit="return confirm('Apakah Anda yakin ingin menghapus role \'{{ $r->name }}\'?');"
+                                          class="inline">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit"
+                                                class="px-2 py-1 rounded-lg bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-500 hover:text-rose-600 text-xs font-semibold transition cursor-pointer"
+                                                title="Hapus Role">
+                                            Hapus
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -390,27 +438,46 @@
 
                 <!-- Staf Saat Ini -->
                 <div>
-                    <p class="text-xs font-bold text-slate-800 mb-2">Pilih Kepala Unit Saat Ini</p>
+                    <p class="text-xs font-bold text-slate-800 mb-1">Daftar Anggota Staf & Kepala Unit</p>
+                    <p class="text-[11px] text-slate-500 mb-2">Pilih Kepala Unit via radio button, atau klik ikon sampah untuk menghapus staf dari role.</p>
                     <template x-if="manage.staff.length === 0">
                         <p class="text-xs text-slate-400 py-2">Belum ada anggota staf yang terdaftar.</p>
                     </template>
-                    <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                         <template x-for="person in manage.staff" :key="person.id">
-                            <label class="flex items-center justify-between p-2.5 rounded-xl border transition cursor-pointer select-none"
-                                   :class="String(manage.headId) === String(person.id) ? 'bg-indigo-50/80 border-indigo-200 text-indigo-900 font-semibold' : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-white'">
-                                <div class="flex items-center gap-2.5 min-w-0 pr-2">
+                            <div class="flex items-center justify-between p-2.5 rounded-xl border transition"
+                                 :class="String(manage.headId) === String(person.id) ? 'bg-indigo-50/80 border-indigo-200 text-indigo-900 font-semibold' : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-white'">
+                                <label class="flex items-center gap-2.5 min-w-0 pr-2 cursor-pointer flex-1 select-none">
                                     <input type="radio" name="head_user_id" :value="String(person.id)" x-model="manage.headId"
-                                           class="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-500/20">
+                                           class="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-500/20 shrink-0">
                                     <div class="truncate">
-                                        <p class="text-xs font-semibold truncate" x-text="person.name"></p>
-                                        <p class="text-[10px] text-slate-500 truncate" x-text="person.keahlian ? ('Keahlian: ' + person.keahlian) : person.email"></p>
+                                        <div class="flex items-center gap-1.5 truncate">
+                                            <span class="text-xs font-semibold text-slate-900 truncate" x-text="person.name"></span>
+                                            <span class="text-[10px] text-slate-500 font-normal truncate" x-text="'• ' + person.email"></span>
+                                        </div>
+                                        <p class="text-[10px] text-slate-500 truncate mt-0.5" x-text="person.keahlian ? ('Keahlian: ' + person.keahlian) : 'Staf Operasional'"></p>
                                     </div>
+                                </label>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span x-show="String(manage.headId) === String(person.id)"
+                                          class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                                        Kepala Unit
+                                    </span>
+                                    <form :action="`/admin/hierarchy/roles/${manage.id}/staff/${person.id}`" method="POST"
+                                          onsubmit="return confirm('Apakah Anda yakin ingin menghapus staf ini dari role?');"
+                                          class="inline" @click.stop>
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit"
+                                                class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                                title="Hapus staf dari role">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </form>
                                 </div>
-                                <span x-show="String(manage.headId) === String(person.id)"
-                                      class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 shrink-0">
-                                    Kepala Unit
-                                </span>
-                            </label>
+                            </div>
                         </template>
                     </div>
                 </div>

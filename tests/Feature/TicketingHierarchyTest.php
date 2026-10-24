@@ -1216,6 +1216,24 @@ class TicketingHierarchyTest extends TestCase
         // Kepala Unit tetap menjadi head_user_id
         $role->refresh();
         $this->assertEquals($head->id, $role->head_user_id);
+
+        // 4. Halaman role menampilkan tombol Hapus role dan memuat email staf
+        $indexResponse = $this->actingAs($superuser)->get(route('admin.roles'));
+        $indexResponse->assertOk()
+            ->assertSee('Kelola Staf')
+            ->assertSee('Hapus')
+            ->assertSee('bambang.sarpras@kampus.ac.id')
+            ->assertSee('listrik@kampus.ac.id');
+
+        // 5. Menghapus staf dari role via route hierarchy.staff.destroy
+        $removeStaffResponse = $this->actingAs($superuser)->delete(route('admin.hierarchy.staff.destroy', [$role, $technician]));
+        $removeStaffResponse->assertRedirect()->assertSessionHas('success');
+        $this->assertDatabaseMissing('users', ['id' => $technician->id]);
+
+        // 6. Menghapus role via route hierarchy.destroy
+        $destroyRoleResponse = $this->actingAs($superuser)->delete(route('admin.hierarchy.destroy', $role));
+        $destroyRoleResponse->assertRedirect()->assertSessionHas('success');
+        $this->assertDatabaseMissing('roles', ['id' => $role->id]);
     }
 }
 
