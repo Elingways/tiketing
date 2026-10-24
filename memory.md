@@ -639,6 +639,37 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ---
 
+### [2026-10-25] Pemisahan Form Tambah Role (Pemegang Role / Kepala Unit) dan Manajemen Staf
+- **User Prompt:**
+  > "ini ada bug, disini saya coba menambahkan role baru , terus aku menambahkan staff di role tersebut, tetapi kok yang dipake buat login itu akun staff pertama yang saya inputkan ?, kemudian saya coba ganti kelola staff dan memindahkan ke kepala unit saya coba login ga bisa dia tiap yang diinputkan ke role tadi, jadi menurut saya kita pisahkan saja , ditambah kan role baru, itu harusya menginputkan nama yang memegang role tersebut , lalu emailnya, dan untuk personil dan staff pelaksana itu hapus aja kan nnti bisa ditambahkan ke aksi kelola staff aja"
+- **Analisis & Masalah:**
+  - Sebelumnya, modal "Tambah Role & Tim Unit" memuat array dinamis input staf pelaksana teknis, penentuan `head_index`, dan routing nomor prioritas secara bersamaan. Hal ini membingungkan karena pengguna mengira sedang mendaftarkan akun pemegang peran utama, namun sistem menjadikan staf indeks pertama sebagai kepala role.
+  - Selain itu, saat mengganti kepala unit di "Kelola Staf", akun pengguna lain tidak memiliki penataan login yang intuitif atau terhambat casing email.
+- **Tindakan & Solusi:**
+  - **Pemisahan Form Tambah Role:**
+    - Menyederhanakan modal "Tambah Role & Unit Baru" di `resources/views/admin/roles/index.blade.php`: menghapus array dinamis staf, tombol "+ Tambah Staf", dan radio button indeks kepala.
+    - Mewajibkan penginputan identitas Penanggung Jawab / Kepala Unit langsung: **Nama Lengkap Penanggung Jawab** (`head_name`) dan **Email Login** (`head_email`).
+    - Menampilkan informasi jelas bahwa password akun default otomatis diset ke `password` dan akun langsung aktif untuk login.
+    - Menambahkan pilihan hirarki atasan (`parent_id`) opsional langsung di modal.
+  - **Backend Controller (`HierarchyController` & `AuthController`):**
+    - `HierarchyController::storeRole`: membuat role, otomatis membuat akun pengguna Kepala Unit dengan status aktif, jabatan `Kepala <Nama Role>`, password `password`, dan menghubungkannya ke `role->head_user_id`.
+    - `HierarchyController::assignHead`: memastikan jika kepala unit dipindahkan, jabatan pemegang kepala unit sebelumnya otomatis diubah ke staf biasa dan kepala baru diperbarui dengan benar.
+    - `AuthController::login`: melakukan normalisasi `strtolower(trim($credentials['email']))` agar login tidak gagal akibat spasi ekstra atau huruf kapital.
+    - `AuthController::showLogin`: memprioritaskan akun Kepala Unit saat memilih akun demo per role.
+  - **Manajemen Staf Teknis Mandiri:**
+    - Penambahan staf teknis pelaksana, spesialisasi keahlian, dan urutan prioritas tetap terpusat di modal "Kelola Staf" (`syncStaff`), lengkap dengan tombol hapus baris staf baru yang lebih ramah pengguna.
+  - **Pengujian Fitur:**
+    - Menambahkan pengujian `test_create_role_with_head_holder_and_manage_staff_separately` di `tests/Feature/TicketingHierarchyTest.php`. Seluruh 22 pengujian berjalan sukses 100% (456 assertions).
+- **File Terkait:**
+  - `resources/views/admin/roles/index.blade.php`
+  - `app/Http/Controllers/Admin/HierarchyController.php`
+  - `app/Http/Controllers/AuthController.php`
+  - `tests/Feature/TicketingHierarchyTest.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [Riwayat Sebelumnya dari Git Commits]
 - **Commit `6eb75b8`:** Menambahkan routing kategori IT ke Supervisor IT, bobot poin kerja (%), dan perhitungan progres otomatis untuk Staff IT.
 - **Commit `e51ad91`:** Menambahkan sub-sidebar Karyawan di bawah Manajemen Pengguna dan seeder data dummy Admin IT, Staff, dan Supervisor IT.

@@ -32,6 +32,10 @@ class HierarchyController extends Controller
             'description' => ['nullable', 'string', 'max:300'],
             'can_create_ticket' => ['nullable', 'boolean'],
             'can_receive_ticket' => ['nullable', 'boolean'],
+            'head_name' => ['nullable', 'string', 'max:150'],
+            'head_email' => ['nullable', 'email', 'max:150', 'unique:users,email'],
+        ], [
+            'head_email.unique' => 'Email pemegang role sudah digunakan oleh akun lain.',
         ]);
 
         $slug = Str::slug($validated['name']);
@@ -50,15 +54,36 @@ class HierarchyController extends Controller
                 'parent_id' => ($validated['parent_id'] ?? null) ?: null,
                 'badge_color' => $validated['badge_color'],
                 'icon' => 'user-group',
-                'description' => $validated['description'],
+                'description' => $validated['description'] ?? null,
                 'is_superuser' => false,
                 'can_create_ticket' => $request->boolean('can_create_ticket', true),
                 'can_receive_ticket' => $request->boolean('can_receive_ticket', true),
             ]);
 
-            $created = $this->createStaffUsers($role, $staffRows);
-            $this->storeRoutesByStaffIndex($role, $request->input('routes', []), $created);
-            $this->assignHead($role, $request->input('head_index'), $created);
+            // Jika form menyediakan Pemegang Role / Kepala Unit
+            if (!empty($validated['head_name']) && !empty($validated['head_email'])) {
+                $headUser = User::create([
+                    'name' => trim($validated['head_name']),
+                    'email' => strtolower(trim($validated['head_email'])),
+                    'password' => 'password',
+                    'role_id' => $role->id,
+                    'user_type' => 'admin',
+                    'status_akademik' => 'Aktif',
+                    'jabatan' => 'Kepala ' . $role->name,
+                    'department' => $role->name,
+                    'avatar_color' => $role->badge_color ?: 'indigo',
+                ]);
+                $role->update(['head_user_id' => $headUser->id]);
+            }
+
+            // Fallback backward-compatible jika ada staff dikirim
+            if ($staffRows !== []) {
+                $created = $this->createStaffUsers($role, $staffRows);
+                $this->storeRoutesByStaffIndex($role, $request->input('routes', []), $created);
+                if (!$role->head_user_id) {
+                    $this->assignHead($role, $request->input('head_index'), $created);
+                }
+            }
 
             return $role;
         });
@@ -73,14 +98,9 @@ class HierarchyController extends Controller
         $defaultMenuIds = Menu::whereIn('slug', $defaultSlugs)->pluck('id');
         $role->menus()->sync($defaultMenuIds);
 
-        $parentName = $role->parent?->name ?? 'Puncak Hirarki (Root)';
-        $staffCount = $role->users()->count();
-        $routeCount = $role->priorityRoutes()->count();
-        $staffNote = $staffCount > 0 ? " {$staffCount} staff ditambahkan." : '';
-        $routeNote = $routeCount > 0 ? " {$routeCount} nomor prioritas sudah diarahkan ke staff." : '';
-        $passwordNote = $staffCount > 0 ? ' Password awal staff: password.' : '';
+        $headInfo = $role->head ? " dengan Kepala Unit '{$role->head->name}' (login: {$role->head->email}, password: password)" : '';
 
-        return back()->with('success', "Role baru '{$role->name}' berhasil dibuat (atasan: {$parentName}).{$staffNote}{$routeNote}{$passwordNote}");
+        return back()->with('success', "Role baru '{$role->name}' berhasil dibuat{$headInfo}. Personel staf tambahan dapat diatur melalui tombol 'Kelola Staf'.");
     }
 
     public function roleStaff(Role $role)
@@ -269,8 +289,8 @@ class HierarchyController extends Controller
         $created = [];
         foreach ($staffRows as $index => $row) {
             $created[$index] = User::create([
-                'name' => $row['name'],
-                'email' => $row['email'],
+                'name' => trim($row['name']),
+                'email' => strtolower(trim($row['email'])),
                 'password' => 'password',
                 'role_id' => $role->id,
                 'user_type' => 'admin',
@@ -312,6 +332,12 @@ class HierarchyController extends Controller
                 'head_user_id' => 'Kepala harus salah satu staff role ini.',
             ]);
         }
+
+        // Reset jabatan kepala lama pada role ini jika ada
+        User::where('role_id', $role->id)
+            ->where('id', '!=', $user->id)
+            ->where('jabatan', 'Kepala ' . $role->name)
+            ->update(['jabatan' => 'Staff ' . $role->name]);
 
         $user->update(['jabatan' => 'Kepala ' . $role->name]);
         $role->update(['head_user_id' => $user->id]);

@@ -14,7 +14,7 @@ class AuthController extends Controller
             return redirect()->route('dashboard');
         }
 
-        // Ambil perwakilan akun per role untuk pengujian cepat jika diperlukan (maks 8 peran)
+        // Ambil perwakilan akun per role untuk pengujian cepat jika diperlukan (maks 8 peran, utamakan Kepala Unit)
         $demoUsers = User::with('role.parent')
             ->whereIn('email', [
                 'superuser@kampus.ac.id',
@@ -27,6 +27,7 @@ class AuthController extends Controller
             ->orWhere(function ($query) {
                 $query->whereNotNull('role_id');
             })
+            ->orderByRaw('CASE WHEN role_id IS NOT NULL AND id IN (SELECT head_user_id FROM roles WHERE head_user_id IS NOT NULL) THEN 0 ELSE 1 END')
             ->get()
             ->unique(fn ($u) => $u->role?->name ?? $u->email)
             ->take(8)
@@ -41,6 +42,8 @@ class AuthController extends Controller
             'email' => ['required', 'email'],
             'password' => ['required'],
         ]);
+
+        $credentials['email'] = strtolower(trim($credentials['email']));
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();

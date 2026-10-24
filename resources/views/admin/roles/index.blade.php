@@ -1,41 +1,11 @@
 @extends('layouts.app')
 
 @section('content')
-@php
-    $rolesMap = $roles->keyBy('id')->map(fn ($r) => [
-        'id' => $r->id,
-        'name' => $r->name,
-        'slug' => $r->slug,
-    ]);
-
-    $oldStaff = old('staff');
-    if (!is_array($oldStaff) || count($oldStaff) === 0) {
-        $oldStaff = [['name' => '', 'email' => '', 'keahlian' => '']];
-    }
-@endphp
 
 <div x-data="{
     addRoleModal: {{ old('from_role_modal') ? 'true' : 'false' }},
     manageRoleModal: false,
-    staffRows: {{ Js::from(array_values($oldStaff)) }},
-    headIndex: '{{ (string) old('head_index', '0') }}',
     manage: { id: null, name: '', actionUrl: '', staff: [], newStaff: [], headId: '', truncated: false },
-    addStaffRow() {
-        this.staffRows.push({ name: '', email: '', keahlian: '' });
-    },
-    removeStaffRow(index) {
-        if (this.staffRows.length === 1) {
-            this.staffRows = [{ name: '', email: '', keahlian: '' }];
-            this.headIndex = '0';
-            return;
-        }
-        this.staffRows.splice(index, 1);
-        if (String(this.headIndex) === String(index)) {
-            this.headIndex = '0';
-        } else if (Number(this.headIndex) > index) {
-            this.headIndex = String(Number(this.headIndex) - 1);
-        }
-    },
     async openManage(roleId) {
         const response = await fetch(`{{ url('/admin/hierarchy/roles') }}/${roleId}/staff`, {
             headers: { 'Accept': 'application/json' },
@@ -263,8 +233,8 @@
                         @include('partials.icon', ['name' => 'users', 'class' => 'w-5 h-5'])
                     </div>
                     <div>
-                        <h3 class="text-sm font-bold text-slate-900">Tambah Role & Tim Unit</h3>
-                        <p class="text-[11px] text-slate-500">Atur peran baru, kepala peninjau, dan personel pelaksana</p>
+                        <h3 class="text-sm font-bold text-slate-900">Tambah Role & Unit Baru</h3>
+                        <p class="text-[11px] text-slate-500">Daftarkan peran operasional baru dan akun penanggung jawabnya</p>
                     </div>
                 </div>
                 <button type="button" @click="addRoleModal = false"
@@ -281,10 +251,25 @@
 
                 <!-- Nama Role -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Nama Role / Unit Kerja</label>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Nama Role / Unit Kerja <span class="text-rose-500">*</span></label>
                     <input type="text" name="name" required value="{{ old('from_role_modal') ? old('name') : '' }}"
-                           placeholder="Contoh: Admin IT, Unit BAAK, dsb."
+                           placeholder="Contoh: Unit Sarpras, Admin IT, Bagian Akademik, dsb."
                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition text-slate-900 placeholder:text-slate-400">
+                </div>
+
+                <!-- Atasan Hirarki -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Atasan Hirarki <span class="font-normal text-slate-400">(Opsional - Terhubung ke atasan)</span>
+                    </label>
+                    <select name="parent_id" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition text-slate-900 bg-white">
+                        <option value="">-- Puncak Hirarki (Tanpa Atasan / Root) --</option>
+                        @foreach($roles as $r)
+                            <option value="{{ $r->id }}" {{ old('from_role_modal') && old('parent_id') == $r->id ? 'selected' : '' }}>
+                                {{ $r->name }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <!-- Keterangan Singkat -->
@@ -293,7 +278,7 @@
                         Keterangan Singkat <span class="font-normal text-slate-400">(Opsional)</span>
                     </label>
                     <input type="text" name="description" value="{{ old('from_role_modal') ? old('description') : '' }}"
-                           placeholder="Deskripsi tugas dan tanggung jawab peran ini..."
+                           placeholder="Deskripsi tugas dan ruang lingkup peran ini..."
                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition text-slate-900 placeholder:text-slate-400">
                 </div>
 
@@ -314,67 +299,43 @@
                     </div>
                 </div>
 
-                <!-- Bagian Staff / User -->
-                <div class="pt-3 border-t border-slate-100">
-                    <div class="flex items-center justify-between mb-2.5">
-                        <div>
-                            <p class="text-xs font-bold text-slate-800">Personel & Staf Pelaksana</p>
-                            <p class="text-[11px] text-slate-500">Tentukan kepala (peninjau tiket pertama) dan staf pelaksana</p>
-                        </div>
-                        <button type="button" @click="addStaffRow()"
-                                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition cursor-pointer">
-                            <span>+ Tambah Staf</span>
-                        </button>
+                <!-- Penanggung Jawab / Kepala Unit -->
+                <div class="pt-4 border-t border-slate-100 space-y-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
+                        <p class="text-xs font-bold text-slate-900">Penanggung Jawab / Kepala Unit (Login Akun)</p>
                     </div>
 
-                    <!-- Staff Alert Tip -->
-                    <div class="mb-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 flex items-center gap-2">
-                        <span class="text-indigo-600 font-bold">ℹ️</span>
-                        <span>Password akun default staf baru: <code class="font-semibold text-slate-800">password</code></span>
+                    <!-- Alert Tip Default Password -->
+                    <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 text-[11px] text-indigo-950 space-y-1">
+                        <p class="font-semibold flex items-center gap-1.5">
+                            <span>👤</span>
+                            <span>Akun ini otomatis dibuatkan dan langsung dapat dipakai untuk login:</span>
+                        </p>
+                        <p class="text-indigo-800">
+                            Password default login: <code class="font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-900">password</code> (dapat diganti di menu edit profile kapan saja).
+                        </p>
                     </div>
 
-                    <!-- Dynamic Staff Card Rows -->
-                    <div class="space-y-2.5">
-                        <template x-for="(row, index) in staffRows" :key="index">
-                            <div class="rounded-xl border border-slate-200/80 p-3 bg-slate-50/50 hover:bg-white transition space-y-2">
-                                <div class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-center">
-                                    <input type="text" :name="`staff[${index}][name]`" x-model="row.name" placeholder="Nama Lengkap"
-                                           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">
-                                    <input type="email" :name="`staff[${index}][email]`" x-model="row.email" placeholder="email@kampus.ac.id"
-                                           class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">
-                                    <button type="button" @click="removeStaffRow(index)"
-                                            class="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition text-xs shrink-0"
-                                            title="Hapus baris staf">
-                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                <input type="text" :name="`staff[${index}][keahlian]`" x-model="row.keahlian"
-                                       placeholder="Spesialisasi / Keahlian (cth: Jaringan, Hardware, Sistem SIAKAD)"
-                                       class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">
-
-                                <!-- Radio Kepala Unit -->
-                                <label class="flex items-center gap-2 p-2 rounded-lg border transition cursor-pointer select-none"
-                                       :class="String(headIndex) === String(index) ? 'bg-indigo-50/80 border-indigo-200 text-indigo-900 font-semibold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'">
-                                    <input type="radio" name="head_index" :value="String(index)" x-model="headIndex"
-                                           class="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-500/20">
-                                    <span class="text-[11px]">Tandai sebagai <strong>Kepala Unit</strong> (peninjau tiket pertama sebelum diarahkan ke staf)</span>
-                                </label>
-                            </div>
-                        </template>
+                    <!-- Input Nama Pemegang Role -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Nama Lengkap Penanggung Jawab <span class="text-rose-500">*</span></label>
+                        <input type="text" name="head_name" required value="{{ old('from_role_modal') ? old('head_name') : '' }}"
+                               placeholder="Contoh: Budi Santoso, S.Kom."
+                               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition text-slate-900 placeholder:text-slate-400">
                     </div>
-                </div>
 
-                <!-- Role Yang Sudah Tersedia -->
-                <div class="pt-2">
-                    <p class="text-[11px] font-semibold text-slate-500 mb-1.5">Role terdaftar saat ini:</p>
-                    <div class="flex flex-wrap gap-1">
-                        @foreach($roles as $r)
-                            <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-medium border border-slate-200/60">
-                                {{ $r->name }}
-                            </span>
-                        @endforeach
+                    <!-- Input Email Pemegang Role -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Email Login Penanggung Jawab <span class="text-rose-500">*</span></label>
+                        <input type="email" name="head_email" required value="{{ old('from_role_modal') ? old('head_email') : '' }}"
+                               placeholder="budi@kampus.ac.id"
+                               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition text-slate-900 placeholder:text-slate-400">
+                    </div>
+
+                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-500 flex items-center gap-2">
+                        <span>💡</span>
+                        <span>Personel teknis & staf pelaksana tambahan dapat ditambahkan nanti melalui tombol <strong>Kelola Staf</strong> pada tabel.</span>
                     </div>
                 </div>
 
@@ -390,6 +351,9 @@
                         <span>Simpan Role Baru</span>
                     </button>
                 </div>
+            </form>
+        </div>
+    </div>
             </form>
         </div>
     </div>
@@ -464,11 +428,18 @@
                     <div class="space-y-2.5">
                         <template x-for="(row, index) in manage.newStaff" :key="index">
                             <div class="rounded-xl border border-slate-200/80 p-3 bg-slate-50/50 space-y-2">
-                                <div class="grid grid-cols-2 gap-2">
+                                <div class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-center">
                                     <input type="text" :name="`staff[${index}][name]`" x-model="row.name" placeholder="Nama staf"
                                            class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">
                                     <input type="email" :name="`staff[${index}][email]`" x-model="row.email" placeholder="email@kampus.ac.id"
                                            class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">
+                                    <button type="button" @click="manage.newStaff.splice(index, 1)"
+                                            class="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition text-xs shrink-0"
+                                            title="Batalkan baris staf ini">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
                                 </div>
                                 <input type="text" :name="`staff[${index}][keahlian]`" x-model="row.keahlian" placeholder="Keahlian / Spesialisasi teknis"
                                        class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">

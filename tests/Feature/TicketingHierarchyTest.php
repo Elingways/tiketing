@@ -1165,6 +1165,58 @@ class TicketingHierarchyTest extends TestCase
         $user->refresh();
         $this->assertNull($user->avatar_path);
     }
+
+    public function test_create_role_with_head_holder_and_manage_staff_separately(): void
+    {
+        $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+
+        // 1. Superuser membuat role baru dengan Penanggung Jawab / Kepala Unit (Nama & Email saja)
+        $response = $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'name' => 'Unit Sarpras',
+            'badge_color' => 'emerald',
+            'description' => 'Mengelola inventaris dan sarana prasarana kampus.',
+            'can_create_ticket' => 1,
+            'can_receive_ticket' => 1,
+            'head_name' => 'Bambang Sarpras, M.T.',
+            'head_email' => 'bambang.sarpras@kampus.ac.id',
+        ]);
+
+        $response->assertRedirect()->assertSessionHas('success');
+
+        $role = Role::where('name', 'Unit Sarpras')->firstOrFail();
+        $head = User::where('email', 'bambang.sarpras@kampus.ac.id')->firstOrFail();
+
+        $this->assertEquals($head->id, $role->head_user_id);
+        $this->assertEquals($role->id, $head->role_id);
+        $this->assertEquals('Kepala Unit Sarpras', $head->jabatan);
+
+        // 2. Akun Kepala Unit dapat langsung login menggunakan email & password 'password'
+        $this->post(route('login.submit'), [
+            'email' => 'bambang.sarpras@kampus.ac.id',
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticatedAs($head);
+
+        // 3. Staf teknis tambahan ditambahkan secara terpisah melalui aksi 'Kelola Staf'
+        $syncResponse = $this->actingAs($superuser)->put(route('admin.hierarchy.staff.sync', $role), [
+            'staff' => [
+                ['name' => 'Teknisi Listrik', 'email' => 'listrik@kampus.ac.id', 'keahlian' => 'Kelistrikan'],
+            ],
+            'head_user_id' => (string) $head->id,
+        ]);
+
+        $syncResponse->assertRedirect()->assertSessionHas('success');
+
+        $technician = User::where('email', 'listrik@kampus.ac.id')->firstOrFail();
+        $this->assertEquals($role->id, $technician->role_id);
+        $this->assertEquals('Kelistrikan', $technician->keahlian);
+        $this->assertEquals('Staff Unit Sarpras', $technician->jabatan);
+
+        // Kepala Unit tetap menjadi head_user_id
+        $role->refresh();
+        $this->assertEquals($head->id, $role->head_user_id);
+    }
 }
 
 
