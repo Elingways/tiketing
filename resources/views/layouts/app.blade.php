@@ -201,8 +201,158 @@
                     <span>Alur Hirarki: <strong class="text-slate-700">{{ implode(' → ', $authUser->role?->getUpwardChainNames() ?? []) }}</strong></span>
                 </div>
 
-                <!-- Role Switcher -->
-                <div class="relative" x-data="{ open: false }">
+                <div class="flex items-center gap-2.5">
+                    <!-- Notification Bell Dropdown -->
+                    @php
+                        $encodedNotifs = bin2hex(json_encode(($headerNotifications ?? collect())->values()->all()));
+                    @endphp
+                    <div class="relative" x-data="{
+                        openNotif: false,
+                        tab: 'all',
+                        notifications: [],
+                        init() {
+                            const hex = '{{ $encodedNotifs }}';
+                            if (hex && hex.length > 0) {
+                                try {
+                                    const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+                                    this.notifications = JSON.parse(new TextDecoder().decode(bytes));
+                                } catch(e) {
+                                    this.notifications = [];
+                                }
+                            }
+                        },
+                        get filteredNotifications() {
+                            if (this.tab === 'incoming') return this.notifications.filter(n => n.type === 'incoming');
+                            if (this.tab === 'completed') return this.notifications.filter(n => n.type === 'completed');
+                            return this.notifications;
+                        }
+                    }">
+                        <button @click="openNotif = !openNotif" type="button"
+                                title="Notifikasi Tiket"
+                                class="relative w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-600 hover:text-slate-900 flex items-center justify-center transition cursor-pointer shadow-2xs">
+                            @include('partials.icon', ['name' => 'bell', 'class' => 'w-4.5 h-4.5'])
+
+                            @if(($totalNotifCount ?? 0) > 0)
+                                <span class="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-white font-bold text-[9px] shadow-sm animate-pulse">
+                                    {{ $totalNotifCount > 9 ? '9+' : $totalNotifCount }}
+                                </span>
+                            @endif
+                        </button>
+
+                        <!-- Dropdown Panel -->
+                        <div x-show="openNotif" @click.outside="openNotif = false" x-cloak
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 scale-95 translate-y-1"
+                             x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                             x-transition:leave="transition ease-in duration-100"
+                             x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+                             x-transition:leave-end="opacity-0 scale-95 translate-y-1"
+                             class="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white shadow-xl border border-slate-200/90 overflow-hidden z-50">
+
+                            <!-- Header Panel -->
+                            <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-xs text-slate-900">Notifikasi</span>
+                                    @if(($totalNotifCount ?? 0) > 0)
+                                        <span class="px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold border border-indigo-100">
+                                            {{ $totalNotifCount }} Baru
+                                        </span>
+                                    @endif
+                                </div>
+
+                                <!-- Filter Tabs -->
+                                <div class="inline-flex p-0.5 rounded-lg bg-slate-200/70 text-[10px]">
+                                    <button type="button" @click="tab = 'all'"
+                                            :class="tab === 'all' ? 'bg-white text-slate-900 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'"
+                                            class="px-2 py-0.5 rounded-md transition cursor-pointer">
+                                        Semua
+                                    </button>
+                                    <button type="button" @click="tab = 'incoming'"
+                                            :class="tab === 'incoming' ? 'bg-white text-slate-900 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'"
+                                            class="px-2 py-0.5 rounded-md transition cursor-pointer">
+                                        Masuk ({{ $incomingNotifCount ?? 0 }})
+                                    </button>
+                                    <button type="button" @click="tab = 'completed'"
+                                            :class="tab === 'completed' ? 'bg-white text-slate-900 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'"
+                                            class="px-2 py-0.5 rounded-md transition cursor-pointer">
+                                        Selesai ({{ $completedNotifCount ?? 0 }})
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Notification List -->
+                            <div class="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                                <template x-for="notif in filteredNotifications" :key="notif.id">
+                                    <a :href="notif.url"
+                                       class="block p-3.5 hover:bg-slate-50 transition group">
+                                        <div class="flex items-start gap-3">
+                                            <!-- Icon Indicator -->
+                                            <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                                                 :class="notif.type === 'incoming' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'">
+                                                <template x-if="notif.type === 'incoming'">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                                    </svg>
+                                                </template>
+                                                <template x-if="notif.type === 'completed'">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                </template>
+                                            </div>
+
+                                            <!-- Content -->
+                                            <div class="min-w-0 flex-1">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <span class="font-mono text-[11px] font-bold"
+                                                          :class="notif.type === 'incoming' ? 'text-indigo-600' : 'text-emerald-600'"
+                                                          x-text="notif.ticket_number">
+                                                    </span>
+                                                    <span class="text-[10px] text-slate-400" x-text="notif.time_ago"></span>
+                                                </div>
+
+                                                <p class="text-xs font-semibold text-slate-900 group-hover:text-indigo-600 transition truncate mt-0.5"
+                                                   x-text="notif.title">
+                                                </p>
+
+                                                <div class="flex items-center justify-between gap-2 mt-1">
+                                                    <span class="text-[10px] text-slate-500 truncate" x-text="notif.detail"></span>
+                                                    <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded shrink-0"
+                                                          :class="notif.type === 'incoming' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'"
+                                                          x-text="notif.type === 'incoming' ? 'Tiket Masuk' : 'Selesai'">
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </template>
+
+                                <!-- Empty State -->
+                                <template x-if="filteredNotifications.length === 0">
+                                    <div class="py-10 px-4 text-center">
+                                        <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
+                                            @include('partials.icon', ['name' => 'bell', 'class' => 'w-5 h-5'])
+                                        </div>
+                                        <p class="text-xs font-semibold text-slate-700">Belum ada notifikasi baru</p>
+                                        <p class="text-[11px] text-slate-400 mt-0.5">Semua tiket masuk dan proses selesai sudah ditinjau.</p>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- Footer Panel -->
+                            <div class="p-2 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between text-xs px-3">
+                                <a href="{{ route('tickets.inbox') }}" class="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition">
+                                    Buka Antrean Tiket &rarr;
+                                </a>
+                                <a href="{{ route('tickets.my') }}" class="text-[11px] font-medium text-slate-500 hover:text-slate-800 transition">
+                                    Tiket Saya
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Role Switcher -->
+                    <div class="relative" x-data="{ open: false }">
                     <button @click="open = !open" type="button"
                             class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition">
                         <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
@@ -235,7 +385,8 @@
                     </div>
                 </div>
             </div>
-        </header>
+        </div>
+    </header>
 
         <!-- Alerts -->
         <div class="max-w-6xl w-full mx-auto px-4 sm:px-6 pt-4">

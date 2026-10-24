@@ -1048,6 +1048,65 @@ class TicketingHierarchyTest extends TestCase
             ->assertSee('Tiket Terbaru Saya')
             ->assertDontSee('Struktur Hirarki Role');
     }
+
+    public function test_header_notification_dropdown_alerts_incoming_and_completed_tickets(): void
+    {
+        $head = User::where('email', 'admin.it@kampus.ac.id')->firstOrFail();
+        $staff = User::where('email', 'fajar.jaringan@kampus.ac.id')->firstOrFail();
+        $mhs = User::where('email', 'mahasiswa@kampus.ac.id')->firstOrFail();
+        $category = TicketCategory::firstOrFail();
+
+        // 1. Buat tiket baru yang ditujukan ke role IT (Tiket Masuk)
+        $incomingTicket = Ticket::create([
+            'ticket_number' => 'TKT-NOTIF-001',
+            'title' => 'Notif Tiket Masuk Baru',
+            'description' => 'Kendala pada printer prodi.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $mhs->id,
+            'creator_role_id' => $mhs->role_id,
+            'current_role_id' => $head->role_id,
+            'status' => 'open',
+            'work_status' => 'not_started',
+            'priority' => 'high',
+        ]);
+
+        // 2. Buat tiket yang sudah selesai dikerjakan (Tiket Selesai)
+        $completedTicket = Ticket::create([
+            'ticket_number' => 'TKT-NOTIF-002',
+            'title' => 'Notif Tiket Pengerjaan Tuntas',
+            'description' => 'Aplikasi sudah di-update.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $mhs->id,
+            'creator_role_id' => $mhs->role_id,
+            'current_role_id' => $head->role_id,
+            'assigned_user_id' => $staff->id,
+            'status' => 'resolved',
+            'work_status' => 'finished',
+            'progress_percent' => 100,
+            'resolved_at' => now(),
+        ]);
+
+        // 3. Kepala IT mengakses halaman dashboard
+        $response = $this->actingAs($head)->get(route('dashboard'));
+        $response->assertOk()
+            ->assertSee('Notifikasi')
+            ->assertSee('Semua')
+            ->assertSee('Masuk')
+            ->assertSee('Selesai');
+
+        // Verifikasi payload hex notifikasi memuat tiket masuk dan tiket selesai
+        $html = $response->getContent();
+        preg_match("/const hex = '([a-f0-9]+)';/", $html, $matches);
+        $this->assertNotEmpty($matches, 'Payload hex notifikasi harus ditemukan di markup header.');
+
+        $decodedJson = hex2bin($matches[1]);
+        $this->assertStringContainsString('TKT-NOTIF-001', $decodedJson);
+        $this->assertStringContainsString('TKT-NOTIF-002', $decodedJson);
+        $this->assertStringContainsString('Tiket Masuk', $decodedJson);
+        $this->assertStringContainsString('Tiket Selesai', $decodedJson);
+    }
 }
 
 
