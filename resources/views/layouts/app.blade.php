@@ -22,6 +22,19 @@
     </script>
     <style>
         [x-cloak] { display: none !important; }
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 4px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background: #cbd5e1;
+        }
     </style>
 </head>
 <body class="min-h-full font-sans text-slate-800 antialiased bg-slate-50"
@@ -49,15 +62,25 @@
 
 <div class="flex min-h-screen">
     <!-- Sidebar -->
-    <aside class="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 bg-white border-r border-slate-200 z-30">
-        <div class="flex items-center gap-2.5 px-5 h-14 border-b border-slate-100">
-            <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-                @include('partials.icon', ['name' => 'ticket', 'class' => 'w-4 h-4'])
+    <aside class="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 bg-white border-r border-slate-200/80 z-30 shadow-[1px_0_10px_rgba(0,0,0,0.02)]">
+        <!-- Brand Header -->
+        <div class="flex items-center justify-between px-5 h-16 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-sm shadow-indigo-500/25 ring-1 ring-black/5">
+                    @include('partials.icon', ['name' => 'ticket', 'class' => 'w-5 h-5 text-white'])
+                </div>
+                <div class="leading-tight">
+                    <span class="font-bold text-sm text-slate-900 tracking-tight block">SuperTicket</span>
+                    <span class="text-[10px] font-medium text-slate-400 block tracking-normal">Sistem Layanan Kampus</span>
+                </div>
             </div>
-            <span class="font-bold text-sm text-slate-900 tracking-tight">SuperTicket</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100/60">
+                v2.0
+            </span>
         </div>
 
-        <nav class="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+        <!-- Navigation Menu -->
+        <nav class="flex-1 px-3.5 py-4 space-y-6 overflow-y-auto sidebar-scroll">
             @php
                 $orderedGroupKeys = collect(['main', 'ticketing', 'management'])
                     ->concat(collect(array_keys(($sidebarMenus ?? collect())->all())))
@@ -67,10 +90,10 @@
             @foreach($orderedGroupKeys as $groupKey)
                 @if(isset($sidebarMenus[$groupKey]) && $sidebarMenus[$groupKey]->count() > 0)
                     <div>
-                        <p class="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                             {{ $groupLabels[$groupKey] ?? ucfirst($groupKey) }}
                         </p>
-                        <div class="space-y-0.5">
+                        <div class="space-y-1">
                             @foreach($sidebarMenus[$groupKey] as $menuItem)
                                 @php
                                     $children = $menuItem->children ?? collect();
@@ -82,32 +105,37 @@
                                 @endphp
 
                                 @if($hasChildren)
-                                    <div x-data="{ openSub: true }" class="space-y-0.5">
+                                    <div x-data="{ openSub: true }" class="space-y-1">
                                         <button type="button" @click="openSub = !openSub"
-                                                class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition {{ $isActive ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
+                                                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition cursor-pointer {{ $isActive ? 'bg-slate-100/90 text-slate-900 font-semibold' : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900' }}">
                                             <div class="flex items-center gap-2.5 min-w-0">
                                                 @include('partials.icon', ['name' => $menuItem->icon, 'class' => 'w-4 h-4 shrink-0 ' . ($isActive ? 'text-indigo-600' : 'text-slate-400')])
                                                 <span class="truncate">{{ $menuItem->name }}</span>
                                             </div>
-                                            <svg class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150" :class="openSub ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <svg class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200" :class="openSub ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
                                             </svg>
                                         </button>
 
-                                        <!-- Sub-Sidebar Items -->
-                                        <div x-show="openSub" x-cloak class="ml-5 pl-2.5 border-l-2 border-slate-200 space-y-0.5 pt-0.5 pb-1">
+                                        <!-- Sub-Sidebar Tree Items -->
+                                        <div x-show="openSub" x-cloak class="relative ml-4 pl-3 my-1 space-y-1 border-l border-slate-200/80">
                                             @foreach($children as $childMenu)
                                                 @php
                                                     $childActive = $childMenu->isCurrentRoute();
                                                 @endphp
                                                 <a href="{{ $childMenu->resolveUrl() }}"
-                                                   class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition {{ $childActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
+                                                   class="group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition {{ $childActive ? 'bg-indigo-50 text-indigo-700 font-semibold border border-indigo-150/70 shadow-2xs' : 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-900 font-medium' }}">
                                                     <div class="flex items-center gap-2 min-w-0">
-                                                        @include('partials.icon', ['name' => $childMenu->icon, 'class' => 'w-3.5 h-3.5 shrink-0 ' . ($childActive ? 'text-white' : 'text-slate-400')])
+                                                        @if($childActive)
+                                                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0"></span>
+                                                        @else
+                                                            <span class="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-slate-400 shrink-0 transition-colors"></span>
+                                                        @endif
+                                                        @include('partials.icon', ['name' => $childMenu->icon, 'class' => 'w-3.5 h-3.5 shrink-0 ' . ($childActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-500')])
                                                         <span class="truncate">{{ $childMenu->name }}</span>
                                                     </div>
                                                     @if($childMenu->badge_text)
-                                                        <span class="text-[9px] px-1.5 py-0.5 rounded {{ $childActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500' }}">
+                                                        <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-md {{ $childActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500' }}">
                                                             {{ $childMenu->badge_text }}
                                                         </span>
                                                     @endif
@@ -117,13 +145,13 @@
                                     </div>
                                 @else
                                     <a href="{{ $menuItem->resolveUrl() }}"
-                                       class="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition {{ $isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
+                                       class="group flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition {{ $isActive ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-600/20' : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900' }}">
                                         <div class="flex items-center gap-2.5 min-w-0">
-                                            @include('partials.icon', ['name' => $menuItem->icon, 'class' => 'w-4 h-4 shrink-0 ' . ($isActive ? 'text-white' : 'text-slate-400')])
+                                            @include('partials.icon', ['name' => $menuItem->icon, 'class' => 'w-4 h-4 shrink-0 ' . ($isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600')])
                                             <span class="truncate">{{ $menuItem->name }}</span>
                                         </div>
                                         @if($menuItem->route_name === 'tickets.inbox' && $roleInboxCount > 0)
-                                            <span class="px-1.5 py-0.5 text-[10px] font-bold rounded {{ $isActive ? 'bg-white text-slate-900' : 'bg-indigo-600 text-white' }}">
+                                            <span class="px-2 py-0.5 text-[10px] font-bold rounded-full {{ $isActive ? 'bg-white text-indigo-600 shadow-2xs' : 'bg-indigo-600 text-white shadow-2xs' }}">
                                                 {{ $roleInboxCount }}
                                             </span>
                                         @endif
@@ -136,16 +164,31 @@
             @endforeach
         </nav>
 
-        <div class="p-3 border-t border-slate-100">
-            <div class="flex items-center justify-between gap-2 px-2 py-1">
-                <div class="min-w-0">
-                    <p class="text-xs font-semibold text-slate-900 truncate">{{ $authUser->name }}</p>
-                    <p class="text-[11px] text-slate-400 truncate">Role: {{ $authUser->role?->name }}</p>
+        <!-- Modern User Profile Card & Logout -->
+        <div class="p-3 border-t border-slate-100 bg-slate-50/60">
+            <div class="p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2.5">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <!-- Avatar with Initials & Online Status -->
+                    <div class="relative shrink-0">
+                        <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center border border-indigo-200/70">
+                            {{ strtoupper(substr($authUser->name, 0, 2)) }}
+                        </div>
+                        <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" title="Online"></span>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-bold text-slate-900 truncate leading-tight">{{ $authUser->name }}</p>
+                        <span class="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded mt-0.5 truncate max-w-[110px] border border-slate-200/50">
+                            {{ $authUser->role?->name }}
+                        </span>
+                    </div>
                 </div>
-                <form action="{{ route('logout') }}" method="POST">
+                <form action="{{ route('logout') }}" method="POST" class="shrink-0">
                     @csrf
-                    <button type="submit" title="Keluar" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/></svg>
+                    <button type="submit" title="Keluar dari Sistem"
+                            class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
+                        </svg>
                     </button>
                 </form>
             </div>
@@ -155,8 +198,8 @@
     <!-- Main Content -->
     <div class="flex-1 lg:pl-64 flex flex-col min-w-0 pb-20 lg:pb-10">
         <!-- Top Header -->
-        <header class="sticky top-0 z-20 bg-white border-b border-slate-200">
-            <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+        <header class="sticky top-0 z-20 bg-white/95 backdrop-blur-xs border-b border-slate-200/80">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
                 <div class="flex items-center gap-2 text-xs text-slate-500">
                     <span class="font-semibold text-slate-800">{{ $authUser->name }}</span>
                     <span class="text-slate-300">•</span>
