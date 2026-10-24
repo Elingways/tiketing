@@ -62,77 +62,90 @@
     </div>
 
     <!-- Summary Stat Cards Row (4 KPI Cards) -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <!-- 1. Total Staf -->
-        <div class="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-2xs flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold text-slate-500">Total Tim Staf</span>
-                <span class="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-                    @include('partials.icon', ['name' => 'users', 'class' => 'w-4 h-4'])
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-xs transition flex flex-col justify-between">
+            <div class="flex items-start justify-between">
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-2xs">
+                    @include('partials.icon', ['name' => 'users', 'class' => 'w-5 h-5'])
+                </div>
+                <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    {{ $activeStaffCount }} Aktif
                 </span>
             </div>
-            <div class="mt-3">
-                <div class="text-2xl font-bold text-slate-900 tracking-tight">{{ $totalStaffCount }}</div>
-                <div class="flex items-center gap-1.5 mt-1 text-[11px]">
-                    <span class="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">{{ $activeStaffCount }} Aktif</span>
-                    <span class="text-slate-400">memegang tugas</span>
-                </div>
+            <div class="mt-4">
+                <p class="text-xs font-semibold text-slate-500">Total Tim Staf</p>
+                <div class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">{{ $totalStaffCount }}</div>
+                <p class="text-[11px] text-slate-400 mt-1">Teknisi terdaftar dalam unit</p>
             </div>
         </div>
 
         <!-- 2. Tiket Sedang Dikerjakan -->
-        <div class="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-2xs flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold text-slate-500">Tiket Dikerjakan</span>
-                <span class="w-8 h-8 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
-                    @include('partials.icon', ['name' => 'ticket', 'class' => 'w-4 h-4'])
-                </span>
-            </div>
-            <div class="mt-3">
-                <div class="text-2xl font-bold text-slate-900 tracking-tight">{{ $totalTicketsHandled }}</div>
-                <div class="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500">
-                    <span class="px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-100 font-semibold">Aktif</span>
-                    <span class="text-slate-400">sedang berjalan</span>
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-xs transition flex flex-col justify-between">
+            <div class="flex items-start justify-between">
+                <div class="w-10 h-10 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 shrink-0 shadow-2xs">
+                    @include('partials.icon', ['name' => 'ticket', 'class' => 'w-5 h-5'])
                 </div>
+                @if($totalTicketsHandled > 0)
+                    <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100">
+                        Diproses
+                    </span>
+                @else
+                    <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200/60">
+                        Kosong
+                    </span>
+                @endif
+            </div>
+            <div class="mt-4">
+                <p class="text-xs font-semibold text-slate-500">Tiket Sedang Dikerjakan</p>
+                <div class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">{{ $totalTicketsHandled }}</div>
+                <p class="text-[11px] text-slate-400 mt-1">
+                    {{ $totalTicketsHandled > 0 ? 'Tiket aktif ditangani tim' : 'Semua antrean tertangani' }}
+                </p>
             </div>
         </div>
 
         <!-- 3. Rata-rata Progres Tim -->
-        <div class="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-2xs flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold text-slate-500">Rata-rata Progres</span>
-                <span class="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
-                    @include('partials.icon', ['name' => 'check-circle', 'class' => 'w-4 h-4'])
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-xs transition flex flex-col justify-between">
+            <div class="flex items-start justify-between">
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0 shadow-2xs">
+                    @include('partials.icon', ['name' => 'check-circle', 'class' => 'w-5 h-5'])
+                </div>
+                <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    Checklist
                 </span>
             </div>
-            <div class="mt-3">
-                <div class="text-2xl font-bold text-slate-900 tracking-tight">{{ round($avgProgress ?? 0) }}%</div>
-                <div class="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-700 font-medium">
-                    <span class="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">Terselesaikan</span>
-                    <span class="text-slate-400">rata-rata tim</span>
+            <div class="mt-4">
+                <p class="text-xs font-semibold text-slate-500">Rata-rata Progres Tim</p>
+                <div class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">{{ round($avgProgress ?? 0) }}%</div>
+                <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-2">
+                    <div class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: {{ round($avgProgress ?? 0) }}%"></div>
                 </div>
             </div>
         </div>
 
         <!-- 4. Kendala / Blocked -->
-        <div class="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-2xs flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold text-slate-500">Terkendala / Blocked</span>
-                <span class="w-8 h-8 rounded-xl {{ $blockedCount > 0 ? 'bg-rose-50 border border-rose-100 text-rose-600' : 'bg-slate-50 border border-slate-100 text-slate-400' }} flex items-center justify-center">
-                    @include('partials.icon', ['name' => 'exclamation-circle', 'class' => 'w-4 h-4'])
-                </span>
-            </div>
-            <div class="mt-3">
-                <div class="text-2xl font-bold text-slate-900 tracking-tight">{{ $blockedCount }}</div>
-                <div class="flex items-center gap-1.5 mt-1 text-[11px] font-medium">
-                    @if($blockedCount > 0)
-                        <span class="px-1.5 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 font-semibold">Butuh Bantuan</span>
-                        <span class="text-slate-400">segera tinjau</span>
-                    @else
-                        <span class="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">Lancar</span>
-                        <span class="text-slate-400">bebas kendala</span>
-                    @endif
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-xs transition flex flex-col justify-between">
+            <div class="flex items-start justify-between">
+                <div class="w-10 h-10 rounded-xl {{ $blockedCount > 0 ? 'bg-rose-50 border border-rose-100 text-rose-600' : 'bg-slate-50 border border-slate-100 text-slate-400' }} flex items-center justify-center shrink-0 shadow-2xs">
+                    @include('partials.icon', ['name' => 'exclamation-circle', 'class' => 'w-5 h-5'])
                 </div>
+                @if($blockedCount > 0)
+                    <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 animate-pulse">
+                        Perlu Tindakan
+                    </span>
+                @else
+                    <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        Lancar
+                    </span>
+                @endif
+            </div>
+            <div class="mt-4">
+                <p class="text-xs font-semibold text-slate-500">Terkendala / Blocked</p>
+                <div class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">{{ $blockedCount }}</div>
+                <p class="text-[11px] mt-1 {{ $blockedCount > 0 ? 'text-rose-600 font-medium' : 'text-slate-400' }}">
+                    {{ $blockedCount > 0 ? 'Memerlukan intervensi bantuan' : 'Tidak ada tiket yang terhambat' }}
+                </p>
             </div>
         </div>
     </div>
