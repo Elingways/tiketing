@@ -28,6 +28,31 @@ class AppServiceProvider extends ServiceProvider
             if ($user) {
                 $user->loadMissing(['role.parent', 'role.children']);
                 $accessibleMenus = $user->accessibleMenus();
+
+                // Hubungkan role-role yang ditambahkan Superadmin sebagai sub-menu dinamis di bawah Manajemen Pengguna
+                if (Schema::hasTable('roles')) {
+                    $adminUsersMenu = $accessibleMenus->firstWhere('slug', 'admin-users');
+                    if ($adminUsersMenu) {
+                        $roleItems = \App\Models\Role::where('is_superuser', false)
+                            ->withCount('users')
+                            ->orderBy('name')
+                            ->get()
+                            ->map(function ($r) {
+                                return new \App\Models\Menu([
+                                    'name' => $r->name,
+                                    'slug' => 'role-users-' . $r->slug,
+                                    'route_name' => '/admin/users/role/' . $r->slug,
+                                    'icon' => $r->icon ?: 'user-group',
+                                    'color' => $r->badge_color ?: 'indigo',
+                                    'badge_text' => (string) ($r->users_count ?: '0'),
+                                    'show_in_sidebar' => true,
+                                    'is_active' => true,
+                                ]);
+                            });
+                        $adminUsersMenu->setRelation('children', $roleItems);
+                    }
+                }
+
                 $sidebarMenus = $accessibleMenus
                     ->where('show_in_sidebar', true)
                     ->whereNull('parent_id')

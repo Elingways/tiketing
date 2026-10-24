@@ -533,8 +533,8 @@ class DatabaseSeeder extends Seeder
                 'icon' => 'users',
                 'color' => 'fuchsia',
                 'group' => 'management',
-                'badge_text' => 'SIAKAD API',
-                'description' => 'Kelola data Mahasiswa dan Pengajar (Dosen, Kaprodi, Dekan) yang disinkronkan dari REST API SIAKAD.',
+                'badge_text' => null,
+                'description' => 'Kelola personel pengguna, status, profil dan reset password per unit role.',
                 'show_in_sidebar' => true,
                 'show_in_launcher' => true,
                 'sort_order' => 7,
@@ -606,42 +606,8 @@ class DatabaseSeeder extends Seeder
             $subRoles->roles()->sync([$superuserRole->id]);
         }
 
-        // Sub-Sidebar di bawah Manajemen Pengguna: 1. Mahasiswa, 2. Pengajar
-        if (isset($createdMenus['admin-users'])) {
-            $parentMenu = $createdMenus['admin-users'];
+        // Sub-Sidebar di bawah Manajemen Pengguna dihasilkan secara dinamis berdasarkan role unit yang aktif
 
-            $subStudents = Menu::create([
-                'parent_id' => $parentMenu->id,
-                'name' => 'Mahasiswa',
-                'slug' => 'admin-users-students',
-                'route_name' => 'admin.users.students',
-                'icon' => 'academic-cap',
-                'color' => 'indigo',
-                'group' => 'management',
-                'badge_text' => 'SIAKAD',
-                'description' => 'Direktori & manajemen Mahasiswa dari REST API SIAKAD.',
-                'show_in_sidebar' => true,
-                'show_in_launcher' => false,
-                'sort_order' => 1,
-            ]);
-            $subStudents->roles()->sync([$superuserRole->id]);
-
-            $subLecturers = Menu::create([
-                'parent_id' => $parentMenu->id,
-                'name' => 'Pengajar',
-                'slug' => 'admin-users-lecturers',
-                'route_name' => 'admin.users.lecturers',
-                'icon' => 'user-group',
-                'color' => 'amber',
-                'group' => 'management',
-                'badge_text' => 'Dosen/Kaprodi',
-                'description' => 'Direktori Pengajar (Dosen, Kaprodi, Dekan) dari REST API SIAKAD.',
-                'show_in_sidebar' => true,
-                'show_in_launcher' => false,
-                'sort_order' => 2,
-            ]);
-            $subLecturers->roles()->sync([$superuserRole->id]);
-        }
 
         // 4. Buat Sample Dokumen PDF untuk Template Kategori Layanan & Lampiran Tiket
         $samplePdfContent = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Resources<</Font<</F1 4 0 R>>>>/Contents 5 0 R>>endobj\n4 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n5 0 obj<</Length 152>>stream\nBT /F1 16 Tf 50 760 Td (TEMPLATE DOKUMEN LAYANAN KAMPUS USH) Tj /F1 12 Tf 0 -30 Td (Silakan lengkapi formulir ini dan unggah saat membuat tiket) Tj ET\nendstream\nendobj\nxref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000101 00000 n \n0000000207 00000 n \n0000000269 00000 n \ntrailer<</Size 6/Root 1 0 R>>\nstartxref\n470\n%%EOF";

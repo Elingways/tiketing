@@ -140,76 +140,61 @@ class TicketingHierarchyTest extends TestCase
         $this->actingAs($superuser)->get(route('admin.hierarchy'))->assertRedirect(route('admin.categories'));
         $this->actingAs($superuser)->get(route('admin.menus'))->assertOk();
         $this->actingAs($superuser)->get(route('admin.categories'))->assertOk();
-        $this->actingAs($superuser)->get(route('admin.users'))->assertRedirect(route('admin.users.students'));
-        $this->actingAs($superuser)->get(route('admin.users.students'))->assertOk();
-        $this->actingAs($superuser)->get(route('admin.users.lecturers'))->assertOk();
-        $this->actingAs($superuser)->get(route('admin.users.employees'))->assertOk();
+        $firstRole = Role::where('is_superuser', false)->whereHas('users')->first() ?? Role::where('is_superuser', false)->first();
+        $this->actingAs($superuser)->get(route('admin.users'))->assertRedirect(route('admin.users.role', $firstRole->slug));
+        $this->actingAs($superuser)->get(route('admin.users.role', $firstRole->slug))->assertOk();
     }
 
-    public function test_siakad_rest_api_syncs_students_and_lecturers_with_roles(): void
+    public function test_role_based_user_management_with_profile_modal_and_password_reset(): void
     {
-        \Illuminate\Support\Facades\Http::fake([
-            '*/api/external/lecturers*' => \Illuminate\Support\Facades\Http::response([
-                'success' => true,
-                'data' => [
-                    [
-                        'id_lecture' => 64,
-                        'name' => 'Dwi Utari Iswavigra, S.T., M.Kom.',
-                        'nidn' => '0626049701',
-                        'email' => 'dwi.utari@sugenghartono.ac.id',
-                        'program_studi' => 'Informatika',
-                        'fakultas' => 'FAKULTAS TEKNOLOGI, HUKUM DAN BISNIS',
-                        'jabatan' => 'Kaprodi Informatika',
-                        'role_slug' => 'kaprodi',
-                        'students_count' => 15,
-                    ],
-                    [
-                        'id_lecture' => 71,
-                        'name' => 'Yulaikha Maratullatifah, S.Pd., M.Kom.',
-                        'nidn' => '0630079202',
-                        'email' => 'yulaikha@sugenghartono.ac.id',
-                        'program_studi' => 'Informatika',
-                        'fakultas' => 'FAKULTAS TEKNOLOGI, HUKUM DAN BISNIS',
-                        'jabatan' => 'Dosen Tetap',
-                        'role_slug' => 'dosen',
-                        'students_count' => 10,
-                    ],
-                ],
-            ], 200),
-            '*/api/external/students*' => \Illuminate\Support\Facades\Http::response([
-                'success' => true,
-                'data' => [
-                    [
-                        'id_mahasiswa' => 109,
-                        'nim' => '062201002',
-                        'name' => 'WIBOWO JAMAL NUGROHO',
-                        'email' => 'wibowo@mhs.sugenghartono.ac.id',
-                        'angkatan' => 2022,
-                        'semester' => 8,
-                        'program_studi' => 'Informatika',
-                        'fakultas' => 'FAKULTAS TEKNOLOGI, HUKUM DAN BISNIS',
-                        'status_mahasiswa' => 'Aktif',
-                        'id_dosen_pembimbing' => 71,
-                    ],
-                ],
-            ], 200),
-        ]);
-
         $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+        $itRole = Role::where('slug', 'admin-it')->orWhere('slug', 'informatic-tecnology')->firstOrFail();
 
-        $this->actingAs($superuser)
-            ->post(route('admin.users.sync-siakad'), ['type' => 'all'])
-            ->assertRedirect();
+        // 1. Superuser membuka halaman user role IT
+        $response = $this->actingAs($superuser)->get(route('admin.users.role', $itRole->slug));
+        $response->assertOk()
+            ->assertSee($itRole->name)
+            ->assertSee('Tambah Pengguna')
+            ->assertSee('Reset Password');
 
-        $syncedKaprodi = User::where('email', 'dwi.utari@sugenghartono.ac.id')->firstOrFail();
-        $this->assertEquals('kaprodi', $syncedKaprodi->role->slug);
+        // 2. Superuser menambahkan pengguna baru ke role IT
+        $newEmail = 'teknisi.baru@kampus.ac.id';
+        $this->actingAs($superuser)->post(route('admin.users.store'), [
+            'name' => 'Teknisi Jaringan Baru',
+            'email' => $newEmail,
+            'password' => 'rahasia123',
+            'role_id' => $itRole->id,
+            'jabatan' => 'Teknisi Jaringan',
+            'keahlian' => 'Mikrotik, Fiber Optic',
+            'status_akademik' => 'Aktif',
+            'is_role_head' => 0,
+        ])->assertRedirect()->assertSessionHas('success');
 
-        $syncedDosen = User::where('email', 'yulaikha@sugenghartono.ac.id')->firstOrFail();
-        $this->assertEquals('dosen', $syncedDosen->role->slug);
+        $newUser = User::where('email', $newEmail)->firstOrFail();
+        $this->assertEquals($itRole->id, $newUser->role_id);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('rahasia123', $newUser->password));
 
-        $syncedStudent = User::where('identity_number', '062201002')->firstOrFail();
-        $this->assertEquals('mahasiswa', $syncedStudent->role->slug);
-        $this->assertEquals($syncedDosen->id, $syncedStudent->supervisor_id);
+        // 3. Superuser mereset password pengguna ke password kustom
+        $this->actingAs($superuser)->post(route('admin.users.reset-password', $newUser), [
+            'password' => 'passwordbaru2026',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $newUser->refresh();
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('passwordbaru2026', $newUser->password));
+
+        // 4. Superuser mereset password ke default ('password')
+        $this->actingAs($superuser)->post(route('admin.users.reset-password', $newUser), [
+            'password' => '',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $newUser->refresh();
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('password', $newUser->password));
+
+        // 5. Dynamic sidebar memuat role sebagai sub-menu di Manajemen Pengguna
+        $dashboardResponse = $this->actingAs($superuser)->get(route('dashboard'));
+        $dashboardResponse->assertOk()
+            ->assertSee('/admin/users/role/' . $itRole->slug, false)
+            ->assertSee($itRole->name);
     }
 
     public function test_superuser_creates_service_category_with_custom_hierarchy_and_template_document(): void
@@ -295,7 +280,7 @@ class TicketingHierarchyTest extends TestCase
         $this->actingAs($superuser)->post(route('admin.menus.store'), [
             'name' => 'Direktori Tendik',
             'parent_id' => $parentMenu->id,
-            'route_name' => '/admin/users/lecturers',
+            'route_name' => '/admin/roles',
             'group' => 'management',
             'icon' => 'user-group',
             'sort_order' => 3,
@@ -306,12 +291,12 @@ class TicketingHierarchyTest extends TestCase
 
         $subMenu = \App\Models\Menu::where('name', 'Direktori Tendik')->firstOrFail();
         $this->assertEquals($parentMenu->id, $subMenu->parent_id);
-        $this->assertEquals('/admin/users/lecturers', $subMenu->resolveUrl());
+        $this->assertEquals('/admin/roles', $subMenu->resolveUrl());
 
         $this->actingAs($superuser)->put(route('admin.menus.update', $subMenu), [
             'name' => 'Direktori Staf & Pengajar',
             'parent_id' => $parentMenu->id,
-            'route_name' => 'admin.users.lecturers',
+            'route_name' => 'admin.roles',
             'group' => 'management',
             'icon' => 'users',
             'sort_order' => 4,
@@ -727,15 +712,11 @@ class TicketingHierarchyTest extends TestCase
         $staffAplikasi = User::where('email', 'nadia.aplikasi@kampus.ac.id')->firstOrFail();
         $staffLab = User::where('email', 'staff.it@kampus.ac.id')->firstOrFail();
 
-        // 1. Sub-Sidebar Karyawan tampil dan memuat daftar karyawan IT (Supervisor IT, Admin IT, Staff)
-        $this->actingAs($superuser)->get(route('admin.users.employees'))
+        // 1. Halaman Manajemen Pengguna role IT memuat personel IT
+        $this->actingAs($superuser)->get(route('admin.users.role', $adminItLead->role->slug))
             ->assertOk()
-            ->assertSee('Management Karyawan', false)
-            ->assertSee($supervisorIt->name, false)
-            ->assertSee($adminItLead->name, false)
-            ->assertSee($staffJaringan->name, false)
-            ->assertSee('Jaringan & Server', false)
-            ->assertSee($staffLab->name, false);
+            ->assertSee($adminItLead->role->name, false)
+            ->assertSee($adminItLead->name, false);
 
         // 2. Request IT baru (TKT-202610-0005) masuk ke Inbox Supervisor IT lengkap dengan gambar bukti
         $incomingItTicket = Ticket::where('ticket_number', 'TKT-202610-0005')->firstOrFail();

@@ -26,10 +26,8 @@
         'tickets.workload' => 'Pekerjaan Divisi (tickets.workload)',
         'admin.categories' => 'Kategori Layanan (admin.categories)',
         'admin.menus' => 'Manajemen Menu (admin.menus)',
-        'admin.users' => 'Manajemen Pengguna (admin.users)',
-        'admin.users.students' => 'Sub-Menu Mahasiswa (admin.users.students)',
-        'admin.users.lecturers' => 'Sub-Menu Pengajar (admin.users.lecturers)',
-        'admin.users.employees' => 'Sub-Menu Karyawan (admin.users.employees)',
+        'admin.roles' => 'Manajemen Role (admin.roles)',
+        'admin.users' => 'Manajemen Pengguna per Role (admin.users)',
     ];
     $defaultRoleIds = $roles->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
 @endphp

@@ -73,12 +73,10 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/roles', [RoleController::class, 'index'])->name('roles');
 
-        // Manajemen Pengguna dengan Sub-Sidebar: Mahasiswa, Pengajar (Dosen, Kaprodi, Dekan), & Karyawan (Admin IT, Staff, Supervisor IT)
+        // Manajemen Pengguna per Role / Unit Divisi
         Route::get('/users', [UserController::class, 'index'])->name('users');
-        Route::get('/users/students', [UserController::class, 'students'])->name('users.students');
-        Route::get('/users/lecturers', [UserController::class, 'lecturers'])->name('users.lecturers');
+        Route::get('/users/role/{role:slug}', [UserController::class, 'roleUsers'])->name('users.role');
         Route::get('/users/employees', [UserController::class, 'employees'])->name('users.employees');
-        Route::post('/users/sync-siakad', [UserController::class, 'syncFromSiakad'])->name('users.sync-siakad');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
