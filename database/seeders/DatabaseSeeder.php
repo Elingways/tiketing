@@ -499,14 +499,14 @@ class DatabaseSeeder extends Seeder
                 'roles' => $allActiveRoles,
             ],
             [
-                'name' => 'Kategori Layanan',
-                'slug' => 'admin-categories',
-                'route_name' => 'admin.categories',
+                'name' => 'Layanan & Role',
+                'slug' => 'admin-services-roles',
+                'route_name' => 'admin.services-roles',
                 'icon' => 'adjustments-horizontal',
                 'color' => 'teal',
                 'group' => 'management',
-                'badge_text' => 'Hirarki & Doc',
-                'description' => 'Buat kategori layanan (misal Pengadaan Dana), tentukan tahapan hirarki role, dan unggah template dokumen.',
+                'badge_text' => 'Layanan & Role',
+                'description' => 'Konfigurasi kategori layanan, alur approval persetujuan, dan manajemen role/unit kerja.',
                 'show_in_sidebar' => true,
                 'show_in_launcher' => true,
                 'sort_order' => 5,
@@ -549,6 +549,47 @@ class DatabaseSeeder extends Seeder
             $menu = Menu::updateOrCreate(['slug' => $item['slug']], $item);
             $menu->roles()->sync($roleIds);
             $createdMenus[$menu->slug] = $menu;
+        }
+
+        // Sub-Sidebar di bawah Layanan & Role: 1. Kategori Layanan, 2. Manajemen Role
+        if (isset($createdMenus['admin-services-roles'])) {
+            $parentServiceRole = $createdMenus['admin-services-roles'];
+
+            $subCategories = Menu::updateOrCreate(
+                ['slug' => 'admin-categories'],
+                [
+                    'parent_id' => $parentServiceRole->id,
+                    'name' => 'Kategori Layanan',
+                    'route_name' => 'admin.categories',
+                    'icon' => 'squares-plus',
+                    'color' => 'teal',
+                    'group' => 'management',
+                    'badge_text' => 'Layanan',
+                    'description' => 'Daftar kategori layanan, alur approval persetujuan, dan template dokumen.',
+                    'show_in_sidebar' => true,
+                    'show_in_launcher' => false,
+                    'sort_order' => 1,
+                ]
+            );
+            $subCategories->roles()->sync([$superuserRole->id]);
+
+            $subRoles = Menu::updateOrCreate(
+                ['slug' => 'admin-roles'],
+                [
+                    'parent_id' => $parentServiceRole->id,
+                    'name' => 'Manajemen Role',
+                    'route_name' => 'admin.roles',
+                    'icon' => 'users',
+                    'color' => 'indigo',
+                    'group' => 'management',
+                    'badge_text' => 'Unit & Staf',
+                    'description' => 'Manajemen role/unit kerja, penetapan kepala peninjau, dan personel staf.',
+                    'show_in_sidebar' => true,
+                    'show_in_launcher' => false,
+                    'sort_order' => 2,
+                ]
+            );
+            $subRoles->roles()->sync([$superuserRole->id]);
         }
 
         // Sub-Sidebar di bawah Manajemen Pengguna: 1. Mahasiswa, 2. Pengajar

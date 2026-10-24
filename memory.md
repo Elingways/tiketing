@@ -47,6 +47,36 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ## 📝 Riwayat Log Prompt & Solusi
 
+### [2026-10-24] Pemisahan Halaman Kategori Layanan & Manajemen Role dengan Sub-Sidebar
+- **User Prompt:**
+  > "baiknya kita pisah juga role baru dan tambah layanan, jadi buat sub sidebar untuk manajement role dan layanan aja"
+- **Tindakan & Solusi:**
+  - **Restrukturisasi Menu & Sub-Sidebar:**
+    - Membuat parent menu `"Layanan & Role"` (`slug`: `admin-services-roles`) di bawah grup `MANAJEMEN`.
+    - Menambahkan 2 sub-sidebar di bawahnya:
+      1. `"Kategori Layanan"` (`admin-categories` -> `/admin/categories`)
+      2. `"Manajemen Role"` (`admin-roles` -> `/admin/roles`)
+    - Memperbarui [database/seeders/DatabaseSeeder.php](file:///Users/mac/USH/tikecting/database/seeders/DatabaseSeeder.php) dan record tabel `menus` di database.
+  - **Dedicated Controller & View Manajemen Role:**
+    - Membuat [app/Http/Controllers/Admin/RoleController.php](file:///Users/mac/USH/tikecting/app/Http/Controllers/Admin/RoleController.php) yang memuat data role, unit kepala, dan statistik staf.
+    - Membuat view [resources/views/admin/roles/index.blade.php](file:///Users/mac/USH/tikecting/resources/views/admin/roles/index.blade.php) dengan 3 KPI card, daftar Kepala Unit & Keahlian Staf, tabel seluruh role, modal `addRoleModal` (Tambah Role Baru), dan modal `manageRoleModal` (Kelola Staf & Prioritas).
+  - **Pembersihan Halaman Kategori Layanan:**
+    - Memfokuskan [resources/views/admin/categories.blade.php](file:///Users/mac/USH/tikecting/resources/views/admin/categories.blade.php) murni pada pengelolaan kategori layanan dan approval workflow (menghapus kartu Kepala Unit & modal role dari halaman ini).
+    - Menambahkan tab switcher clean (`Kategori Layanan` & `Manajemen Role`) di bagian atas kedua halaman untuk memudahkan navigasi cepat.
+  - **Testing:**
+    - Seluruh **19 automated tests (410 assertions)** lulus 100% (`PASS`).
+- **File Terkait:**
+  - `app/Http/Controllers/Admin/RoleController.php`
+  - `resources/views/admin/roles/index.blade.php`
+  - `resources/views/admin/categories.blade.php`
+  - `routes/web.php`
+  - `database/seeders/DatabaseSeeder.php`
+  - `tests/Feature/TicketingHierarchyTest.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [2026-10-24] Redesign & Refactor Clean UI Halaman Kategori Layanan & Modal Tambah Role
 - **User Prompt:**
   > "'/Users/mac/USH/tikecting/image copy.png' sekarang refactor dulu tampilan ini"

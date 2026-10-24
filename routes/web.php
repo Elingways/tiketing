@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\HierarchyController;
 use App\Http\Controllers\Admin\MenuController;
+use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
@@ -57,10 +58,13 @@ Route::middleware('auth')->group(function () {
         Route::post('/menus/matrix', [MenuController::class, 'syncMatrix'])->name('menus.matrix');
         Route::delete('/menus/{menu}', [MenuController::class, 'destroy'])->name('menus.destroy');
 
+        Route::get('/services-roles', fn () => redirect()->route('admin.categories'))->name('services-roles');
         Route::get('/categories', [CategoryController::class, 'index'])->name('categories');
         Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
         Route::put('/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
         Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+
+        Route::get('/roles', [RoleController::class, 'index'])->name('roles');
 
         // Manajemen Pengguna dengan Sub-Sidebar: Mahasiswa, Pengajar (Dosen, Kaprodi, Dekan), & Karyawan (Admin IT, Staff, Supervisor IT)
         Route::get('/users', [UserController::class, 'index'])->name('users');

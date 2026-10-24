@@ -356,6 +356,9 @@ class TicketingHierarchyTest extends TestCase
         $this->assertEquals('Perangkat keras', $hardware->keahlian);
 
         $this->actingAs($superuser)->get(route('admin.categories'))
+            ->assertOk();
+
+        $this->actingAs($superuser)->get(route('admin.roles'))
             ->assertOk()
             ->assertSee('Kepala IT')
             ->assertSee('Perangkat keras');
