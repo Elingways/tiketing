@@ -59,10 +59,6 @@
                    class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">
                     Pengajar
                 </a>
-                <a href="{{ route('admin.users.employees') }}"
-                   class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">
-                    Karyawan
-                </a>
             </div>
 
             <!-- Tombol Tarik Data REST API SIAKAD -->

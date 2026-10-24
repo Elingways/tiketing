@@ -1036,7 +1036,8 @@ class TicketingHierarchyTest extends TestCase
             ->assertSee('Distribusi Status Tiket')
             ->assertSee('Aktivitas Terkini Sistem')
             ->assertDontSee('Struktur Hirarki Role')
-            ->assertDontSee('Pintasan Sistem');
+            ->assertDontSee('Pintasan Sistem')
+            ->assertDontSee(route('admin.users.employees'));
 
         // 2. Dashboard Mahasiswa / civitas umum juga bersih tanpa Struktur Hirarki Role
         $mhsResponse = $this->actingAs($mahasiswa)->get(route('dashboard'));

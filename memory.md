@@ -47,6 +47,28 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ## 📝 Riwayat Log Prompt & Solusi
 
+### [2026-10-24] Penghapusan Sub-Sidebar "Karyawan" dari Manajemen Pengguna
+- **User Prompt:**
+  > "kok di local ku ada sidebar karyawan it itu , sedangkan punya teman saya ga ada, dan sebenarnya karyawan ini ga perlu karena semua udh di kategory layanan"
+- **Penyebab:**
+  - Sebelumnya sub-menu "Karyawan" (`admin-users-employees`) sempat di-seed ke tabel `menus` di database lokal pada sesi sebelumnya (commit `e51ad91`), sedangkan database rekan user tidak memiliki entri menu ini.
+  - Sesuai arsitektur sistem, delegasi dan peran staf IT/karyawan sudah diatur secara terintegrasi melalui **Kategori Layanan** dan alur disposisi, sehingga menu tersendiri untuk Karyawan tidak diperlukan lagi di sidebar.
+- **Tindakan & Solusi:**
+  - Menghapus record menu `admin-users-employees` dari database tabel `menus`.
+  - Menghapus pembuatan sub-menu Karyawan dari [database/seeders/DatabaseSeeder.php](file:///Users/mac/USH/tikecting/database/seeders/DatabaseSeeder.php).
+  - Menghapus tab link "Karyawan" pada header [resources/views/admin/users/students.blade.php](file:///Users/mac/USH/tikecting/resources/views/admin/users/students.blade.php) dan [resources/views/admin/users/lecturers.blade.php](file:///Users/mac/USH/tikecting/resources/views/admin/users/lecturers.blade.php).
+  - Menambahkan assertion pada test di [tests/Feature/TicketingHierarchyTest.php](file:///Users/mac/USH/tikecting/tests/Feature/TicketingHierarchyTest.php) untuk memastikan menu `admin.users.employees` tidak lagi tampil di sidebar.
+  - Seluruh **19 automated tests (409 assertions)** lulus 100%.
+- **File Terkait:**
+  - `database/seeders/DatabaseSeeder.php`
+  - `resources/views/admin/users/students.blade.php`
+  - `resources/views/admin/users/lecturers.blade.php`
+  - `tests/Feature/TicketingHierarchyTest.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [2026-10-24] Pembersihan Widget "Pintasan Sistem" pada Dashboard Superadmin
 - **User Prompt:**
   > "saya ga perlu pintasan sistem"

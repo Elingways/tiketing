@@ -586,22 +586,6 @@ class DatabaseSeeder extends Seeder
                 'sort_order' => 2,
             ]);
             $subLecturers->roles()->sync([$superuserRole->id]);
-
-            $subEmployees = Menu::create([
-                'parent_id' => $parentMenu->id,
-                'name' => 'Karyawan',
-                'slug' => 'admin-users-employees',
-                'route_name' => 'admin.users.employees',
-                'icon' => 'users',
-                'color' => 'sky',
-                'group' => 'management',
-                'badge_text' => 'IT & Staff',
-                'description' => 'Direktori Karyawan (Admin IT, Staff, Supervisor IT & Tenaga Kependidikan).',
-                'show_in_sidebar' => true,
-                'show_in_launcher' => false,
-                'sort_order' => 3,
-            ]);
-            $subEmployees->roles()->sync([$superuserRole->id]);
         }
 
         // 4. Buat Sample Dokumen PDF untuk Template Kategori Layanan & Lampiran Tiket
