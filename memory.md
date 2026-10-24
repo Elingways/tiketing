@@ -47,6 +47,35 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ## 📝 Riwayat Log Prompt & Solusi
 
+### [2026-10-24] Polish UI Layout Halaman Staff Progres & Perbaikan Truncation Teks Sub-Sidebar
+- **User Prompt:**
+  > "'/Users/mac/USH/tikecting/image copy 2.png' kurang rapi liat ini"
+- **Analisis Masalah pada UI Sebelumnya (`image copy 2.png`):**
+  1. **Truncation Teks Sub-Sidebar:** Pada menu `Layanan & Role`, teks *Kategori Layanan* terpotong menjadi *Kategori Layan...* dan *Manajemen Role* terpotong menjadi *Manajemen R...* akibat adanya badge redundan (*Layanan*, *Unit & Staf*) serta double indicator (bullet dot + icon) yang memakan lebar sidebar 256px.
+  2. **Kotak Pencarian Melayang Terisolasi:** Toolbar pencarian berdiri sendiri sebagai kotak mengambang di tengah layar, membuat tata letak terpecah menjadi 5 kotak bertingkat yang tidak rapi.
+  3. **Kartu Staf Canggung & Bergaris Ganda:** Saat staf memiliki 0 tiket, terdapat ruang kosong besar dan garis pemisah ganda yang tampak rusak.
+  4. **Tabel Kosong Tanpa Empty State yang Baik:** Saat belum ada tiket yang berjalan, tabel tidak menampilkan visual empty state yang representatif.
+- **Tindakan & Solusi:**
+  - **Perbaikan Sidebar (`app.blade.php` & `DatabaseSeeder.php`):**
+    - Menghapus badge teks redundan pada sub-menu `admin-categories` dan `admin-roles`.
+    - Merapikan struktur sub-sidebar dengan menghilangkan bullet dot tambahan, mengandalkan icon bersih dengan padding proporsional sehingga nama menu tampil utuh tanpa terpotong.
+  - **Penyatuan Toolbar ke Dalam Header Tabel (`staff-progress.blade.php`):**
+    - Memindahkan input pencarian instan dan filter chip status langsung ke dalam toolbar header tabel daftar tiket, menghilangkan kotak melayang yang terisolasi.
+  - **Penyempurnaan Kartu Staf:**
+    - Mendesain ulang kartu staf saat 0 tiket dengan status chip yang rapi: *Kapasitas tersedia — Siap ditugaskan* tanpa border kosong bertumpuk.
+    - Avatar squircle inisial yang proporsional dan teks ringkas.
+  - **Empty State yang Bersahabat:**
+    - Menambahkan ilustrasi empty state yang estetik dengan ikon tiket, pesan penjelas, serta tombol shortcut *Lihat Antrean Tiket Masuk*.
+  - **Testing:** Seluruh **19 automated tests (410 assertions)** lulus 100% (`PASS`).
+- **File Terkait:**
+  - `resources/views/layouts/app.blade.php`
+  - `resources/views/tickets/staff-progress.blade.php`
+  - `database/seeders/DatabaseSeeder.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [2026-10-24] Redesign Clean UI & Dynamic Interactivity Halaman Staff Progres
 - **User Prompt:**
   > "http://127.0.0.1:8888/tickets/staff-progress sekarang refactor ui dan clean yang tidak perlu okey, buat modern dan dinamis"

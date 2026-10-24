@@ -117,25 +117,20 @@
                                             </svg>
                                         </button>
 
-                                        <!-- Sub-Sidebar Tree Items -->
-                                        <div x-show="openSub" x-cloak class="relative ml-4 pl-3 my-1 space-y-1 border-l border-slate-200/80">
+                                        <!-- Sub-Sidebar Items -->
+                                        <div x-show="openSub" x-cloak class="relative ml-4 pl-2.5 my-1 space-y-0.5 border-l border-slate-200/80">
                                             @foreach($children as $childMenu)
                                                 @php
                                                     $childActive = $childMenu->isCurrentRoute();
                                                 @endphp
                                                 <a href="{{ $childMenu->resolveUrl() }}"
-                                                   class="group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition {{ $childActive ? 'bg-indigo-50 text-indigo-700 font-semibold border border-indigo-150/70 shadow-2xs' : 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-900 font-medium' }}">
-                                                    <div class="flex items-center gap-2 min-w-0">
-                                                        @if($childActive)
-                                                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0"></span>
-                                                        @else
-                                                            <span class="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-slate-400 shrink-0 transition-colors"></span>
-                                                        @endif
-                                                        @include('partials.icon', ['name' => $childMenu->icon, 'class' => 'w-3.5 h-3.5 shrink-0 ' . ($childActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-500')])
+                                                   class="group flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition {{ $childActive ? 'bg-indigo-50 text-indigo-700 font-semibold border border-indigo-150/70 shadow-2xs' : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-medium' }}">
+                                                    <div class="flex items-center gap-2.5 min-w-0">
+                                                        @include('partials.icon', ['name' => $childMenu->icon, 'class' => 'w-3.5 h-3.5 shrink-0 ' . ($childActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600')])
                                                         <span class="truncate">{{ $childMenu->name }}</span>
                                                     </div>
                                                     @if($childMenu->badge_text)
-                                                        <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-md {{ $childActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500' }}">
+                                                        <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-md shrink-0 {{ $childActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500' }}">
                                                             {{ $childMenu->badge_text }}
                                                         </span>
                                                     @endif
