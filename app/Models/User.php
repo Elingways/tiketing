@@ -153,7 +153,10 @@ class User extends Authenticatable
     public function getAvatarUrlAttribute(): ?string
     {
         if ($this->avatar_path) {
-            return Storage::disk('public')->url($this->avatar_path);
+            return route('users.avatar', [
+                'user' => $this->id,
+                'v' => optional($this->updated_at)->timestamp,
+            ], false);
         }
         return null;
     }

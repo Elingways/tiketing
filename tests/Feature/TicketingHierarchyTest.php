@@ -1150,6 +1150,10 @@ class TicketingHierarchyTest extends TestCase
             ->assertSee('Keluar (Logout)')
             ->assertSee('Edit Profil');
 
+        // Pastikan endpoint avatar menyajikan file gambar dengan status 200 OK
+        $avatarResponse = $this->actingAs($user)->get($user->avatar_url);
+        $avatarResponse->assertOk();
+
         // 4. Pengguna dapat menghapus foto profil kembali ke inisial
         $removeResponse = $this->actingAs($user)->post(route('profile.update'), [
             'name' => 'Fajar Nugroho Senior, S.T.',

@@ -22,6 +22,7 @@ Route::middleware('auth')->group(function () {
     // Profil Pengguna & Unggah Foto
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::get('/users/{user}/avatar', [ProfileController::class, 'avatar'])->name('users.avatar');
 
     // Modul Tiketing
     Route::get('/tickets/my', [TicketController::class, 'myTickets'])->name('tickets.my');

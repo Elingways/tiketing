@@ -47,6 +47,31 @@ Setiap kali berinteraksi dalam sesi chat:
 
 ## 📝 Riwayat Log Prompt & Solusi
 
+### [2026-10-24] Perbaikan Foto Avatar Rusak (Broken Image) Akibat Mismatch Port / APP_URL (Image Copy 4)
+- **User Prompt:**
+  > "'/Users/mac/USH/tikecting/image copy 4.png' saya coba ganti tetapi hasilnya seperti ini"
+- **Analisis Masalah pada UI (`image copy 4.png`):**
+  - Foto yang diunggah pengguna berhasil tersimpan di `storage/app/public/avatars/`, namun browser menampilkan ikon gambar rusak (*broken image*).
+  - Hal ini terjadi karena accessor `avatar_url` sebelumnya memanggil `Storage::disk('public')->url()`, yang mengacu pada `APP_URL=http://localhost:8000` di `.env`.
+  - Sementara pengguna menjalankan aplikasi pada server port lokal berbeda (`http://127.0.0.1:8888`), sehingga browser berusaha mengunduh file foto ke port 8000 dan mengalami `ERR_CONNECTION_REFUSED`.
+- **Tindakan & Solusi:**
+  - Menambahkan endpoint rute khusus penyaji file avatar `GET /users/{user}/avatar` pada [routes/web.php](file:///Users/mac/USH/tikecting/routes/web.php).
+  - Menambahkan method `avatar(User $user)` di [app/Http/Controllers/ProfileController.php](file:///Users/mac/USH/tikecting/app/Http/Controllers/ProfileController.php) yang menyajikan file gambar secara langsung via `response()->file()` dengan `Content-Type` yang sesuai serta header caching HTTP.
+  - Memperbarui accessor `getAvatarUrlAttribute()` di [app/Models/User.php](file:///Users/mac/USH/tikecting/app/Models/User.php) agar menghasilkan *root-relative URL* (`/users/{id}/avatar?v={timestamp}`).
+  - URL relatif ini sepenuhnya kebal terhadap ketidakcocokan domain, port (8000 vs 8888), maupun protokol HTTP/HTTPS, serta parameter `v` mencegah browser menahan cache gambar lama.
+- **Hasil Pengujian:**
+  - Ditambahkan assertion pengambilan file avatar via HTTP pada [tests/Feature/TicketingHierarchyTest.php](file:///Users/mac/USH/tikecting/tests/Feature/TicketingHierarchyTest.php).
+  - Seluruh **21 automated tests (440 assertions)** lulus 100% (`PASS`).
+- **File Terkait:**
+  - `routes/web.php`
+  - `app/Http/Controllers/ProfileController.php`
+  - `app/Models/User.php`
+  - `tests/Feature/TicketingHierarchyTest.php`
+  - `memory.md`
+- **Status:** Selesai ✅
+
+---
+
 ### [2026-10-24] Pembersihan Dropdown Pindah Role / Switcher Akun pada Header
 - **User Prompt:**
   > "pindah role itu hialngkan aja kita clean"

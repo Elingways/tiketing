@@ -80,4 +80,22 @@ class ProfileController extends Controller
 
         return redirect()->route('profile.edit')->with('success', 'Profil dan foto akun berhasil diperbarui!');
     }
+
+    /**
+     * Sajikan file foto avatar pengguna secara langsung dan aman
+     */
+    public function avatar(\App\Models\User $user)
+    {
+        if ($user->avatar_path && Storage::disk('public')->exists($user->avatar_path)) {
+            $path = Storage::disk('public')->path($user->avatar_path);
+            $mime = Storage::disk('public')->mimeType($user->avatar_path) ?: 'image/jpeg';
+
+            return response()->file($path, [
+                'Content-Type' => $mime,
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+        }
+
+        abort(404);
+    }
 }
