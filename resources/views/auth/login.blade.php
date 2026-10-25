@@ -2,7 +2,7 @@
 <html lang="id" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Masuk — SuperTicket USH</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,239 +25,182 @@
         [x-cloak] { display: none !important; }
     </style>
 </head>
-<body class="min-h-full flex flex-col justify-center text-slate-800 bg-slate-50 relative selection:bg-indigo-500 selection:text-white"
+<body class="min-h-full flex flex-col justify-center items-center px-4 py-8 sm:py-12 text-slate-800 bg-slate-50 relative selection:bg-indigo-500 selection:text-white"
       x-data="{ forgotModal: false, showDemoRoles: false }">
 
-    <!-- Ambient Glow Orbs -->
-    <div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
-        <div class="absolute -top-40 -left-40 w-[600px] h-[600px] bg-indigo-300/20 rounded-full blur-3xl"></div>
-        <div class="absolute top-1/2 -right-40 w-[500px] h-[500px] bg-sky-300/20 rounded-full blur-3xl"></div>
-        <div class="absolute -bottom-40 left-1/3 w-[600px] h-[600px] bg-violet-300/15 rounded-full blur-3xl"></div>
+    <!-- Ambient Glow Background -->
+    <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-96 -z-10 pointer-events-none overflow-hidden">
+        <div class="absolute -top-32 left-1/4 w-72 h-72 sm:w-96 sm:h-96 bg-indigo-200/40 rounded-full blur-3xl"></div>
+        <div class="absolute -top-20 right-1/4 w-64 h-64 sm:w-80 sm:h-80 bg-sky-200/35 rounded-full blur-3xl"></div>
     </div>
 
-    <!-- Main Container -->
-    <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 my-auto">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+    <!-- Main Clean Container (Mobile Friendly & Centered) -->
+    <main class="w-full max-w-[420px] mx-auto my-auto">
 
-            <!-- LEFT COLUMN: Customer Service Animation & Branding Showcase -->
-            <div class="lg:col-span-7 flex flex-col justify-center items-center lg:items-start text-center lg:text-left order-2 lg:order-1">
-                <!-- Brand Badge -->
-                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 border border-slate-200/90 shadow-2xs backdrop-blur-md mb-6">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span class="text-xs font-semibold text-slate-700">Layanan Helpdesk 24 Jam & Tiketing Terpadu</span>
+        <!-- Header: Animasi Customer Service sebagai Ikon Utama -->
+        <div class="text-center mb-6">
+            <div class="relative inline-flex items-center justify-center mb-2">
+                <!-- Soft Glow Ring -->
+                <div class="absolute inset-0 bg-indigo-400/20 rounded-full blur-2xl transform scale-110 pointer-events-none"></div>
+
+                <!-- Lottie Animated Icon Wrapper -->
+                <div class="relative w-28 h-28 sm:w-36 sm:h-36 rounded-3xl bg-white/95 border border-slate-200/80 shadow-md shadow-indigo-500/10 p-1 flex items-center justify-center backdrop-blur-sm overflow-hidden">
+                    <div id="lottie-customer-service" class="w-full h-full flex items-center justify-center"></div>
                 </div>
 
-                <!-- Lottie Customer Service Showcase Box -->
-                <div class="relative w-full max-w-[440px] sm:max-w-[480px] aspect-square rounded-3xl bg-gradient-to-b from-white/95 to-slate-100/70 border border-white shadow-xl shadow-indigo-500/5 p-4 sm:p-6 mb-6 flex items-center justify-center backdrop-blur-md">
-                    <div class="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 via-sky-500/5 to-transparent rounded-3xl pointer-events-none"></div>
-
-                    <!-- Ambient Ring -->
-                    <div class="absolute -top-4 -right-4 w-24 h-24 bg-indigo-400/20 rounded-full blur-xl pointer-events-none"></div>
-                    <div class="absolute -bottom-4 -left-4 w-24 h-24 bg-sky-400/20 rounded-full blur-xl pointer-events-none"></div>
-
-                    <!-- Floating Pill Tags for CS Context -->
-                    <div class="absolute top-4 left-4 z-10 px-3 py-1 rounded-full bg-white/95 shadow-2xs border border-slate-200/80 text-[11px] font-bold text-indigo-700 flex items-center gap-1.5">
-                        <span class="text-xs">🎧</span>
-                        <span>Helpdesk Online</span>
-                    </div>
-
-                    <div class="absolute bottom-4 right-4 z-10 px-3 py-1 rounded-full bg-white/95 shadow-2xs border border-slate-200/80 text-[11px] font-bold text-emerald-700 flex items-center gap-1.5">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        <span>Siap Melayani 24 Jam</span>
-                    </div>
-
-                    <!-- Lottie Container -->
-                    <div id="lottie-customer-service" class="w-full h-full max-w-[400px] max-h-[400px] flex items-center justify-center"></div>
-                </div>
-
-                <!-- Headline & Value Prop -->
-                <div class="max-w-xl space-y-3">
-                    <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
-                        Pusat Bantuan & Layanan Terpadu <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-sky-600">Universitas Sugeng Hartono</span>
-                    </h2>
-                    <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                        Satu pintu pengajuan permohonan, pelaporan kendala teknis, serta disposisi penanganan tiket layanan kampus secara cepat, transparan, dan terukur.
-                    </p>
-
-                    <!-- Feature Chips -->
-                    <div class="flex flex-wrap items-center justify-center lg:justify-start gap-2 pt-2">
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/80 border border-slate-200 text-xs font-semibold text-slate-700 shadow-2xs">
-                            <span class="text-indigo-600 font-bold">⚡</span>
-                            <span>Eskalasi Cepat</span>
-                        </span>
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/80 border border-slate-200 text-xs font-semibold text-slate-700 shadow-2xs">
-                            <span class="text-sky-600 font-bold">🛡️</span>
-                            <span>Alur Persetujuan Bertingkat</span>
-                        </span>
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/80 border border-slate-200 text-xs font-semibold text-slate-700 shadow-2xs">
-                            <span class="text-emerald-600 font-bold">✓</span>
-                            <span>Monitoring Progres Staf</span>
-                        </span>
-                    </div>
+                <!-- Active Online Indicator Pill -->
+                <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-white shadow-2xs border border-slate-200 text-[10px] font-bold text-emerald-700 flex items-center gap-1.5 whitespace-nowrap">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Helpdesk Aktif</span>
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: Login Form Card -->
-            <div class="lg:col-span-5 w-full max-w-[440px] mx-auto order-1 lg:order-2">
-                <!-- Brand Header -->
-                <div class="flex items-center gap-3 mb-6">
-                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/25 shrink-0 transform transition-transform hover:scale-105 duration-200">
-                        @include('partials.icon', ['name' => 'ticket', 'class' => 'w-6 h-6'])
-                    </div>
-                    <div>
-                        <h1 class="text-2xl font-bold tracking-tight text-slate-900 leading-none">SuperTicket</h1>
-                        <p class="text-xs text-slate-500 mt-1">Sistem Layanan Terpadu & Tiketing Kampus</p>
+            <!-- Brand Title & Tagline -->
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 mt-3">SuperTicket</h1>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1">Sistem Layanan Terpadu & Tiketing Kampus</p>
+        </div>
+
+        <!-- Auth Card -->
+        <div class="bg-white border border-slate-200/80 rounded-2xl sm:rounded-3xl shadow-xl shadow-slate-200/60 p-5 sm:p-7 backdrop-blur-sm">
+
+            <!-- Flash Success Alert -->
+            @if(session('success'))
+                <div class="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2.5">
+                    @include('partials.icon', ['name' => 'check-circle', 'class' => 'w-4 h-4 text-emerald-600 shrink-0 mt-0.5'])
+                    <span>{{ session('success') }}</span>
+                </div>
+            @endif
+
+            <!-- Flash Error Alert -->
+            @if($errors->any())
+                <div class="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2.5">
+                    <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                    </svg>
+                    <span>{{ $errors->first() }}</span>
+                </div>
+            @endif
+
+            <!-- Login Form -->
+            <form action="{{ route('login.submit') }}" method="POST" class="space-y-4">
+                @csrf
+
+                <!-- Email Input -->
+                <div>
+                    <label for="email" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Alamat Email
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                            @include('partials.icon', ['name' => 'envelope', 'class' => 'w-4 h-4'])
+                        </div>
+                        <input type="email"
+                               id="email"
+                               name="email"
+                               value="{{ old('email') }}"
+                               required
+                               autofocus
+                               autocomplete="email"
+                               placeholder="nama@kampus.ac.id"
+                               class="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition placeholder:text-slate-400 text-slate-900 bg-slate-50/50 hover:bg-white focus:bg-white">
                     </div>
                 </div>
 
-                <!-- Auth Card -->
-                <div class="bg-white border border-slate-200/90 rounded-3xl shadow-xl shadow-slate-200/50 p-6 sm:p-8 backdrop-blur-md">
-                    <!-- Card Title -->
-                    <div class="mb-5">
-                        <h2 class="text-base font-bold text-slate-900">Masuk ke Akun</h2>
-                        <p class="text-xs text-slate-500 mt-0.5">Gunakan email kampus terdaftar dan kata sandi Anda.</p>
+                <!-- Password Input -->
+                <div x-data="{ showPassword: false }">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label for="password" class="block text-xs font-semibold text-slate-700">
+                            Kata Sandi
+                        </label>
+                        <button type="button"
+                                @click="forgotModal = true"
+                                class="text-[11px] font-medium text-indigo-600 hover:text-indigo-700 hover:underline transition cursor-pointer p-0.5">
+                            Lupa kata sandi?
+                        </button>
                     </div>
-
-                    <!-- Flash & Error Alert -->
-                    @if(session('success'))
-                        <div class="mb-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2.5">
-                            @include('partials.icon', ['name' => 'check-circle', 'class' => 'w-4 h-4 text-emerald-600 shrink-0 mt-0.5'])
-                            <span>{{ session('success') }}</span>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                            @include('partials.icon', ['name' => 'lock', 'class' => 'w-4 h-4'])
                         </div>
-                    @endif
-
-                    @if($errors->any())
-                        <div class="mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2.5">
-                            <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                            </svg>
-                            <span>{{ $errors->first() }}</span>
-                        </div>
-                    @endif
-
-                    <!-- Form -->
-                    <form action="{{ route('login.submit') }}" method="POST" class="space-y-4">
-                        @csrf
-
-                        <!-- Email Input -->
-                        <div>
-                            <label for="email" class="block text-xs font-semibold text-slate-700 mb-1.5">
-                                Alamat Email
-                            </label>
-                            <div class="relative">
-                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                                    @include('partials.icon', ['name' => 'envelope', 'class' => 'w-4 h-4'])
-                                </div>
-                                <input type="email"
-                                       id="email"
-                                       name="email"
-                                       value="{{ old('email') }}"
-                                       required
-                                       autofocus
-                                       autocomplete="email"
-                                       placeholder="nama@kampus.ac.id"
-                                       class="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition placeholder:text-slate-400 text-slate-900 bg-slate-50/50 hover:bg-white focus:bg-white">
-                            </div>
-                        </div>
-
-                        <!-- Password Input -->
-                        <div x-data="{ showPassword: false }">
-                            <div class="flex items-center justify-between mb-1.5">
-                                <label for="password" class="block text-xs font-semibold text-slate-700">
-                                    Kata Sandi
-                                </label>
-                                <button type="button"
-                                        @click="forgotModal = true"
-                                        class="text-[11px] font-medium text-indigo-600 hover:text-indigo-700 hover:underline transition cursor-pointer">
-                                    Lupa kata sandi?
-                                </button>
-                            </div>
-                            <div class="relative">
-                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                                    @include('partials.icon', ['name' => 'lock', 'class' => 'w-4 h-4'])
-                                </div>
-                                <input :type="showPassword ? 'text' : 'password'"
-                                       id="password"
-                                       name="password"
-                                       required
-                                       autocomplete="current-password"
-                                       placeholder="Masukkan kata sandi"
-                                       class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition placeholder:text-slate-400 text-slate-900 bg-slate-50/50 hover:bg-white focus:bg-white">
-                                <button type="button"
-                                        @click="showPassword = !showPassword"
-                                        class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none transition cursor-pointer">
-                                    <span x-show="!showPassword" title="Tampilkan kata sandi">
-                                        @include('partials.icon', ['name' => 'eye', 'class' => 'w-4 h-4'])
-                                    </span>
-                                    <span x-show="showPassword" x-cloak title="Sembunyikan kata sandi">
-                                        @include('partials.icon', ['name' => 'eye-slash', 'class' => 'w-4 h-4'])
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Remember Me Checkbox -->
-                        <div class="flex items-center pt-1">
-                            <input id="remember"
-                                   type="checkbox"
-                                   name="remember"
-                                   class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/30 cursor-pointer">
-                            <label for="remember" class="ml-2 text-xs text-slate-600 cursor-pointer select-none">
-                                Ingat sesi saya di peramban ini
-                            </label>
-                        </div>
-
-                        <!-- Submit Button -->
-                        <button type="submit"
-                                class="w-full mt-2 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] font-semibold text-xs tracking-wide text-white shadow-md shadow-indigo-600/20 transition duration-150 flex items-center justify-center gap-2 group cursor-pointer">
-                            <span>Masuk ke Akun</span>
-                            <span class="group-hover:translate-x-0.5 transition-transform duration-150">
-                                @include('partials.icon', ['name' => 'arrow-right', 'class' => 'w-3.5 h-3.5'])
+                        <input :type="showPassword ? 'text' : 'password'"
+                               id="password"
+                               name="password"
+                               required
+                               autocomplete="current-password"
+                               placeholder="Masukkan kata sandi"
+                               class="w-full pl-10 pr-11 py-2.5 rounded-xl border border-slate-200 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition placeholder:text-slate-400 text-slate-900 bg-slate-50/50 hover:bg-white focus:bg-white">
+                        <button type="button"
+                                @click="showPassword = !showPassword"
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none transition cursor-pointer">
+                            <span x-show="!showPassword" title="Tampilkan kata sandi">
+                                @include('partials.icon', ['name' => 'eye', 'class' => 'w-4 h-4'])
+                            </span>
+                            <span x-show="showPassword" x-cloak title="Sembunyikan kata sandi">
+                                @include('partials.icon', ['name' => 'eye-slash', 'class' => 'w-4 h-4'])
                             </span>
                         </button>
-                    </form>
-
-                    <!-- Discreet Quick Login (Demo Users Accordion) -->
-                    @if(isset($demoUsers) && $demoUsers->count() > 0)
-                        <div class="mt-5 pt-4 border-t border-slate-100 text-center">
-                            <button type="button"
-                                    @click="showDemoRoles = !showDemoRoles"
-                                    class="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 font-medium transition py-1 px-2.5 rounded-lg hover:bg-slate-50 cursor-pointer">
-                                <span>Akses Pengujian Cepat (Role)</span>
-                                <svg class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200"
-                                     :class="showDemoRoles ? 'rotate-180 text-indigo-600' : ''"
-                                     fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                                </svg>
-                            </button>
-
-                            <div x-show="showDemoRoles" x-cloak class="mt-3 text-left space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                                @foreach($demoUsers as $demo)
-                                    <form action="{{ route('auth.quick-switch', $demo) }}" method="POST">
-                                        @csrf
-                                        <button type="submit"
-                                                class="w-full flex items-center justify-between p-2 rounded-xl bg-slate-50 hover:bg-indigo-50/70 border border-slate-200/80 hover:border-indigo-200 text-left transition group cursor-pointer">
-                                            <div class="min-w-0 pr-2">
-                                                <p class="text-xs font-semibold text-slate-800 truncate group-hover:text-indigo-700">{{ $demo->name }}</p>
-                                                <p class="text-[10px] text-slate-500 truncate">{{ $demo->role?->name ?? 'Pengguna' }} &bull; {{ $demo->email }}</p>
-                                            </div>
-                                            <span class="text-[11px] font-semibold text-indigo-600 shrink-0 opacity-80 group-hover:opacity-100">Pilih &rarr;</span>
-                                        </button>
-                                    </form>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endif
+                    </div>
                 </div>
 
-                <!-- Footer Note -->
-                <p class="text-center text-xs text-slate-400 mt-5 font-normal">
-                    &copy; {{ date('Y') }} Universitas Sugeng Hartono &bull; Ticketing System
-                </p>
-            </div>
+                <!-- Remember Me Checkbox -->
+                <div class="flex items-center pt-0.5">
+                    <input id="remember"
+                           type="checkbox"
+                           name="remember"
+                           class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/30 cursor-pointer">
+                    <label for="remember" class="ml-2 text-xs text-slate-600 cursor-pointer select-none">
+                        Ingat sesi saya di peramban ini
+                    </label>
+                </div>
 
+                <!-- Submit Button -->
+                <button type="submit"
+                        class="w-full mt-1.5 py-3 sm:py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] font-semibold text-xs tracking-wide text-white shadow-md shadow-indigo-600/20 transition duration-150 flex items-center justify-center gap-2 group cursor-pointer">
+                    <span>Masuk ke Akun</span>
+                    <span class="group-hover:translate-x-0.5 transition-transform duration-150">
+                        @include('partials.icon', ['name' => 'arrow-right', 'class' => 'w-3.5 h-3.5'])
+                    </span>
+                </button>
+            </form>
+
+            <!-- Akses Pengujian Cepat (Role) -->
+            @if(isset($demoUsers) && $demoUsers->count() > 0)
+                <div class="mt-5 pt-4 border-t border-slate-100 text-center">
+                    <button type="button"
+                            @click="showDemoRoles = !showDemoRoles"
+                            class="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 font-medium transition py-1 px-2.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                        <span>Akses Pengujian Cepat (Role)</span>
+                        <svg class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200"
+                             :class="showDemoRoles ? 'rotate-180 text-indigo-600' : ''"
+                             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </button>
+
+                    <div x-show="showDemoRoles" x-cloak class="mt-3 text-left space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        @foreach($demoUsers as $demo)
+                            <form action="{{ route('auth.quick-switch', $demo) }}" method="POST">
+                                @csrf
+                                <button type="submit"
+                                        class="w-full flex items-center justify-between p-2 rounded-xl bg-slate-50 hover:bg-indigo-50/70 border border-slate-200/80 hover:border-indigo-200 text-left transition group cursor-pointer">
+                                    <div class="min-w-0 pr-2">
+                                        <p class="text-xs font-semibold text-slate-800 truncate group-hover:text-indigo-700">{{ $demo->name }}</p>
+                                        <p class="text-[10px] text-slate-500 truncate">{{ $demo->role?->name ?? 'Pengguna' }} &bull; {{ $demo->email }}</p>
+                                    </div>
+                                    <span class="text-[11px] font-semibold text-indigo-600 shrink-0 opacity-80 group-hover:opacity-100">Pilih &rarr;</span>
+                                </button>
+                            </form>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
-    </div>
+
+        <!-- Footer Note -->
+        <p class="text-center text-xs text-slate-400 mt-6 font-normal">
+            &copy; {{ date('Y') }} Universitas Sugeng Hartono &bull; Ticketing System
+        </p>
+    </main>
 
     <!-- Modal Lupa Kata Sandi (Clean Dialog) -->
     <div x-show="forgotModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
