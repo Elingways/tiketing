@@ -7,12 +7,18 @@
         <p class="text-xs text-slate-500">Performa staff, progres, dan status pengerjaan pada {{ $monthLabel }}.</p>
     </div>
     @if($allowed)
-        <form method="GET" action="{{ route('tickets.report') }}" class="flex items-center gap-2 self-start">
-            <a href="{{ route('tickets.report', ['month' => $prevMonth]) }}" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-50">←</a>
-            <input type="month" name="month" value="{{ $month }}" onchange="this.form.submit()"
-                   class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white">
-            <a href="{{ route('tickets.report', ['month' => $nextMonth]) }}" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-50">→</a>
-        </form>
+        <div class="flex items-center gap-2 self-start">
+            <form method="GET" action="{{ route('tickets.report') }}" class="flex items-center gap-2">
+                <a href="{{ route('tickets.report', ['month' => $prevMonth]) }}" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-50">←</a>
+                <input type="month" name="month" value="{{ $month }}" onchange="this.form.submit()"
+                       class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white">
+                <a href="{{ route('tickets.report', ['month' => $nextMonth]) }}" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-50">→</a>
+            </form>
+            <a href="{{ route('tickets.report.export', ['month' => $month]) }}"
+               class="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800">
+                Ekspor
+            </a>
+        </div>
     @endif
 </div>
 
@@ -100,7 +106,7 @@
                         @endforeach
                     </div>
                 </div>
-                <p class="mt-3 text-[11px] text-slate-400">Satu batang adalah satu tiket. Request dimulai saat pemohon membuat surat. Delivered tercatat saat kepala mengarahkan tiket ke staff. Finished tercatat di bulan tiket selesai.</p>
+                <p class="mt-3 text-[11px] text-slate-400">Satu batang adalah satu tiket. Delivered hanya untuk tiket yang baru diarahkan dan belum dikerjakan. Setelah staff mulai, status bulan ini menjadi In progress atau Blocked. Finished tercatat di bulan tiket selesai.</p>
             </div>
         @endif
     </div>

@@ -98,6 +98,99 @@ class TicketController extends Controller
      */
     public function monthlyReport(Request $request)
     {
+        return view('tickets.report', $this->monthlyReportData($request));
+    }
+
+    public function exportMonthlyReport(Request $request)
+    {
+        $data = $this->monthlyReportData($request);
+        abort_unless($data['allowed'], 403);
+
+        $slug = \Illuminate\Support\Str::slug($data['role']?->name ?? 'role');
+        $filename = 'laporan-'.$slug.'-'.$data['month'].'.xls';
+
+        return response()->streamDownload(function () use ($data) {
+            echo $this->monthlyReportSpreadsheet($data);
+        }, $filename, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+        ]);
+    }
+
+    private function monthlyReportSpreadsheet(array $data): string
+    {
+        $text = fn (?string $value) => htmlspecialchars(trim(preg_replace('/\s+/', ' ', (string) $value) ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $summaryRows = [
+            ['Bulan', $data['monthLabel']],
+            ['Role', $data['role']?->name],
+            ['Tiket', (string) $data['summary']['tickets']],
+            ['Rata-rata progres', $data['summary']['percent'] === null ? '—' : $data['summary']['percent'].'%'],
+            ['Delivered', (string) $data['summary']['delivered']],
+            ['In progress', (string) $data['summary']['in_progress']],
+            ['Blocked', (string) $data['summary']['blocked']],
+            ['Finished', (string) $data['summary']['finished']],
+            ['Selesai ditutup', (string) $data['summary']['resolved']],
+            ['Ditolak', (string) $data['summary']['rejected']],
+        ];
+        $headers = ['No', 'No tiket', 'Judul', 'Staff', 'Kategori', 'Pemohon', 'Status bulan ini', 'Progres', 'Request date', 'Delivered date', 'Catatan'];
+        $widths = [130, 130, 220, 100, 150, 200, 130, 80, 120, 130, 300];
+        $tickets = $data['tickets']->sortBy(fn (Ticket $ticket) => [
+            $ticket->assignedUser?->name ?? 'Belum dibagikan',
+            $ticket->ticket_number,
+        ])->values();
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>'
+            .'<?mso-application progid="Excel.Sheet"?>'
+            .'<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'
+            .'<Styles>'
+            .'<Style ss:ID="title"><Font ss:Bold="1" ss:Size="14" ss:Color="#0F172A"/></Style>'
+            .'<Style ss:ID="label"><Font ss:Bold="1" ss:Color="#0F172A"/><Interior ss:Color="#F8FAFC" ss:Pattern="Solid"/><Alignment ss:Vertical="Center"/></Style>'
+            .'<Style ss:ID="value"><Font ss:Color="#0F172A"/><Alignment ss:Vertical="Center"/></Style>'
+            .'<Style ss:ID="header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#0F172A" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/></Style>'
+            .'<Style ss:ID="cell"><Alignment ss:Vertical="Center" ss:WrapText="1"/></Style>'
+            .'</Styles>'
+            .'<Worksheet ss:Name="Laporan"><Table>';
+        foreach ($widths as $width) {
+            $xml .= '<Column ss:AutoFitWidth="0" ss:Width="'.$width.'"/>';
+        }
+        $xml .= '<Row ss:Height="22"><Cell ss:StyleID="title" ss:MergeAcross="10"><Data ss:Type="String">Laporan Bulanan '.$text($data['role']?->name).'</Data></Cell></Row>';
+        foreach ($summaryRows as [$label, $value]) {
+            $xml .= '<Row>'
+                .'<Cell ss:StyleID="label"><Data ss:Type="String">'.$text($label).'</Data></Cell>'
+                .'<Cell ss:StyleID="value"><Data ss:Type="String">'.$text($value).'</Data></Cell>'
+                .'</Row>';
+        }
+        $xml .= '<Row></Row><Row ss:Height="30">';
+        foreach ($headers as $header) {
+            $xml .= '<Cell ss:StyleID="header"><Data ss:Type="String">'.$text($header).'</Data></Cell>';
+        }
+        $xml .= '</Row>';
+        foreach ($tickets as $index => $ticket) {
+            $row = [
+                (string) ($index + 1),
+                $ticket->ticket_number,
+                $ticket->title,
+                $ticket->assignedUser?->name ?? 'Belum dibagikan',
+                $ticket->category?->name,
+                $ticket->creator?->name,
+                $this->reportStatusLabel($ticket->report_status),
+                $ticket->progressPercent() === null ? '—' : $ticket->progressPercent().'%',
+                $ticket->created_at?->format('d M Y'),
+                $ticket->delivered_at ? $ticket->delivered_at->format('d M Y') : 'Belum diarahkan',
+                $ticket->progress_note,
+            ];
+            $xml .= '<Row ss:AutoFitHeight="1">';
+            foreach ($row as $column) {
+                $xml .= '<Cell ss:StyleID="cell"><Data ss:Type="String">'.$text($column).'</Data></Cell>';
+            }
+            $xml .= '</Row>';
+        }
+        $xml .= '</Table></Worksheet></Workbook>';
+
+        return $xml;
+    }
+
+    private function monthlyReportData(Request $request): array
+    {
         $user = Auth::user()->load('role');
         $month = (string) $request->query('month', now()->format('Y-m'));
         if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
@@ -191,7 +284,7 @@ class TicketController extends Controller
                 ->values();
         }
 
-        return view('tickets.report', [
+        return [
             'user' => $user,
             'allowed' => $allowed,
             'role' => $role,
@@ -202,7 +295,18 @@ class TicketController extends Controller
             'tickets' => $tickets,
             'staffRows' => $staffRows,
             'summary' => $summary,
-        ]);
+        ];
+    }
+
+    private function reportStatusLabel(?string $status): string
+    {
+        return match ($status) {
+            'delivered' => 'Delivered',
+            'in_progress' => 'In progress',
+            'blocked' => 'Blocked',
+            'finished' => 'Finished',
+            default => 'Belum diisi',
+        };
     }
 
     /**
@@ -226,12 +330,20 @@ class TicketController extends Controller
             return null;
         }
 
-        if ($delivered && $delivered->between($start, $end)) {
+        if ($finished && $finished->gt($end)) {
             return 'delivered';
         }
 
         if ($ticket->work_status === 'blocked') {
             return 'blocked';
+        }
+
+        if ($ticket->work_status === 'in_progress' || (int) $ticket->progress_percent > 0) {
+            return 'in_progress';
+        }
+
+        if ($delivered && $delivered->between($start, $end)) {
+            return 'delivered';
         }
 
         return $ticket->work_status ?: 'in_progress';
@@ -250,7 +362,25 @@ class TicketController extends Controller
             ->groupBy(fn (Ticket $ticket) => $ticket->currentRole?->name ?? 'Tanpa divisi')
             ->sortKeys();
 
-        return view('tickets.workload', compact('user', 'groups'));
+        $ranking = $groups->map(function ($tickets) {
+            $role = $tickets->first()?->currentRole;
+            $staff = $role ? $role->assignableStaffUsers() : collect();
+            $assigned = $tickets->map(fn (Ticket $ticket) => $ticket->assignedUser)->filter();
+            $people = $staff->concat($assigned)->unique('id')->values();
+
+            return $people->map(function ($person) use ($tickets) {
+                $items = $tickets->where('assigned_user_id', $person->id);
+
+                return [
+                    'name' => $person->name,
+                    'points' => (int) $items->sum(fn (Ticket $ticket) => (int) $ticket->achievement_points),
+                    'tickets' => $items->count(),
+                ];
+            })->sort(fn (array $left, array $right) => $right['points'] <=> $left['points'] ?: strcmp($left['name'], $right['name']))
+                ->values();
+        });
+
+        return view('tickets.workload', compact('user', 'groups', 'ranking'));
     }
 
     /**
@@ -393,6 +523,12 @@ class TicketController extends Controller
         $myActiveCount = $myAssignedTickets->count();
         $myResolvedCount = Ticket::where('assigned_user_id', $user->id)->where('status', 'resolved')->count();
         $myAvgPercent = $myAssignedTickets->filter(fn ($t) => $t->progress_percent !== null)->avg('progress_percent');
+        $myAchievement = (int) Ticket::where('assigned_user_id', $user->id)
+            ->whereNotNull('achievement_points')
+            ->where(function ($query) {
+                $query->where('work_status', 'finished')->orWhereNotNull('finished_at');
+            })
+            ->sum('achievement_points');
 
         return view('tickets.inbox', compact(
             'tickets',
@@ -417,7 +553,8 @@ class TicketController extends Controller
             'myAssignedTickets',
             'myActiveCount',
             'myResolvedCount',
-            'myAvgPercent'
+            'myAvgPercent',
+            'myAchievement'
         ));
     }
 
@@ -748,6 +885,33 @@ class TicketController extends Controller
         return back()->with('success', "Prioritas tiket #{$ticket->ticket_number} diatur ke: {$ticket->priorityLabel()}.");
     }
 
+    public function updateAchievement(Request $request, Ticket $ticket)
+    {
+        $user = Auth::user()->load('role');
+        if (!$ticket->canSetAchievementPoints($user)) {
+            return back()->with('error', 'Hanya kepala role yang dapat mengatur poin achievement.');
+        }
+
+        $points = (int) $request->validate([
+            'achievement_points' => ['required', 'integer', 'min:1', 'max:10'],
+        ])['achievement_points'];
+
+        $ticket->update(['achievement_points' => $points]);
+
+        TicketLog::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => $user->id,
+            'from_role_id' => $user->role_id,
+            'to_role_id' => $ticket->current_role_id,
+            'action' => 'achievement_set',
+            'note' => "Kepala mengatur poin achievement tiket ini menjadi {$points}. Staff yang menyelesaikan tiket menerima poin tersebut.",
+        ]);
+
+        $assignee = $ticket->assignedUser?->name ?? 'staff yang ditugaskan';
+
+        return back()->with('success', "Poin achievement diatur menjadi {$points}. {$assignee} menerima poin ini setelah tiket selesai.");
+    }
+
     public function show(Ticket $ticket)
     {
         $ticket->load([
@@ -772,6 +936,7 @@ class TicketController extends Controller
         $canHandle = $ticket->canBeHandledBy($user);
         $roleStaff = collect();
         $canDirect = $ticket->canBeDirectedBy($user);
+        $canSetAchievement = $ticket->canSetAchievementPoints($user);
         if ($canDirect && $ticket->currentRole?->head_user_id) {
             $roleStaff = $ticket->currentRole->assignableStaffUsers();
         }
@@ -784,6 +949,7 @@ class TicketController extends Controller
             'subordinateRoles',
             'canHandle',
             'canDirect',
+            'canSetAchievement',
             'roleStaff'
         ));
     }
@@ -857,8 +1023,23 @@ class TicketController extends Controller
                 $ticket->loadMissing('currentRole');
                 $updates = array_merge($updates, $ticket->deliveryStamp($user, $assignedStaff));
             }
+            if ($ticket->canSetAchievementPoints($user) && $request->filled('achievement_points')) {
+                $updates['achievement_points'] = (int) $request->validate([
+                    'achievement_points' => ['required', 'integer', 'min:1', 'max:10'],
+                ])['achievement_points'];
+            }
 
             $ticket->update($updates);
+            if (array_key_exists('achievement_points', $updates)) {
+                TicketLog::create([
+                    'ticket_id' => $ticket->id,
+                    'user_id' => $user->id,
+                    'from_role_id' => $user->role_id,
+                    'to_role_id' => $ticket->current_role_id,
+                    'action' => 'achievement_set',
+                    'note' => 'Kepala mengatur poin achievement tiket ini menjadi '.$updates['achievement_points'].'.',
+                ]);
+            }
             $ticket->load('problems');
             if ($ticket->hasWeightedProblems()) {
                 $ticket->recalculateProgressFromProblems();
@@ -1350,6 +1531,16 @@ class TicketController extends Controller
     private function staffProgressForRole(Role $role, User $head)
     {
         $staffUsers = $role->assignableStaffUsers();
+        $earnedPoints = Ticket::query()
+            ->where('current_role_id', $role->id)
+            ->whereIn('assigned_user_id', $staffUsers->pluck('id'))
+            ->whereNotNull('achievement_points')
+            ->where(function ($query) {
+                $query->where('work_status', 'finished')->orWhereNotNull('finished_at');
+            })
+            ->groupBy('assigned_user_id')
+            ->selectRaw('assigned_user_id, SUM(achievement_points) as total')
+            ->pluck('total', 'assigned_user_id');
 
         $openTickets = Ticket::query()
             ->where('current_role_id', $role->id)
@@ -1362,7 +1553,7 @@ class TicketController extends Controller
             ->get()
             ->groupBy('assigned_user_id');
 
-        return $staffUsers->map(function (User $staff) use ($openTickets) {
+        return $staffUsers->map(function (User $staff) use ($openTickets, $earnedPoints) {
             $assigned = $openTickets->get($staff->id, collect())
                 ->sortBy([
                     fn (Ticket $left, Ticket $right) => ($left->assessed_priority_rank ?? 0) <=> ($right->assessed_priority_rank ?? 0),
@@ -1379,6 +1570,7 @@ class TicketController extends Controller
                 'reported' => $reported->count(),
                 'percent' => $reported->isEmpty() ? null : (int) round($reported->avg('progress_percent')),
                 'blocked' => $assigned->where('work_status', 'blocked')->count(),
+                'achievement' => (int) ($earnedPoints[$staff->id] ?? 0),
                 'note' => $latestNote?->progress_note,
             ];
         });

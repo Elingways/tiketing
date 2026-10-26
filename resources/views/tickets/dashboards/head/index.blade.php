@@ -114,6 +114,7 @@
                         </div>
                         <p class="text-[11px] text-slate-500 mt-0.5">
                             <span class="font-semibold text-slate-700">{{ $progress['tickets'] }} tiket sedang dikerjakan</span>
+                            · <span class="font-semibold text-amber-700">{{ $progress['achievement'] ?? 0 }} poin</span>
                             @if(($progress['blocked'] ?? 0) > 0)
                                 · <span class="font-bold text-rose-700">{{ $progress['blocked'] }} blocked</span>
                             @endif

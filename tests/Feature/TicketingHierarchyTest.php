@@ -791,21 +791,58 @@ class TicketingHierarchyTest extends TestCase
             'work_status' => 'blocked',
             'progress_percent' => 40,
             'progress_note' => 'Catatan internal jangan tampil',
+            'delivered_at' => now(),
+        ]);
+
+        Ticket::create([
+            'ticket_number' => 'TKT-TEST-9202',
+            'title' => 'Tiket sedang dikerjakan',
+            'description' => 'Sudah lewat tahap delivered.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $pemohon->id,
+            'creator_role_id' => $pemohon->role_id,
+            'current_role_id' => $role->id,
+            'assigned_user_id' => $staff->id,
+            'status' => 'in_progress',
+            'work_status' => 'in_progress',
+            'progress_percent' => 25,
+            'delivered_at' => now(),
         ]);
 
         $this->actingAs($head)->get(route('tickets.report', ['month' => now()->format('Y-m')]))
             ->assertOk()
             ->assertSee('Laporan Bulanan')
+            ->assertSee('Ekspor')
             ->assertSee('Fajar Nugroho, S.T.')
             ->assertSee('Blocked')
             ->assertSee('Perbaikan jaringan lab')
             ->assertSee('40%')
-            ->assertSee('Catatan internal jangan tampil');
+            ->assertSee('Catatan internal jangan tampil')
+            ->assertSee('Tiket sedang dikerjakan')
+            ->assertSee('Status bulan ini: In progress')
+            ->assertSee('Status bulan ini: Blocked');
+
+        $export = $this->actingAs($head)->get(route('tickets.report.export', ['month' => now()->format('Y-m')]));
+        $export->assertOk();
+        $csv = $export->streamedContent();
+        $this->assertStringContainsString('Perbaikan jaringan lab', $csv);
+        $this->assertStringContainsString('Blocked', $csv);
+        $this->assertStringContainsString('Fajar Nugroho, S.T.', $csv);
+        $this->assertStringContainsString('Catatan internal jangan tampil', $csv);
+        $this->assertStringContainsString('Status bulan ini', $csv);
+        $this->assertStringContainsString('Request date', $csv);
+        $this->assertStringContainsString('ss:Width="300"', $csv);
+        $this->assertStringContainsString('application/vnd.ms-excel', (string) $export->headers->get('content-type'));
 
         $this->actingAs($staff)->get(route('tickets.report'))
             ->assertOk()
             ->assertSee('hanya untuk kepala role')
-            ->assertDontSee('Perbaikan jaringan lab');
+            ->assertDontSee('Perbaikan jaringan lab')
+            ->assertDontSee('Ekspor');
+
+        $this->actingAs($staff)->get(route('tickets.report.export'))
+            ->assertForbidden();
 
         Ticket::create([
             'ticket_number' => 'TKT-TEST-9201',
@@ -819,12 +856,34 @@ class TicketingHierarchyTest extends TestCase
             'assigned_user_id' => $staff->id,
             'status' => 'in_progress',
             'work_status' => 'finished',
+            'finished_at' => now(),
             'progress_percent' => 100,
+            'achievement_points' => 8,
+        ]);
+
+        $lower = User::where('email', 'bagas.hardware@kampus.ac.id')->firstOrFail();
+        Ticket::create([
+            'ticket_number' => 'TKT-TEST-9203',
+            'title' => 'Tiket poin lebih kecil',
+            'description' => 'Poin lebih sedikit.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $pemohon->id,
+            'creator_role_id' => $pemohon->role_id,
+            'current_role_id' => $role->id,
+            'assigned_user_id' => $lower->id,
+            'status' => 'in_progress',
+            'work_status' => 'finished',
+            'finished_at' => now(),
+            'progress_percent' => 100,
+            'achievement_points' => 3,
         ]);
 
         $this->actingAs($pemohon)->get(route('tickets.workload'))
             ->assertOk()
             ->assertSee('Pekerjaan Divisi')
+            ->assertSee('Ranking achievement')
+            ->assertSeeInOrder(['Fajar Nugroho, S.T.', '8 poin', 'Bagas Setiawan, A.Md.Kom.', '3 poin', 'Nadia Kusuma, S.Kom.', '0 poin'])
             ->assertSee('Admin IT')
             ->assertSee('Perbaikan jaringan lab')
             ->assertSee('Blocked')
@@ -1215,6 +1274,72 @@ class TicketingHierarchyTest extends TestCase
         $destroyRoleResponse = $this->actingAs($superuser)->delete(route('admin.hierarchy.destroy', $role));
         $destroyRoleResponse->assertRedirect()->assertSessionHas('success');
         $this->assertDatabaseMissing('roles', ['id' => $role->id]);
+    }
+
+    public function test_it_head_sets_ticket_achievement_points_for_the_staff_who_finishes_it(): void
+    {
+        $head = User::where('email', 'admin.it@kampus.ac.id')->firstOrFail();
+        $staff = User::where('email', 'fajar.jaringan@kampus.ac.id')->firstOrFail();
+        $pemohon = User::where('email', 'kaprodi@kampus.ac.id')->firstOrFail();
+        $role = Role::where('slug', 'admin-it')->firstOrFail();
+        $category = TicketCategory::firstOrFail();
+
+        $ticket = Ticket::create([
+            'ticket_number' => 'TKT-TEST-9400',
+            'title' => 'Tiket berpoin achievement',
+            'description' => 'Kepala menentukan poin untuk staff.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => $pemohon->id,
+            'creator_role_id' => $pemohon->role_id,
+            'current_role_id' => $role->id,
+            'status' => 'open',
+        ]);
+
+        $this->actingAs($head)->post(route('tickets.action', $ticket), [
+            'action_type' => 'in_progress',
+            'assigned_user_id' => $staff->id,
+            'achievement_points' => 2,
+            'note' => 'Dikerjakan dengan poin achievement.',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $ticket->refresh();
+        $this->assertSame(2, (int) $ticket->achievement_points);
+        $this->assertSame($staff->id, (int) $ticket->assigned_user_id);
+
+        $this->actingAs($head)->post(route('tickets.achievement', $ticket), [
+            'achievement_points' => 11,
+        ])->assertSessionHasErrors('achievement_points');
+
+        $this->actingAs($staff)->get(route('tickets.show', $ticket))
+            ->assertOk()
+            ->assertDontSee('action="'.route('tickets.achievement', $ticket).'"', false);
+
+        $this->actingAs($staff)->post(route('tickets.achievement', $ticket), [
+            'achievement_points' => 9,
+        ])->assertRedirect()->assertSessionHas('error');
+
+        $this->actingAs($staff)->post(route('tickets.action', $ticket), [
+            'action_type' => 'in_progress',
+            'achievement_points' => 9,
+            'note' => 'Staff mencoba mengubah poin.',
+        ])->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertSame(2, (int) $ticket->achievement_points);
+
+        $ticket->update([
+            'work_status' => 'finished',
+            'finished_at' => now(),
+        ]);
+
+        $this->actingAs($head)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('2 poin');
+
+        $this->actingAs($staff)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('2 poin');
     }
 }
 

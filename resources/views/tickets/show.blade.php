@@ -157,7 +157,7 @@
             @endif
 
             <!-- Grid 4 Kolom Informasi Penting -->
-            <div class="mt-6 pt-5 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="mt-6 pt-5 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 <div class="p-3 rounded-xl bg-slate-50/70 border border-slate-100">
                     <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-0.5">Pemohon</span>
                     <p class="text-xs font-bold text-slate-900 truncate">{{ $ticket->creator?->name ?? '-' }}</p>
@@ -174,6 +174,31 @@
                     <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-0.5">Posisi Hirarki</span>
                     <p class="text-xs font-bold text-indigo-700 truncate">Role {{ $ticket->currentRole?->name ?? '-' }}</p>
                     <span class="text-[11px] text-slate-500">Penanggung Jawab</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-amber-50/70 border border-amber-100">
+                    <span class="text-[10px] uppercase font-bold tracking-wider text-amber-700 block mb-0.5">Poin Achievement</span>
+                    <p class="text-xs font-bold text-slate-900">
+                        {{ $ticket->achievement_points === null ? 'Belum diatur' : $ticket->achievement_points.' poin' }}
+                    </p>
+                    <span class="text-[11px] text-slate-500 block">
+                        @if($ticket->achievement_points === null)
+                            Kepala IT yang menentukan poin tiket ini.
+                        @elseif($ticket->work_status === 'finished' || $ticket->finished_at)
+                            Diterima {{ $ticket->assignedUser?->name ?? 'staff' }}.
+                        @else
+                            Diterima staff setelah tiket selesai.
+                        @endif
+                    </span>
+                    @if($canSetAchievement ?? false)
+                        <form action="{{ route('tickets.achievement', $ticket) }}" method="POST" class="mt-2 flex items-center gap-1.5">
+                            @csrf
+                            <input type="number" name="achievement_points" min="1" max="10" required
+                                   value="{{ old('achievement_points', $ticket->achievement_points) }}"
+                                   class="w-16 px-2 py-1 rounded-lg border border-amber-200 bg-white text-xs font-semibold">
+                            <button type="submit" class="px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold">Atur</button>
+                        </form>
+                    @endif
                 </div>
 
                 <div class="p-3 rounded-xl bg-slate-50/70 border border-slate-100">
@@ -643,6 +668,16 @@
                                 </select>
                                 <p class="text-[11px] text-slate-400 mt-1">Pilih staff pelaksana yang akan mengerjakan tiket ini.</p>
                             </div>
+                            @if($canSetAchievement ?? false)
+                            <div>
+                                <label class="block text-xs font-bold text-slate-800 mb-1">Poin achievement tiket</label>
+                                <input type="number" name="achievement_points" min="1" max="10"
+                                       value="{{ old('achievement_points', $ticket->achievement_points) }}"
+                                       placeholder="1–10"
+                                       class="w-28 px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-slate-900">
+                                <p class="text-[11px] text-slate-400 mt-1">Isi 1 sampai 10. Staff yang mengerjakan menerima poin ini setelah tiket selesai.</p>
+                            </div>
+                            @endif
 
                             <div class="pt-2 border-t border-slate-200/60">
                                 <div class="flex items-center justify-between gap-2 mb-2">

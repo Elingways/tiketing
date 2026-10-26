@@ -76,6 +76,7 @@
         </div>
         <div class="mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500">
             <strong class="text-slate-700">{{ $myActiveCount }} tiket</strong> sedang dikerjakan
+            · <strong class="text-amber-700">{{ $myAchievement ?? 0 }} poin</strong> achievement
         </div>
     </div>
 </div>

@@ -30,6 +30,7 @@ class Ticket extends Model
         'work_status',
         'delivered_at',
         'finished_at',
+        'achievement_points',
         'approval_step',
         'resolved_at',
     ];
@@ -41,6 +42,7 @@ class Ticket extends Model
         'priority_rank' => 'integer',
         'assessed_priority_rank' => 'integer',
         'progress_percent' => 'integer',
+        'achievement_points' => 'integer',
     ];
 
     public function category(): BelongsTo
@@ -201,6 +203,21 @@ class Ticket extends Model
         }
 
         return true;
+    }
+
+    public function canSetAchievementPoints(User $user): bool
+    {
+        if (in_array($this->status, ['resolved', 'rejected', 'closed'], true)) {
+            return false;
+        }
+
+        if ($user->isSuperuser()) {
+            return true;
+        }
+
+        $headId = $this->currentRole?->head_user_id;
+
+        return $headId && (int) $user->id === (int) $headId;
     }
 
     public function canBeDirectedBy(User $user): bool

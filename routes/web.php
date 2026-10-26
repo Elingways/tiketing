@@ -30,6 +30,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/tickets/inbox', [TicketController::class, 'inbox'])->name('tickets.inbox');
     Route::get('/tickets/staff-progress', [TicketController::class, 'staffProgressPage'])->name('tickets.staff-progress');
     Route::get('/tickets/report', [TicketController::class, 'monthlyReport'])->name('tickets.report');
+    Route::get('/tickets/report/export', [TicketController::class, 'exportMonthlyReport'])->name('tickets.report.export');
     Route::get('/tickets/workload', [TicketController::class, 'divisionWorkload'])->name('tickets.workload');
     Route::get('/tickets/create', [TicketController::class, 'create'])->name('tickets.create');
     Route::post('/tickets', [TicketController::class, 'store'])->name('tickets.store');
@@ -42,6 +43,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/tickets/{ticket}/problems/{problem}', [TicketController::class, 'destroyProblem'])->name('tickets.problems.destroy');
     Route::post('/tickets/{ticket}/problems/{problem}/toggle', [TicketController::class, 'toggleProblem'])->name('tickets.problems.toggle');
     Route::post('/tickets/{ticket}/progress', [TicketController::class, 'updateProgress'])->name('tickets.progress');
+    Route::post('/tickets/{ticket}/achievement', [TicketController::class, 'updateAchievement'])->name('tickets.achievement');
     Route::post('/tickets/{ticket}/priority', [TicketController::class, 'updatePriority'])->name('tickets.priority');
     Route::post('/tickets/{ticket}/action', [TicketController::class, 'handleAction'])->name('tickets.action');
     Route::post('/tickets/{ticket}/reopen', [TicketController::class, 'reopen'])->name('tickets.reopen');

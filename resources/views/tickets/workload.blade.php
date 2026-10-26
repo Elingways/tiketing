@@ -21,6 +21,25 @@
             <h2 class="text-sm font-bold text-slate-900">{{ $division }}</h2>
             <span class="text-[11px] text-slate-500">{{ $tickets->count() }} pekerjaan</span>
         </div>
+        @if(($ranking[$division] ?? collect())->isNotEmpty())
+            <section class="mb-3 rounded-xl border border-amber-200 bg-amber-50">
+                <div class="border-b border-amber-100 px-4 py-2.5">
+                    <h2 class="text-sm font-bold text-amber-950">Ranking achievement</h2>
+                    <p class="text-[11px] text-amber-800/80">Semua staff divisi ini, diurutkan dari poin terbanyak.</p>
+                </div>
+                <ol class="divide-y divide-amber-100">
+                    @foreach($ranking[$division] as $index => $row)
+                        <li class="flex items-center justify-between gap-3 px-4 py-2.5">
+                            <div class="flex min-w-0 items-center gap-3">
+                                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-200 text-[11px] font-bold text-amber-950">{{ $index + 1 }}</span>
+                                <span class="truncate text-sm font-semibold text-slate-900">{{ $row['name'] }}</span>
+                            </div>
+                            <span class="shrink-0 text-xs font-semibold text-amber-800">{{ $row['points'] }} poin · {{ $row['tickets'] }} tiket</span>
+                        </li>
+                    @endforeach
+                </ol>
+            </section>
+        @endif
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             @foreach($tickets as $ticket)
                 @php
@@ -39,6 +58,9 @@
                         <p class="mt-1.5 text-[11px] text-slate-500">
                             {{ $ticket->ticket_number }}
                             · {{ $ticket->assignedUser?->name ?? 'Belum ada petugas' }}
+                            @if($ticket->achievement_points)
+                                · {{ $ticket->achievement_points }} poin
+                            @endif
                             @if($ticket->category)
                                 · {{ $ticket->category->name }}
                             @endif
