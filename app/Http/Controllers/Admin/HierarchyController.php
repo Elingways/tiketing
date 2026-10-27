@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Division;
 use App\Models\Menu;
 use App\Models\Role;
 use App\Models\RolePriorityRoute;
@@ -102,6 +103,113 @@ class HierarchyController extends Controller
         $headInfo = $role->head ? " dengan Kepala Unit '{$role->head->name}' (login: {$role->head->email}, password: password)" : '';
 
         return back()->with('success', "Role baru '{$role->name}' berhasil dibuat{$headInfo}. Personel staf tambahan dapat diatur melalui tombol 'Kelola Staf'.");
+    }
+
+    public function storeDivision(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:80'],
+            'badge_color' => ['required', 'string', 'in:indigo,emerald,amber,rose,violet,sky,teal,fuchsia'],
+            'description' => ['nullable', 'string', 'max:300'],
+            'head_user_id' => ['required', 'exists:users,id'],
+            'spv_user_id' => ['required', 'exists:users,id', 'different:head_user_id'],
+            'staff_user_ids' => ['required', 'array', 'min:1'],
+            'staff_user_ids.*' => ['nullable', 'exists:users,id'],
+        ], [
+            'head_user_id.required' => 'Pilih kepala dari role yang sudah ada.',
+            'spv_user_id.required' => 'Pilih SPV dari role yang sudah ada.',
+            'spv_user_id.different' => 'SPV harus orang yang berbeda dari kepala.',
+            'staff_user_ids.required' => 'Pilih minimal satu staff.',
+        ]);
+
+        $staffIds = collect($validated['staff_user_ids'])
+            ->filter(fn ($id) => $id !== null && $id !== '')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($staffIds->isEmpty()) {
+            throw ValidationException::withMessages([
+                'staff_user_ids' => 'Pilih minimal satu staff.',
+            ]);
+        }
+
+        $headId = (int) $validated['head_user_id'];
+        $spvId = (int) $validated['spv_user_id'];
+        if ($staffIds->contains($headId) || $staffIds->contains($spvId)) {
+            throw ValidationException::withMessages([
+                'staff_user_ids' => 'Staff tidak boleh sama dengan kepala atau SPV.',
+            ]);
+        }
+
+        $users = User::with('role')->whereIn('id', $staffIds->concat([$headId, $spvId])->unique())->get()->keyBy('id');
+        $headUser = $users->get($headId);
+        $spvUser = $users->get($spvId);
+        $staffUsers = $staffIds->map(fn (int $id) => $users->get($id));
+
+        foreach ([$headUser, $spvUser, ...$staffUsers] as $person) {
+            if (!$person?->role || $person->role->is_superuser) {
+                throw ValidationException::withMessages([
+                    'head_user_id' => 'Kepala, SPV, dan staff harus akun yang sudah punya role.',
+                ]);
+            }
+        }
+
+        $staffRoleIds = $staffUsers->pluck('role_id')->unique()->values();
+        if ($staffRoleIds->count() !== 1) {
+            throw ValidationException::withMessages([
+                'staff_user_ids' => 'Semua staff harus berasal dari role yang sama.',
+            ]);
+        }
+
+        $headRole = $headUser->role;
+        $spvRole = $spvUser->role;
+        $staffRoleId = (int) $staffRoleIds->first();
+
+        $base = Str::slug($validated['name']);
+        if ($base === '' || Division::where('slug', $base)->exists()) {
+            $base .= '-'.rand(10, 99);
+        }
+
+        $division = DB::transaction(function () use ($validated, $base, $headUser, $spvUser, $staffUsers, $headRole, $spvRole, $staffRoleId) {
+            $headRole->update(['head_user_id' => $headUser->id]);
+            if ($spvRole->id !== $headRole->id) {
+                $spvRole->update(['head_user_id' => $spvUser->id]);
+            }
+
+            $division = Division::create([
+                'name' => $validated['name'],
+                'slug' => $base,
+                'badge_color' => $validated['badge_color'],
+                'description' => $validated['description'] ?? null,
+                'head_role_id' => $headRole->id,
+                'spv_role_id' => $spvRole->id,
+                'staff_role_id' => $staffRoleId,
+            ]);
+
+            $division->members()->create([
+                'user_id' => $headUser->id,
+                'position' => 'head',
+            ]);
+            $division->members()->create([
+                'user_id' => $spvUser->id,
+                'position' => 'spv',
+            ]);
+            foreach ($staffUsers as $staffUser) {
+                $division->members()->create([
+                    'user_id' => $staffUser->id,
+                    'position' => 'staff',
+                ]);
+            }
+
+            return $division;
+        });
+
+        $division->load(['headRole', 'spvRole', 'staffRole']);
+
+        $staffNames = $staffUsers->pluck('name')->join(', ');
+
+        return back()->with('success', "Divisi '{$division->name}' dibuat. Puncaknya {$headUser->name}. Plot layanan: {$staffNames} → {$spvUser->name} → {$headUser->name}.");
     }
 
     public function roleStaff(Role $role)

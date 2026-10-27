@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Division;
 use App\Models\Role;
 use App\Models\TicketCategory;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ class CategoryController extends Controller
 {
     public function index()
     {
-        $categories = TicketCategory::with(['initialTargetRole.parent', 'maxApprovalRole'])
+        $categories = TicketCategory::with(['initialTargetRole.parent', 'maxApprovalRole', 'division.headRole.head'])
             ->withCount('tickets')
             ->latest()
             ->get();
@@ -27,7 +28,9 @@ class CategoryController extends Controller
 
         $roles->whereNotNull('head_user_id')->load(['users:id,role_id,name,keahlian']);
 
-        return view('admin.categories', compact('categories', 'roles'));
+        $divisions = Division::with(['headRole.head:id,name', 'spvRole.head:id,name', 'staffRole'])->orderBy('name')->get();
+
+        return view('admin.categories', compact('categories', 'roles', 'divisions'));
     }
 
     public function store(Request $request)
@@ -37,6 +40,7 @@ class CategoryController extends Controller
             'color' => ['nullable', 'string', 'in:indigo,emerald,amber,rose,violet,sky,teal,fuchsia'],
             'description' => ['nullable', 'string', 'max:500'],
             'workflow_type' => ['required', 'in:escalation,tiered_approval'],
+            'division_id' => ['nullable', 'exists:divisions,id'],
             'workflow_roles' => ['nullable', 'array'],
             'workflow_roles.*' => ['nullable', 'exists:roles,id'],
             'initial_target_role_id' => ['nullable', 'exists:roles,id'],
@@ -44,25 +48,11 @@ class CategoryController extends Controller
             'template_file' => ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,zip', 'max:10240'],
         ]);
 
-        $workflowRoles = collect($validated['workflow_roles'] ?? [])
-            ->filter(fn ($id) => !empty($id))
-            ->map(fn ($id) => (int) $id)
-            ->values()
-            ->all();
-
-        $initialTargetRoleId = $validated['initial_target_role_id'] ?? null;
-        $maxApprovalRoleId = $validated['max_approval_role_id'] ?? null;
-
-        if (!empty($workflowRoles)) {
-            $rolesById = Role::whereIn('id', $workflowRoles)->get()->keyBy('id');
-            $orderedRoles = collect($workflowRoles)->map(fn ($id) => $rolesById->get($id))->filter()->values();
-            $recipientRoles = ($orderedRoles->count() > 1 && !$orderedRoles->first()->can_receive_ticket)
-                ? $orderedRoles->slice(1)->values()
-                : $orderedRoles;
-
-            $initialTargetRoleId = $recipientRoles->first()?->id ?? $initialTargetRoleId;
-            $maxApprovalRoleId = $recipientRoles->last()?->id ?? $maxApprovalRoleId;
-        }
+        [$workflowRoles, $initialTargetRoleId, $maxApprovalRoleId, $divisionId] = $this->resolveServicePlot(
+            $validated,
+            $validated['initial_target_role_id'] ?? null,
+            $validated['max_approval_role_id'] ?? null,
+        );
 
         $templatePath = null;
         $templateName = null;
@@ -86,6 +76,7 @@ class CategoryController extends Controller
             'workflow_roles' => !empty($workflowRoles) ? $workflowRoles : null,
             'initial_target_role_id' => $initialTargetRoleId ?: null,
             'workflow_type' => $validated['workflow_type'],
+            'division_id' => $divisionId,
             'max_approval_role_id' => $maxApprovalRoleId ?: null,
             'template_path' => $templatePath,
             'template_name' => $templateName,
@@ -105,6 +96,7 @@ class CategoryController extends Controller
             'color' => ['nullable', 'string', 'in:indigo,emerald,amber,rose,violet,sky,teal,fuchsia'],
             'description' => ['nullable', 'string', 'max:500'],
             'workflow_type' => ['required', 'in:escalation,tiered_approval'],
+            'division_id' => ['nullable', 'exists:divisions,id'],
             'workflow_roles' => ['nullable', 'array'],
             'workflow_roles.*' => ['nullable', 'exists:roles,id'],
             'initial_target_role_id' => ['nullable', 'exists:roles,id'],
@@ -112,24 +104,18 @@ class CategoryController extends Controller
             'template_file' => ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,zip', 'max:10240'],
         ]);
 
-        $workflowRoles = collect($validated['workflow_roles'] ?? [])
-            ->filter(fn ($id) => !empty($id))
-            ->map(fn ($id) => (int) $id)
-            ->values()
-            ->all();
-
-        $initialTargetRoleId = $validated['initial_target_role_id'] ?? $category->initial_target_role_id;
-        $maxApprovalRoleId = $validated['max_approval_role_id'] ?? $category->max_approval_role_id;
-
-        if (!empty($workflowRoles)) {
-            $rolesById = Role::whereIn('id', $workflowRoles)->get()->keyBy('id');
-            $orderedRoles = collect($workflowRoles)->map(fn ($id) => $rolesById->get($id))->filter()->values();
-            $recipientRoles = ($orderedRoles->count() > 1 && !$orderedRoles->first()->can_receive_ticket)
-                ? $orderedRoles->slice(1)->values()
-                : $orderedRoles;
-
-            $initialTargetRoleId = $recipientRoles->first()?->id;
-            $maxApprovalRoleId = $recipientRoles->last()?->id;
+        $postedRoles = collect($validated['workflow_roles'] ?? [])->filter(fn ($id) => !empty($id));
+        if (empty($validated['division_id']) && $postedRoles->isEmpty()) {
+            $workflowRoles = $category->workflow_roles ?? [];
+            $initialTargetRoleId = $category->initial_target_role_id;
+            $maxApprovalRoleId = $category->max_approval_role_id;
+            $divisionId = $category->division_id;
+        } else {
+            [$workflowRoles, $initialTargetRoleId, $maxApprovalRoleId, $divisionId] = $this->resolveServicePlot(
+                $validated,
+                $validated['initial_target_role_id'] ?? $category->initial_target_role_id,
+                $validated['max_approval_role_id'] ?? $category->max_approval_role_id,
+            );
         }
 
         $templatePath = $category->template_path;
@@ -159,6 +145,7 @@ class CategoryController extends Controller
             'workflow_roles' => !empty($workflowRoles) ? $workflowRoles : null,
             'initial_target_role_id' => $initialTargetRoleId ?: null,
             'workflow_type' => $validated['workflow_type'],
+            'division_id' => $divisionId,
             'max_approval_role_id' => $maxApprovalRoleId ?: null,
             'template_path' => $templatePath,
             'template_name' => $templateName,
@@ -183,6 +170,38 @@ class CategoryController extends Controller
         $category->delete();
 
         return back()->with('success', "Kategori layanan '{$name}' berhasil dihapus.");
+    }
+
+    /**
+     * @return array{0: array<int, int>, 1: ?int, 2: ?int, 3: ?int}
+     */
+    private function resolveServicePlot(array $validated, ?int $initialTargetRoleId, ?int $maxApprovalRoleId): array
+    {
+        if (!empty($validated['division_id'])) {
+            $division = Division::findOrFail($validated['division_id']);
+            $workflowRoles = $division->workflowRoleIds();
+
+            return [$workflowRoles, $workflowRoles[0], $workflowRoles[array_key_last($workflowRoles)], $division->id];
+        }
+
+        $workflowRoles = collect($validated['workflow_roles'] ?? [])
+            ->filter(fn ($id) => !empty($id))
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        if (!empty($workflowRoles)) {
+            $rolesById = Role::whereIn('id', $workflowRoles)->get()->keyBy('id');
+            $orderedRoles = collect($workflowRoles)->map(fn ($id) => $rolesById->get($id))->filter()->values();
+            $recipientRoles = ($orderedRoles->count() > 1 && !$orderedRoles->first()->can_receive_ticket)
+                ? $orderedRoles->slice(1)->values()
+                : $orderedRoles;
+
+            $initialTargetRoleId = $recipientRoles->first()?->id ?? $initialTargetRoleId;
+            $maxApprovalRoleId = $recipientRoles->last()?->id ?? $maxApprovalRoleId;
+        }
+
+        return [$workflowRoles, $initialTargetRoleId, $maxApprovalRoleId, null];
     }
 }
 

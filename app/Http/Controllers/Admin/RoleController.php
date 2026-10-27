@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Division;
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class RoleController extends Controller
@@ -12,7 +14,6 @@ class RoleController extends Controller
     {
         $roles = Role::where('is_superuser', false)
             ->with([
-                'priorityRoutes.user:id,name,email',
                 'head:id,name,email',
                 'users:id,role_id,name,email,keahlian',
             ])
@@ -21,8 +22,19 @@ class RoleController extends Controller
             ->orderBy('name')
             ->get();
 
-        $configuredRoles = $roles->filter(fn ($role) => $role->head_user_id || $role->priorityRoutes->isNotEmpty());
+        $divisions = Division::with([
+            'headRole:id,name',
+            'spvRole:id,name',
+            'staffRole:id,name',
+            'members.user:id,name',
+        ])->orderBy('name')->get();
 
-        return view('admin.roles.index', compact('roles', 'configuredRoles'));
+        $people = User::query()
+            ->whereHas('role', fn ($query) => $query->where('is_superuser', false)->where('slug', '!=', 'mahasiswa'))
+            ->with('role:id,name')
+            ->orderBy('name')
+            ->get(['id', 'name', 'role_id']);
+
+        return view('admin.roles.index', compact('roles', 'divisions', 'people'));
     }
 }

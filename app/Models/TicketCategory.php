@@ -18,6 +18,7 @@ class TicketCategory extends Model
         'workflow_roles',
         'initial_target_role_id',
         'workflow_type',
+        'division_id',
         'max_approval_role_id',
         'template_path',
         'template_name',
@@ -39,6 +40,11 @@ class TicketCategory extends Model
     public function maxApprovalRole(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'max_approval_role_id');
+    }
+
+    public function division(): BelongsTo
+    {
+        return $this->belongsTo(Division::class);
     }
 
     public function tickets(): HasMany

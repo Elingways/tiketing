@@ -22,7 +22,9 @@
     function roleManagerComponent() {
         return {
             addRoleModal: {{ old('from_role_modal') ? 'true' : 'false' }},
+            divisionModal: {{ old('from_division_modal') ? 'true' : 'false' }},
             manageRoleModal: false,
+            staffIds: @json(old('staff_user_ids', ['']) ?: ['']),
             rolesMap: @json($rolesData),
             manage: { id: null, name: '', actionUrl: '', staff: [], newStaff: [], headId: '', truncated: false },
             openManage(roleId) {
@@ -68,6 +70,14 @@
             },
             addManageStaff() {
                 this.manage.newStaff.push({ name: '', email: '', password: '', keahlian: '' });
+            },
+            addDivisionStaff() {
+                this.staffIds.push('');
+            },
+            removeDivisionStaff(index) {
+                if (this.staffIds.length > 1) {
+                    this.staffIds.splice(index, 1);
+                }
             }
         };
     }
@@ -82,18 +92,22 @@
                 @include('partials.icon', ['name' => 'users', 'class' => 'w-5 h-5'])
             </div>
             <div>
-                <h1 class="text-lg font-bold text-slate-900 tracking-tight">Manajemen Role & Unit</h1>
+                <h1 class="text-lg font-bold text-slate-900 tracking-tight">Manajemen Divisi</h1>
                 <p class="text-xs text-slate-500 mt-0.5">
-                    Kelola peran operasional, tetapkan Kepala Unit (peninjau pertama tiket), dan atur personel staf pelaksana beserta keahliannya.
+                    Role dibuat terpisah. Divisi hanya memilih Kepala, SPV, dan staff yang sudah ada.
                 </p>
             </div>
         </div>
 
         <div class="flex items-center gap-2.5 shrink-0">
             <button type="button" @click="addRoleModal = true"
+                    class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition cursor-pointer">
+                Tambah Role Baru
+            </button>
+            <button type="button" @click="divisionModal = true"
                     class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white text-xs font-semibold shadow-sm shadow-indigo-600/20 transition cursor-pointer flex items-center gap-1.5">
                 @include('partials.icon', ['name' => 'plus-circle', 'class' => 'w-3.5 h-3.5 text-white'])
-                <span>Tambah Role Baru</span>
+                <span>Tambah Divisi Baru</span>
             </button>
         </div>
     </div>
@@ -106,9 +120,9 @@
             <p class="text-[11px] text-slate-400 mt-1">Peran operasional sistem</p>
         </div>
         <div class="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Unit Dengan Kepala</p>
-            <p class="text-2xl font-extrabold text-indigo-600 mt-1">{{ $configuredRoles->count() }}</p>
-            <p class="text-[11px] text-slate-400 mt-1">Siap triase & disposisi tiket</p>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Divisi Terdaftar</p>
+            <p class="text-2xl font-extrabold text-indigo-600 mt-1">{{ $divisions->count() }}</p>
+            <p class="text-[11px] text-slate-400 mt-1">Puncak dan plot layanan</p>
         </div>
         <div class="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
             <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Anggota & Staf</p>
@@ -117,64 +131,34 @@
         </div>
     </div>
 
-    <!-- Section 1: Kepala Unit & Keahlian Staf (Grid Kartu Unit) -->
+    <!-- Divisi: Kepala → SPV → Staff -->
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 mb-6">
-        <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0">
-                    @include('partials.icon', ['name' => 'shield-check', 'class' => 'w-4 h-4'])
-                </div>
-                <div>
-                    <h2 class="text-sm font-bold text-slate-900">Kepala Unit & Keahlian Staf</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Tiket masuk ditinjau oleh Kepala Unit terlebih dahulu, lalu didelegasikan ke teknisi/staf sesuai spesialisasi.</p>
-                </div>
-            </div>
+        <div class="mb-4">
+            <h2 class="text-sm font-bold text-slate-900">Divisi</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Kepala, SPV, dan staff dipilih dari role yang sudah dibuat. Satu divisi bisa berisi banyak staff.</p>
         </div>
-
-        @if($configuredRoles->isEmpty())
+        @if($divisions->isEmpty())
             <div class="p-8 text-center rounded-xl bg-slate-50 border border-dashed border-slate-200 text-xs text-slate-400">
-                Belum ada unit dengan kepala yang dikonfigurasi. Klik <strong>+ Tambah Role Baru</strong> untuk mendaftarkan peran baru dan menetapkan kepalanya.
+                Belum ada divisi. Klik <strong>Tambah Divisi Baru</strong> untuk menentukan Kepala, SPV, dan staff.
             </div>
         @else
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                @foreach($configuredRoles as $roleItem)
-                    <div class="rounded-xl border border-slate-200/80 bg-slate-50/40 p-4 hover:bg-white hover:border-indigo-200 transition space-y-3">
-                        <div class="flex items-start justify-between gap-2">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-bold text-slate-900 text-xs">{{ $roleItem->name }}</span>
-                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                                        {{ $roleItem->users_count }} anggota
-                                    </span>
-                                </div>
-                                @if($roleItem->head)
-                                    <div class="flex items-center gap-1.5 mt-1 text-[11px] text-slate-600">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                        <span>Kepala Unit: <strong class="text-slate-900">{{ $roleItem->head->name }}</strong></span>
-                                    </div>
-                                @endif
-                            </div>
-                            <button type="button" @click="openManage({{ $roleItem->id }})"
-                                    class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-700 bg-white hover:bg-slate-50 transition shadow-2xs shrink-0 cursor-pointer">
-                                Kelola Staf &rarr;
-                            </button>
+                @foreach($divisions as $division)
+                    @php
+                        $headMember = $division->members->firstWhere('position', 'head');
+                        $spvMember = $division->members->firstWhere('position', 'spv');
+                        $staffMembers = $division->members->where('position', 'staff');
+                    @endphp
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/40 p-4 space-y-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-bold text-slate-900 text-sm">{{ $division->name }}</span>
+                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">Puncak: {{ $headMember?->user?->name ?? 'Kepala' }}</span>
                         </div>
-
-                        @if($roleItem->relationLoaded('users'))
-                            <div class="flex flex-wrap gap-1.5 pt-1 border-t border-slate-200/60">
-                                @foreach($roleItem->users as $person)
-                                    @if((int) $person->id !== (int) $roleItem->head_user_id)
-                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 text-[11px] text-slate-700 shadow-2xs">
-                                            <span class="font-medium text-slate-900">{{ $person->name }}</span>
-                                            @if($person->keahlian)
-                                                <span class="text-slate-400">&bull;</span>
-                                                <span class="text-indigo-600 font-medium">{{ $person->keahlian }}</span>
-                                            @endif
-                                        </span>
-                                    @endif
-                                @endforeach
-                            </div>
-                        @endif
+                        <ol class="space-y-1.5 text-xs text-slate-700">
+                            <li><span class="font-semibold text-slate-900">1. Kepala</span> — {{ $headMember?->user?->name ?? 'Kepala' }} <span class="text-slate-400">· {{ $division->headRole?->name }}</span></li>
+                            <li><span class="font-semibold text-slate-900">2. SPV</span> — {{ $spvMember?->user?->name ?? 'SPV' }} <span class="text-slate-400">· {{ $division->spvRole?->name }}</span></li>
+                            <li><span class="font-semibold text-slate-900">3. Staff</span> — {{ $staffMembers->map(fn ($member) => $member->user?->name)->filter()->join(', ') ?: $division->staffRole?->name }} <span class="text-slate-400">· {{ $division->staffRole?->name }}</span></li>
+                        </ol>
                     </div>
                 @endforeach
             </div>
@@ -283,17 +267,11 @@
          @keydown.escape.window="addRoleModal = false"
          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
         <div @click.outside="addRoleModal = false"
-             class="bg-white rounded-2xl border border-slate-200/80 shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <!-- Modal Header -->
+             class="bg-white rounded-2xl border border-slate-200/80 shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
-                        @include('partials.icon', ['name' => 'users', 'class' => 'w-5 h-5'])
-                    </div>
-                    <div>
-                        <h3 class="text-sm font-bold text-slate-900">Tambah Role & Unit Baru</h3>
-                        <p class="text-[11px] text-slate-500">Daftarkan peran operasional baru dan akun penanggung jawabnya</p>
-                    </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900">Tambah Role Baru</h3>
+                    <p class="text-[11px] text-slate-500">Role dibuat di sini, terpisah dari divisi. Anggota lain ditambah lewat Kelola Staf.</p>
                 </div>
                 <button type="button" @click="addRoleModal = false"
                         class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition">
@@ -304,45 +282,92 @@
             <form action="{{ route('admin.hierarchy.store') }}" method="POST" class="p-6 space-y-4 overflow-y-auto">
                 @csrf
                 <input type="hidden" name="from_role_modal" value="1">
-                <input type="hidden" name="can_create_ticket" value="1">
-                <input type="hidden" name="can_receive_ticket" value="1">
-
-                <!-- Nama Role -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Nama Role / Unit Kerja <span class="text-rose-500">*</span></label>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Nama Role <span class="text-rose-500">*</span></label>
                     <input type="text" name="name" required value="{{ old('from_role_modal') ? old('name') : '' }}"
-                           placeholder="Contoh: Unit Sarpras, Admin IT, Bagian Akademik, dsb."
-                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition text-slate-900 placeholder:text-slate-400">
+                           placeholder="Contoh: Staff IT"
+                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs">
                 </div>
-
-                <!-- Atasan Hirarki -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">
-                        Atasan Hirarki <span class="font-normal text-slate-400">(Opsional - Terhubung ke atasan)</span>
-                    </label>
-                    <select name="parent_id" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition text-slate-900 bg-white">
-                        <option value="">-- Puncak Hirarki (Tanpa Atasan / Root) --</option>
-                        @foreach($roles as $r)
-                            <option value="{{ $r->id }}" {{ old('from_role_modal') && old('parent_id') == $r->id ? 'selected' : '' }}>
-                                {{ $r->name }}
-                            </option>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Atasan role</label>
+                    <select name="parent_id" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white">
+                        <option value="">— Tanpa atasan —</option>
+                        @foreach($roles as $roleOption)
+                            <option value="{{ $roleOption->id }}">{{ $roleOption->name }}</option>
                         @endforeach
                     </select>
                 </div>
-
-                <!-- Keterangan Singkat -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">
-                        Keterangan Singkat <span class="font-normal text-slate-400">(Opsional)</span>
-                    </label>
-                    <input type="text" name="description" value="{{ old('from_role_modal') ? old('description') : '' }}"
-                           placeholder="Deskripsi tugas dan ruang lingkup peran ini..."
-                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition text-slate-900 placeholder:text-slate-400">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Warna Badge</label>
+                    <div class="flex items-center gap-2" x-data="{ selectedColor: 'indigo' }">
+                        <input type="hidden" name="badge_color" :value="selectedColor">
+                        @foreach(['indigo' => 'bg-indigo-600', 'emerald' => 'bg-emerald-600', 'violet' => 'bg-violet-600', 'sky' => 'bg-sky-600', 'amber' => 'bg-amber-600', 'rose' => 'bg-rose-600', 'teal' => 'bg-teal-600'] as $cName => $cClass)
+                            <button type="button" @click="selectedColor = '{{ $cName }}'"
+                                    class="w-6 h-6 rounded-full {{ $cClass }} transition-transform cursor-pointer flex items-center justify-center text-white"
+                                    :class="selectedColor === '{{ $cName }}' ? 'ring-2 ring-offset-2 ring-slate-900 scale-110' : 'opacity-70 hover:opacity-100'">
+                                <svg x-show="selectedColor === '{{ $cName }}'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Pemegang role</label>
+                    <input type="text" name="head_name" value="{{ old('from_role_modal') ? old('head_name') : '' }}" placeholder="Nama lengkap"
+                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs mb-2">
+                    <input type="email" name="head_email" value="{{ old('from_role_modal') ? old('head_email') : '' }}" placeholder="email@kampus.ac.id"
+                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs">
+                    <p class="text-[11px] text-slate-400 mt-1">Password awal akun pemegang role: password.</p>
+                </div>
+                <input type="hidden" name="can_create_ticket" value="1">
+                <input type="hidden" name="can_receive_ticket" value="1">
+                <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+                    <button type="button" @click="addRoleModal = false"
+                            class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer">
+                        Batal
+                    </button>
+                    <button type="submit"
+                            class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition cursor-pointer">
+                        Simpan Role
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- ========================================================== --}}
+    {{-- MODAL: Tambah Divisi — pilih orang yang sudah punya role   --}}
+    {{-- ========================================================== --}}
+    <div x-show="divisionModal" x-cloak
+         @keydown.escape.window="divisionModal = false"
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div @click.outside="divisionModal = false"
+             class="bg-white rounded-2xl border border-slate-200/80 shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900">Tambah Divisi Baru</h3>
+                    <p class="text-[11px] text-slate-500">Pilih orang yang sudah punya role. Kepala, SPV, dan staff boleh dari role yang sama.</p>
+                </div>
+                <button type="button" @click="divisionModal = false"
+                        class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition">
+                    &times;
+                </button>
+            </div>
+
+            <form action="{{ route('admin.hierarchy.divisions.store') }}" method="POST" class="p-6 space-y-4 overflow-y-auto">
+                @csrf
+                <input type="hidden" name="from_division_modal" value="1">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Nama Divisi <span class="text-rose-500">*</span></label>
+                    <input type="text" name="name" required value="{{ old('from_division_modal') ? old('name') : '' }}"
+                           placeholder="Contoh: IT"
+                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs">
                 </div>
 
-                <!-- Pilihan Warna Badge Role -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Warna Badge Identitas</label>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Warna Badge</label>
                     <div class="flex items-center gap-2" x-data="{ selectedColor: 'indigo' }">
                         <input type="hidden" name="badge_color" :value="selectedColor">
                         @foreach(['indigo' => 'bg-indigo-600', 'emerald' => 'bg-emerald-600', 'violet' => 'bg-violet-600', 'sky' => 'bg-sky-600', 'amber' => 'bg-amber-600', 'rose' => 'bg-rose-600', 'teal' => 'bg-teal-600'] as $cName => $cClass)
@@ -357,56 +382,51 @@
                     </div>
                 </div>
 
-                <!-- Penanggung Jawab / Kepala Unit -->
-                <div class="pt-4 border-t border-slate-100 space-y-3">
-                    <div class="flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
-                        <p class="text-xs font-bold text-slate-900">Penanggung Jawab / Kepala Unit (Login Akun)</p>
-                    </div>
-
-                    <!-- Alert Tip Default Password -->
-                    <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 text-[11px] text-indigo-950 space-y-1">
-                        <p class="font-semibold flex items-center gap-1.5">
-                            <span>👤</span>
-                            <span>Akun ini otomatis dibuatkan dan langsung dapat dipakai untuk login:</span>
-                        </p>
-                        <p class="text-indigo-800">
-                            Password default login: <code class="font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-900">password</code> (dapat diganti di menu edit profile kapan saja).
-                        </p>
-                    </div>
-
-                    <!-- Input Nama Pemegang Role -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Nama Lengkap Penanggung Jawab <span class="text-rose-500">*</span></label>
-                        <input type="text" name="head_name" required value="{{ old('from_role_modal') ? old('head_name') : '' }}"
-                               placeholder="Contoh: Budi Santoso, S.Kom."
-                               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition text-slate-900 placeholder:text-slate-400">
-                    </div>
-
-                    <!-- Input Email Pemegang Role -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Email Login Penanggung Jawab <span class="text-rose-500">*</span></label>
-                        <input type="email" name="head_email" required value="{{ old('from_role_modal') ? old('head_email') : '' }}"
-                               placeholder="budi@kampus.ac.id"
-                               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition text-slate-900 placeholder:text-slate-400">
-                    </div>
-
-                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-500 flex items-center gap-2">
-                        <span>💡</span>
-                        <span>Personel teknis & staf pelaksana tambahan dapat ditambahkan nanti melalui tombol <strong>Kelola Staf</strong> pada tabel.</span>
-                    </div>
+                <div class="pt-3 border-t border-slate-100 space-y-2">
+                    <label class="block text-xs font-bold text-slate-900">1. Kepala — puncak divisi</label>
+                    <select name="head_user_id" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white">
+                        @include('partials.division-person-options', ['placeholder' => 'Pilih Kepala', 'selected' => old('head_user_id')])
+                    </select>
                 </div>
 
-                <!-- Footer Buttons -->
+                <div class="pt-3 border-t border-slate-100 space-y-2">
+                    <label class="block text-xs font-bold text-slate-900">2. SPV</label>
+                    <select name="spv_user_id" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white">
+                        @include('partials.division-person-options', ['placeholder' => 'Pilih SPV', 'selected' => old('spv_user_id')])
+                    </select>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 space-y-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <label class="block text-xs font-bold text-slate-900">3. Staff</label>
+                        <button type="button" @click="addDivisionStaff()"
+                                class="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer">
+                            + Tambah Staff
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Bisa lebih dari satu. Staff yang dipilih dipakai bersama sebagai penerima tiket.</p>
+                    <template x-for="(staffId, index) in staffIds" :key="index">
+                        <div class="flex items-center gap-2">
+                            <select name="staff_user_ids[]" x-model="staffIds[index]" required
+                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white">
+                                @include('partials.division-person-options', ['placeholder' => 'Pilih staff'])
+                            </select>
+                            <button type="button" @click="removeDivisionStaff(index)" x-show="staffIds.length > 1"
+                                    class="shrink-0 px-2 py-2 text-[11px] font-semibold text-rose-600 cursor-pointer">
+                                Hapus
+                            </button>
+                        </div>
+                    </template>
+                </div>
+
                 <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
-                    <button type="button" @click="addRoleModal = false"
+                    <button type="button" @click="divisionModal = false"
                             class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer">
                         Batal
                     </button>
                     <button type="submit"
-                            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white text-xs font-semibold shadow-sm shadow-indigo-600/20 transition cursor-pointer flex items-center gap-1.5">
-                        @include('partials.icon', ['name' => 'plus-circle', 'class' => 'w-3.5 h-3.5 text-white'])
-                        <span>Simpan Role Baru</span>
+                            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition cursor-pointer">
+                        Simpan Divisi
                     </button>
                 </div>
             </form>

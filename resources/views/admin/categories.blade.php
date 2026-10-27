@@ -16,12 +16,25 @@
         $defaultAkademikRole?->id,
         $defaultYayasanRole?->id,
     ]));
+
+    $divisionOptions = ($divisions ?? collect())->map(fn ($division) => [
+        'id' => $division->id,
+        'name' => $division->name,
+        'peak' => $division->headRole?->head?->name,
+        'chain' => array_values(array_filter([
+            $division->staffRole?->name,
+            $division->spvRole?->name,
+            $division->headRole?->name,
+        ])),
+    ])->values();
 @endphp
 
 <div x-data="{
     addCategoryModal: false,
     editCategoryModal: false,
     rolesMap: {{ Js::from($rolesMap) }},
+    divisions: {{ Js::from($divisionOptions) }},
+    divisionId: '{{ ($divisions ?? collect())->first()?->id }}',
     newSteps: {{ Js::from($defaultChainIds) }},
     newTemplateName: '',
     editForm: {
@@ -30,6 +43,7 @@
         name: '',
         description: '',
         workflow_type: 'tiered_approval',
+        division_id: '',
         steps: [],
         has_template: false,
         template_name: '',
@@ -43,6 +57,7 @@
         this.editForm.name = cat.name;
         this.editForm.description = cat.description || '';
         this.editForm.workflow_type = cat.workflow_type;
+        this.editForm.division_id = cat.division_id ? String(cat.division_id) : '';
         this.editForm.steps = (cat.steps && cat.steps.length) ? [...cat.steps] : {{ Js::from($defaultChainIds) }};
         this.editForm.has_template = cat.has_template;
         this.editForm.template_name = cat.template_name || '';
@@ -51,13 +66,13 @@
         this.editForm.new_file_name = '';
         this.editCategoryModal = true;
     },
-    formatPreviewChain(stepIds) {
-        return (stepIds || [])
-            .map(id => this.rolesMap[id]?.name)
-            .filter(Boolean)
-            .join(' → ');
+    divisionPlot(id) {
+        const found = this.divisions.find(item => String(item.id) === String(id));
+        if (!found) return 'Pilih divisi yang sudah dibuat.';
+        const peak = found.peak ? ' · Puncak: ' + found.peak : '';
+        return found.chain.join(' → ') + peak;
     }
-}">
+}" >
 
     <!-- Page Header Modern -->
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
@@ -122,6 +137,7 @@
                                 'name' => $cat->name,
                                 'description' => $cat->description,
                                 'workflow_type' => $cat->workflow_type,
+                                'division_id' => $cat->division_id,
                                 'steps' => $stepIds,
                                 'has_template' => $cat->hasTemplate(),
                                 'template_name' => $cat->template_name,
@@ -151,10 +167,12 @@
                                         </span>
                                     @endforeach
                                 </div>
+                                @if($cat->division)
+                                    <p class="mt-1 text-[11px] text-amber-800">Divisi {{ $cat->division->name }} · Puncak {{ $cat->division->headRole?->head?->name ?? 'Kepala' }}</p>
+                                @endif
                             </td>
 
                             <!-- 3. Mode Alur -->
-                            <td class="py-3.5 px-4 whitespace-nowrap">
                                 @if($cat->workflow_type === 'tiered_approval')
                                     <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -276,38 +294,21 @@
                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition">
                 </div>
 
-                <!-- Tahapan Hirarki Role -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <div class="flex items-center justify-between">
-                        <label class="text-xs font-bold text-slate-800">Urutan Tahapan Role</label>
-                        <button type="button" @click="newSteps.push({{ $defaultYayasanRole?->id ?? 1 }})"
-                                class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer">
-                            + Tambah Tahap
-                        </button>
-                    </div>
-
-                    <div class="space-y-2">
-                        <template x-for="(roleId, idx) in newSteps" :key="idx">
-                            <div class="flex items-center gap-2">
-                                <span class="w-24 text-[11px] font-semibold text-slate-500 shrink-0"
-                                      x-text="idx === 0 ? '1. Pemohon' : (idx + 1) + '. Tahap ' + idx"></span>
-                                <select name="workflow_roles[]" x-model.number="newSteps[idx]"
-                                        class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">
-                                    @foreach($roles as $r)
-                                        <option value="{{ $r->id }}">{{ $r->name }}</option>
-                                    @endforeach
-                                </select>
-                                <button type="button" x-show="newSteps.length > 2" @click="newSteps.splice(idx, 1)"
-                                        class="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition" title="Hapus tahap">
-                                    &times;
-                                </button>
-                            </div>
-                        </template>
-                    </div>
-
-                    <div class="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
-                        Alur: <strong class="text-slate-900" x-text="formatPreviewChain(newSteps)"></strong>
-                    </div>
+                    <label class="text-xs font-bold text-slate-800">Divisi penanganan</label>
+                    @if(($divisions ?? collect())->isEmpty())
+                        <p class="text-[11px] text-slate-500">Belum ada divisi. Buat dulu di Manajemen Divisi agar Kepala, SPV, dan staff terplot.</p>
+                    @else
+                        <select name="division_id" x-model="divisionId" required
+                                class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+                            @foreach($divisions as $division)
+                                <option value="{{ $division->id }}">{{ $division->name }}</option>
+                            @endforeach
+                        </select>
+                        <div class="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
+                            Plot: <strong class="text-slate-900" x-text="divisionPlot(divisionId)"></strong>
+                        </div>
+                    @endif
                 </div>
 
                 <!-- Template Dokumen -->
@@ -394,38 +395,22 @@
                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition">
                 </div>
 
-                <!-- Tahapan Hirarki Role -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <div class="flex items-center justify-between">
-                        <label class="text-xs font-bold text-slate-800">Urutan Tahapan Role</label>
-                        <button type="button" @click="editForm.steps.push({{ $defaultYayasanRole?->id ?? 1 }})"
-                                class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer">
-                            + Tambah Tahap
-                        </button>
-                    </div>
-
-                    <div class="space-y-2">
-                        <template x-for="(roleId, idx) in editForm.steps" :key="idx">
-                            <div class="flex items-center gap-2">
-                                <span class="w-24 text-[11px] font-semibold text-slate-500 shrink-0"
-                                      x-text="idx === 0 ? '1. Pemohon' : (idx + 1) + '. Tahap ' + idx"></span>
-                                <select name="workflow_roles[]" x-model.number="editForm.steps[idx]"
-                                        class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600">
-                                    @foreach($roles as $r)
-                                        <option value="{{ $r->id }}">{{ $r->name }}</option>
-                                    @endforeach
-                                </select>
-                                <button type="button" x-show="editForm.steps.length > 2" @click="editForm.steps.splice(idx, 1)"
-                                        class="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition" title="Hapus tahap">
-                                    &times;
-                                </button>
-                            </div>
-                        </template>
-                    </div>
-
-                    <div class="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
-                        Alur: <strong class="text-slate-900" x-text="formatPreviewChain(editForm.steps)"></strong>
-                    </div>
+                    <label class="text-xs font-bold text-slate-800">Divisi penanganan</label>
+                    @if(($divisions ?? collect())->isEmpty())
+                        <p class="text-[11px] text-slate-500">Belum ada divisi. Buat dulu di Manajemen Divisi.</p>
+                    @else
+                        <select name="division_id" x-model="editForm.division_id"
+                                class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+                            <option value="">Biarkan plot yang sudah tersimpan</option>
+                            @foreach($divisions as $division)
+                                <option value="{{ $division->id }}">{{ $division->name }}</option>
+                            @endforeach
+                        </select>
+                        <div class="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
+                            Plot: <strong class="text-slate-900" x-text="divisionPlot(editForm.division_id)"></strong>
+                        </div>
+                    @endif
                 </div>
 
                 <!-- Template Dokumen -->

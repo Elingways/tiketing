@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Division;
 use App\Models\Role;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
@@ -1354,6 +1355,161 @@ class TicketingHierarchyTest extends TestCase
         $this->actingAs($staff)->get(route('tickets.inbox'))
             ->assertOk()
             ->assertSee('2 poin');
+    }
+
+    public function test_division_sets_head_spv_and_staff_then_service_uses_that_plot(): void
+    {
+        $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+
+        $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'name' => 'Kepala IT',
+            'badge_color' => 'indigo',
+            'can_receive_ticket' => 1,
+            'head_name' => 'Deny Kepala',
+            'head_email' => 'deny.kepala@kampus.ac.id',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'name' => 'SPV IT',
+            'badge_color' => 'indigo',
+            'can_receive_ticket' => 1,
+            'head_name' => 'Sari SPV',
+            'head_email' => 'sari.spv@kampus.ac.id',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'name' => 'Staff IT',
+            'badge_color' => 'indigo',
+            'can_receive_ticket' => 1,
+            'head_name' => 'Nathan Staff',
+            'head_email' => 'nathan.staff@kampus.ac.id',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $staffRole = Role::where('name', 'Staff IT')->firstOrFail();
+        $nathan = User::where('email', 'nathan.staff@kampus.ac.id')->firstOrFail();
+        $this->actingAs($superuser)->put(route('admin.hierarchy.staff.sync', $staffRole), [
+            'staff' => [
+                ['name' => 'Fajri Staff', 'email' => 'fajri.staff@kampus.ac.id'],
+            ],
+            'head_user_id' => (string) $nathan->id,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $head = User::where('email', 'deny.kepala@kampus.ac.id')->firstOrFail();
+        $spv = User::where('email', 'sari.spv@kampus.ac.id')->firstOrFail();
+        $fajri = User::where('email', 'fajri.staff@kampus.ac.id')->firstOrFail();
+        $roleCount = Role::count();
+
+        $this->actingAs($superuser)->post(route('admin.hierarchy.divisions.store'), [
+            'name' => 'IT',
+            'badge_color' => 'indigo',
+            'head_user_id' => $head->id,
+            'spv_user_id' => $spv->id,
+            'staff_user_ids' => [$nathan->id, $head->id],
+        ])->assertRedirect()->assertSessionHasErrors('staff_user_ids');
+
+        $this->actingAs($superuser)->post(route('admin.hierarchy.divisions.store'), [
+            'name' => 'IT',
+            'badge_color' => 'indigo',
+            'head_user_id' => $head->id,
+            'spv_user_id' => $spv->id,
+            'staff_user_ids' => [$nathan->id, $fajri->id],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->assertSame($roleCount, Role::count());
+
+        $division = Division::with(['headRole.head', 'spvRole', 'staffRole', 'members'])->where('name', 'IT')->firstOrFail();
+        $this->assertSame('Kepala IT', $division->headRole->name);
+        $this->assertSame('SPV IT', $division->spvRole->name);
+        $this->assertSame('Staff IT', $division->staffRole->name);
+        $this->assertSame($head->role_id, $division->head_role_id);
+        $this->assertSame($spv->role_id, $division->spv_role_id);
+        $this->assertCount(2, $division->members->where('position', 'staff'));
+        $this->assertSame('Deny Kepala', $division->headRole->head->name);
+
+        $this->actingAs($superuser)->get(route('admin.roles'))
+            ->assertOk()
+            ->assertSee('Manajemen Divisi')
+            ->assertSee('Tambah Role Baru')
+            ->assertSee('Pilih Kepala')
+            ->assertSee('+ Tambah Staff')
+            ->assertSee('Puncak: Deny Kepala')
+            ->assertDontSee('Kepala Unit & Keahlian Staf')
+            ->assertSee('Fajri Staff')
+            ->assertSee('Nathan Staff');
+
+        $this->actingAs($superuser)->post(route('admin.categories.store'), [
+            'name' => 'SIAKAD',
+            'workflow_type' => 'escalation',
+            'division_id' => $division->id,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->actingAs($superuser)->get(route('admin.categories'))
+            ->assertOk()
+            ->assertSee('SIAKAD')
+            ->assertSee('Divisi IT')
+            ->assertSee('Puncak Deny Kepala');
+
+        $category = TicketCategory::where('name', 'SIAKAD')->firstOrFail();
+        $this->assertSame($division->id, (int) $category->division_id);
+        $this->assertSame($division->workflowRoleIds(), array_map('intval', $category->workflow_roles));
+        $this->assertSame($division->staff_role_id, (int) $category->initial_target_role_id);
+        $this->assertSame($division->head_role_id, (int) $category->max_approval_role_id);
+    }
+
+    public function test_division_accepts_head_spv_and_staff_from_the_same_role(): void
+    {
+        $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+
+        $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'name' => 'Admin IT Kampus',
+            'badge_color' => 'indigo',
+            'can_receive_ticket' => 1,
+            'head_name' => 'Deny Satu Role',
+            'head_email' => 'deny.satu@kampus.ac.id',
+        ])->assertRedirect();
+
+        $role = Role::where('name', 'Admin IT Kampus')->firstOrFail();
+        $deny = User::where('email', 'deny.satu@kampus.ac.id')->firstOrFail();
+        $this->actingAs($superuser)->put(route('admin.hierarchy.staff.sync', $role), [
+            'staff' => [
+                ['name' => 'Sari Satu Role', 'email' => 'sari.satu@kampus.ac.id'],
+                ['name' => 'Nathan Satu Role', 'email' => 'nathan.satu@kampus.ac.id'],
+                ['name' => 'Fajri Satu Role', 'email' => 'fajri.satu@kampus.ac.id'],
+            ],
+            'head_user_id' => (string) $deny->id,
+        ])->assertRedirect();
+
+        $spv = User::where('email', 'sari.satu@kampus.ac.id')->firstOrFail();
+        $nathan = User::where('email', 'nathan.satu@kampus.ac.id')->firstOrFail();
+        $fajri = User::where('email', 'fajri.satu@kampus.ac.id')->firstOrFail();
+
+        $this->actingAs($superuser)->post(route('admin.hierarchy.divisions.store'), [
+            'name' => 'IT Kampus',
+            'badge_color' => 'indigo',
+            'head_user_id' => $deny->id,
+            'spv_user_id' => $spv->id,
+            'staff_user_ids' => [$nathan->id, $fajri->id],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $division = Division::with('members')->where('name', 'IT Kampus')->firstOrFail();
+        $this->assertSame($role->id, $division->head_role_id);
+        $this->assertSame($role->id, $division->spv_role_id);
+        $this->assertSame($role->id, $division->staff_role_id);
+        $this->assertSame([$role->id], $division->workflowRoleIds());
+        $this->assertCount(2, $division->members->where('position', 'staff'));
+
+        $role->refresh();
+        $this->assertSame($deny->id, (int) $role->head_user_id);
+
+        $this->actingAs($superuser)->post(route('admin.categories.store'), [
+            'name' => 'SIAKAD Kampus',
+            'workflow_type' => 'escalation',
+            'division_id' => $division->id,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $category = TicketCategory::where('name', 'SIAKAD Kampus')->firstOrFail();
+        $this->assertSame([$role->id], array_map('intval', $category->workflow_roles));
+        $this->assertSame($role->id, (int) $category->max_approval_role_id);
     }
 }
 
