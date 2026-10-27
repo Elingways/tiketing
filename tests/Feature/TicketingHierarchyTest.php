@@ -879,11 +879,10 @@ class TicketingHierarchyTest extends TestCase
             'achievement_points' => 3,
         ]);
 
-        $this->actingAs($pemohon)->get(route('tickets.workload'))
-            ->assertOk()
+        $workload = $this->actingAs($pemohon)->get(route('tickets.workload'));
+        $workload->assertOk()
             ->assertSee('Pekerjaan Divisi')
-            ->assertSee('Ranking achievement')
-            ->assertSeeInOrder(['Fajar Nugroho, S.T.', '8 poin', 'Bagas Setiawan, A.Md.Kom.', '3 poin', 'Nadia Kusuma, S.Kom.', '0 poin'])
+            ->assertDontSee('Ranking achievement')
             ->assertSee('Admin IT')
             ->assertSee('Perbaikan jaringan lab')
             ->assertSee('Blocked')
@@ -891,6 +890,21 @@ class TicketingHierarchyTest extends TestCase
             ->assertSee('Tiket yang sudah selesai')
             ->assertSee('Selesai')
             ->assertDontSee('Catatan internal jangan tampil');
+        $this->assertSame(0, substr_count($workload->getContent(), 'rank-bar rank-bar-1'));
+
+        $headBoard = $this->actingAs($head)->get(route('tickets.workload'));
+        $headBoard->assertOk()
+            ->assertSee('Ranking achievement')
+            ->assertSee('Staff IT, diurutkan dari poin terbanyak.')
+            ->assertSeeInOrder(['Fajar Nugroho, S.T.', '8 poin', 'Bagas Setiawan, A.Md.Kom.', '3 poin', 'Nadia Kusuma, S.Kom.', '0 poin']);
+        $this->assertSame(1, substr_count($headBoard->getContent(), 'rank-bar rank-bar-1'));
+
+        $this->actingAs($staff)->get(route('tickets.workload'))
+            ->assertOk()
+            ->assertSee('Peringkat kamu.')
+            ->assertSee('Kamu')
+            ->assertSee('8 poin')
+            ->assertDontSee('3 poin');
     }
 
     public function test_finished_work_is_counted_in_the_month_it_was_finished(): void

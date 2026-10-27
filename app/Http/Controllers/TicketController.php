@@ -362,17 +362,29 @@ class TicketController extends Controller
             ->groupBy(fn (Ticket $ticket) => $ticket->currentRole?->name ?? 'Tanpa divisi')
             ->sortKeys();
 
-        $ranking = $groups->map(function ($tickets) {
+        $itSlugs = ['admin-it', 'admin', 'staff', 'staff-it'];
+        $ranking = $groups->map(function ($tickets) use ($itSlugs) {
             $role = $tickets->first()?->currentRole;
-            $staff = $role ? $role->assignableStaffUsers() : collect();
+            if (!$role || !in_array($role->slug, $itSlugs, true)) {
+                return collect();
+            }
+
+            $staff = $role->assignableStaffUsers();
             $assigned = $tickets->map(fn (Ticket $ticket) => $ticket->assignedUser)->filter();
-            $people = $staff->concat($assigned)->unique('id')->values();
+            $people = User::with('role')
+                ->whereIn('id', $staff->concat($assigned)->unique('id')->pluck('id'))
+                ->whereHas('role', fn ($query) => $query->whereIn('slug', $itSlugs))
+                ->get();
 
             return $people->map(function ($person) use ($tickets) {
                 $items = $tickets->where('assigned_user_id', $person->id);
 
                 return [
+                    'id' => $person->id,
                     'name' => $person->name,
+                    'initials' => $person->initials(),
+                    'avatar_url' => $person->avatar_url,
+                    'color' => ['#6366f1', '#22c55e', '#f59e0b', '#ec4899', '#0ea5e9', '#14b8a6'][$person->id % 6],
                     'points' => (int) $items->sum(fn (Ticket $ticket) => (int) $ticket->achievement_points),
                     'tickets' => $items->count(),
                 ];
@@ -380,7 +392,11 @@ class TicketController extends Controller
                 ->values();
         });
 
-        return view('tickets.workload', compact('user', 'groups', 'ranking'));
+        $canSeeFullRanking = Role::whereIn('slug', ['admin-it', 'admin'])
+            ->where('head_user_id', $user->id)
+            ->exists();
+
+        return view('tickets.workload', compact('user', 'groups', 'ranking', 'canSeeFullRanking'));
     }
 
     /**
