@@ -58,11 +58,9 @@
             <div class="lg:col-span-5 w-full max-w-[420px] mx-auto">
                 <!-- Brand Header -->
                 <div class="flex items-center gap-3 mb-5">
-                    <div class="inline-flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/25 shrink-0">
-                        @include('partials.icon', ['name' => 'ticket', 'class' => 'w-6 h-6'])
-                    </div>
+                    <img src="{{ asset('LOGO USH NEW.png') }}" alt="Logo USH" class="w-11 h-11 sm:w-12 sm:h-12 object-contain shrink-0">
                     <div>
-                        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 leading-none">SuperTicket</h1>
+                        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 leading-none">Ticket IT</h1>
                         <p class="text-xs text-slate-500 mt-1">Sistem Layanan Terpadu & Tiketing Kampus</p>
                     </div>
                 </div>
