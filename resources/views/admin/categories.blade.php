@@ -6,27 +6,60 @@
         'id' => $r->id,
         'name' => $r->name,
         'slug' => $r->slug,
+        'division_id' => $r->division_id,
+        'division_name' => $r->division?->name,
     ]);
-    $defaultMahasiswaRole = $roles->firstWhere('slug', 'mahasiswa') ?? $roles->first();
-    $defaultAkademikRole = $roles->firstWhere('slug', 'akademik') ?? $roles->firstWhere('slug', 'dosen') ?? $roles->skip(1)->first();
-    $defaultYayasanRole = $roles->firstWhere('slug', 'yayasan') ?? $roles->firstWhere('slug', 'dekan') ?? $roles->last();
 
-    $defaultChainIds = array_values(array_filter([
-        $defaultMahasiswaRole?->id,
-        $defaultAkademikRole?->id,
-        $defaultYayasanRole?->id,
-    ]));
+    $divisionOptions = ($divisions ?? collect())->map(function ($division) use ($roles) {
+        $divRoles = $division->roles->isNotEmpty()
+            ? $division->roles
+            : $roles->where('division_id', $division->id);
 
-    $divisionOptions = ($divisions ?? collect())->map(fn ($division) => [
-        'id' => $division->id,
-        'name' => $division->name,
-        'peak' => $division->headRole?->head?->name,
-        'chain' => array_values(array_filter([
-            $division->staffRole?->name,
-            $division->spvRole?->name,
-            $division->headRole?->name,
-        ])),
-    ])->values();
+        if ($divRoles->isEmpty()) {
+            $divRoles = collect([$division->staffRole, $division->spvRole, $division->headRole])->filter();
+        }
+
+        // Cari role pimpinan (SPV atau Kepala)
+        $leaderRole = $divRoles->first(fn ($r) => str_contains(strtolower($r->name), 'spv') || str_contains(strtolower($r->name), 'supervisor'))
+            ?? $divRoles->first(fn ($r) => str_contains(strtolower($r->name), 'kepala') || str_contains(strtolower($r->name), 'head'))
+            ?? $division->spvRole
+            ?? $division->headRole;
+
+        // Cari role staff
+        $staffRole = $divRoles->first(fn ($r) => !$leaderRole || (int) $r->id !== (int) $leaderRole->id)
+            ?? $division->staffRole
+            ?? $divRoles->last();
+
+        $defaultChain = collect([$leaderRole?->id, $staffRole?->id])
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        return [
+            'id' => $division->id,
+            'name' => $division->name,
+            'badge_color' => $division->badge_color ?? 'indigo',
+            'peak' => $division->headRole?->head?->name,
+            'chain' => $division->workflowRoleIds(),
+            'default_chain' => !empty($defaultChain) ? $defaultChain : $division->workflowRoleIds(),
+            'roles' => $divRoles->map(function ($r) {
+                $lower = strtolower($r->name);
+                $isSpv = str_contains($lower, 'spv') || str_contains($lower, 'supervisor');
+                $isHead = str_contains($lower, 'kepala') || str_contains($lower, 'head');
+                $isLeadership = $isSpv || $isHead;
+                $prefix = $isLeadership ? 'Pimpinan Divisi (Kepala & SPV) · ' : 'Staff Pelaksana · ';
+
+                return [
+                    'id' => $r->id,
+                    'name' => $r->name,
+                    'label' => $prefix . $r->name,
+                    'is_leadership' => $isLeadership,
+                    'head_name' => $r->head?->name ?? $r->users->first()?->name,
+                ];
+            })->values(),
+        ];
+    })->values();
 @endphp
 
 <div x-data="{
@@ -35,7 +68,7 @@
     rolesMap: {{ Js::from($rolesMap) }},
     divisions: {{ Js::from($divisionOptions) }},
     divisionId: '{{ ($divisions ?? collect())->first()?->id }}',
-    newSteps: {{ Js::from($defaultChainIds) }},
+    newSteps: [],
     newTemplateName: '',
     editForm: {
         id: null,
@@ -51,6 +84,68 @@
         remove_template: false,
         new_file_name: ''
     },
+    init() {
+        this.updateStepsForDivision(this.divisionId, 'new');
+    },
+    onDivisionChange() {
+        this.updateStepsForDivision(this.divisionId, 'new');
+    },
+    onEditDivisionChange() {
+        this.updateStepsForDivision(this.editForm.division_id, 'edit');
+    },
+    getRolesForDivision(divId) {
+        const found = this.divisions.find(d => String(d.id) === String(divId));
+        if (found && found.roles && found.roles.length) {
+            return found.roles;
+        }
+        return Object.values(this.rolesMap);
+    },
+    isLeadershipRole(roleId, divId) {
+        const roles = this.getRolesForDivision(divId || this.divisionId);
+        const match = roles.find(r => String(r.id) === String(roleId));
+        return match ? match.is_leadership : false;
+    },
+    getStepBadgeLabel(roleId, divId) {
+        const roles = this.getRolesForDivision(divId || this.divisionId);
+        const match = roles.find(r => String(r.id) === String(roleId));
+        if (match) {
+            return match.is_leadership ? 'Pimpinan (' + match.name + ')' : match.name;
+        }
+        return this.rolesMap[roleId]?.name || ('Role #' + roleId);
+    },
+    updateStepsForDivision(divId, target) {
+        const found = this.divisions.find(d => String(d.id) === String(divId));
+        let defaultStepIds = [];
+        if (found && found.default_chain && found.default_chain.length) {
+            defaultStepIds = [...found.default_chain];
+        } else if (found && found.chain && found.chain.length) {
+            defaultStepIds = [...found.chain];
+        } else if (found && found.roles && found.roles.length) {
+            defaultStepIds = found.roles.map(r => r.id);
+        }
+        if (target === 'new') {
+            this.newSteps = defaultStepIds;
+        } else if (target === 'edit') {
+            this.editForm.steps = defaultStepIds;
+        }
+    },
+    addStep(target) {
+        const divId = target === 'new' ? this.divisionId : this.editForm.division_id;
+        const available = this.getRolesForDivision(divId);
+        const nextRole = available.length ? available[0].id : '';
+        if (target === 'new') {
+            this.newSteps.push(nextRole);
+        } else {
+            this.editForm.steps.push(nextRole);
+        }
+    },
+    removeStep(target, index) {
+        if (target === 'new') {
+            this.newSteps.splice(index, 1);
+        } else {
+            this.editForm.steps.splice(index, 1);
+        }
+    },
     openEditCategory(cat) {
         this.editForm.id = cat.id;
         this.editForm.actionUrl = cat.actionUrl;
@@ -58,7 +153,10 @@
         this.editForm.description = cat.description || '';
         this.editForm.workflow_type = cat.workflow_type;
         this.editForm.division_id = cat.division_id ? String(cat.division_id) : '';
-        this.editForm.steps = (cat.steps && cat.steps.length) ? [...cat.steps] : {{ Js::from($defaultChainIds) }};
+        this.editForm.steps = (cat.steps && cat.steps.length) ? [...cat.steps] : [];
+        if (this.editForm.steps.length === 0 && this.editForm.division_id) {
+            this.updateStepsForDivision(this.editForm.division_id, 'edit');
+        }
         this.editForm.has_template = cat.has_template;
         this.editForm.template_name = cat.template_name || '';
         this.editForm.is_attachment_required = cat.is_attachment_required;
@@ -70,7 +168,10 @@
         const found = this.divisions.find(item => String(item.id) === String(id));
         if (!found) return 'Pilih divisi yang sudah dibuat.';
         const peak = found.peak ? ' · Puncak: ' + found.peak : '';
-        return found.chain.join(' → ') + peak;
+        if (found.roles && found.roles.length) {
+            return found.roles.map(r => r.name).join(' → ') + peak;
+        }
+        return (found.chain || []).map(rId => this.rolesMap[rId]?.name || rId).join(' → ') + peak;
     }
 }" >
 
@@ -162,8 +263,12 @@
                                         @if($idx > 0)
                                             <span class="text-slate-300 text-xs font-bold">&rarr;</span>
                                         @endif
-                                        <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold {{ $idx === 0 ? 'bg-slate-100 text-slate-700' : 'bg-indigo-50 text-indigo-700 border border-indigo-200/80' }}">
-                                            {{ $stepRole->name }}
+                                        @php
+                                            $isLead = str_contains(strtolower($stepRole->name), 'spv') || str_contains(strtolower($stepRole->name), 'supervisor')
+                                                || str_contains(strtolower($stepRole->name), 'kepala') || str_contains(strtolower($stepRole->name), 'head');
+                                        @endphp
+                                        <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold {{ $isLead ? 'bg-amber-50 text-amber-800 border border-amber-200/80' : ($idx === 0 ? 'bg-slate-100 text-slate-700' : 'bg-indigo-50 text-indigo-700 border border-indigo-200/80') }}">
+                                            {{ $isLead ? 'Pimpinan (' . $stepRole->name . ')' : $stepRole->name }}
                                         </span>
                                     @endforeach
                                 </div>
@@ -295,18 +400,64 @@
                 </div>
 
                 <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <label class="text-xs font-bold text-slate-800">Divisi penanganan</label>
+                    <label class="text-xs font-bold text-slate-800">1. Pilih Divisi Penanganan <span class="text-rose-500">*</span></label>
                     @if(($divisions ?? collect())->isEmpty())
-                        <p class="text-[11px] text-slate-500">Belum ada divisi. Buat dulu di Manajemen Divisi agar Kepala, SPV, dan staff terplot.</p>
+                        <p class="text-[11px] text-slate-500">Belum ada divisi. Buat dulu di Manajemen Divisi agar role divisi terplot.</p>
                     @else
-                        <select name="division_id" x-model="divisionId" required
-                                class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+                        <select name="division_id" x-model="divisionId" @change="onDivisionChange()" required
+                                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white">
                             @foreach($divisions as $division)
                                 <option value="{{ $division->id }}">{{ $division->name }}</option>
                             @endforeach
                         </select>
-                        <div class="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
-                            Plot: <strong class="text-slate-900" x-text="divisionPlot(divisionId)"></strong>
+
+                        <!-- 2. Hirarki Alur Penanganan Layanan -->
+                        <div class="mt-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="text-xs font-bold text-slate-900 block">2. Susun Hirarki Alur Layanan</label>
+                                    <p class="text-[11px] text-slate-500">Tentukan urutan role penangan tiket untuk layanan ini</p>
+                                </div>
+                                <button type="button" @click="addStep('new')"
+                                        class="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-semibold transition cursor-pointer">
+                                    + Tambah Tahap
+                                </button>
+                            </div>
+
+                            <template x-if="newSteps.length === 0">
+                                <p class="text-[11px] text-slate-400 italic">Belum ada tahapan alur. Klik '+ Tambah Tahap'.</p>
+                            </template>
+
+                            <div class="space-y-2">
+                                <template x-for="(stepId, idx) in newSteps" :key="idx">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-6 h-6 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0" x-text="idx + 1"></span>
+                                        <select name="workflow_roles[]" x-model="newSteps[idx]" required
+                                                class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+                                            <option value="">-- Pilih Role Divisi --</option>
+                                            <template x-for="r in getRolesForDivision(divisionId)" :key="r.id">
+                                                <option :value="r.id" x-text="(r.label || r.name) + (r.head_name ? ' (' + r.head_name + ')' : '')"></option>
+                                            </template>
+                                        </select>
+                                        <button type="button" @click="removeStep('new', idx)" x-show="newSteps.length > 1"
+                                                class="px-2 py-1 text-slate-400 hover:text-rose-600 font-bold transition cursor-pointer" title="Hapus tahap ini">
+                                            &times;
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <div class="pt-2 border-t border-slate-200/60 text-[11px] text-slate-600 flex items-center gap-1.5 flex-wrap">
+                                <span class="font-semibold text-slate-700">Alur:</span>
+                                <template x-for="(stepId, idx) in newSteps" :key="'prev-' + idx">
+                                    <span class="inline-flex items-center gap-1">
+                                        <span class="px-2 py-0.5 rounded-md font-semibold text-[10px]"
+                                              :class="isLeadershipRole(stepId, divisionId) ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-indigo-100 text-indigo-800'"
+                                              x-text="getStepBadgeLabel(stepId, divisionId)"></span>
+                                        <span x-show="idx < newSteps.length - 1" class="text-slate-400 font-bold">&rarr;</span>
+                                    </span>
+                                </template>
+                            </div>
                         </div>
                     @endif
                 </div>
@@ -396,19 +547,65 @@
                 </div>
 
                 <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <label class="text-xs font-bold text-slate-800">Divisi penanganan</label>
+                    <label class="text-xs font-bold text-slate-800">1. Divisi Penanganan</label>
                     @if(($divisions ?? collect())->isEmpty())
                         <p class="text-[11px] text-slate-500">Belum ada divisi. Buat dulu di Manajemen Divisi.</p>
                     @else
-                        <select name="division_id" x-model="editForm.division_id"
-                                class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
-                            <option value="">Biarkan plot yang sudah tersimpan</option>
+                        <select name="division_id" x-model="editForm.division_id" @change="onEditDivisionChange()"
+                                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white">
+                            <option value="">-- Tanpa Divisi Khusus --</option>
                             @foreach($divisions as $division)
                                 <option value="{{ $division->id }}">{{ $division->name }}</option>
                             @endforeach
                         </select>
-                        <div class="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
-                            Plot: <strong class="text-slate-900" x-text="divisionPlot(editForm.division_id)"></strong>
+
+                        <!-- Hirarki Khusus Layanan Ini -->
+                        <div class="mt-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="text-xs font-bold text-slate-900 block">2. Alur Hirarki Layanan</label>
+                                    <p class="text-[11px] text-slate-500">Sesuaikan urutan role penangan tiket untuk layanan ini</p>
+                                </div>
+                                <button type="button" @click="addStep('edit')"
+                                        class="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-semibold transition cursor-pointer">
+                                    + Tambah Tahap
+                                </button>
+                            </div>
+
+                            <template x-if="editForm.steps.length === 0">
+                                <p class="text-[11px] text-slate-400 italic">Belum ada tahapan alur. Klik '+ Tambah Tahap'.</p>
+                            </template>
+
+                            <div class="space-y-2">
+                                <template x-for="(stepId, idx) in editForm.steps" :key="idx">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-6 h-6 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0" x-text="idx + 1"></span>
+                                        <select name="workflow_roles[]" x-model="editForm.steps[idx]" required
+                                                class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+                                            <option value="">-- Pilih Role --</option>
+                                            <template x-for="r in getRolesForDivision(editForm.division_id)" :key="r.id">
+                                                <option :value="r.id" x-text="(r.label || r.name) + (r.head_name ? ' (' + r.head_name + ')' : '')"></option>
+                                            </template>
+                                        </select>
+                                        <button type="button" @click="removeStep('edit', idx)" x-show="editForm.steps.length > 1"
+                                                class="px-2 py-1 text-slate-400 hover:text-rose-600 font-bold transition cursor-pointer" title="Hapus tahap ini">
+                                            &times;
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <div class="pt-2 border-t border-slate-200/60 text-[11px] text-slate-600 flex items-center gap-1.5 flex-wrap">
+                                <span class="font-semibold text-slate-700">Alur:</span>
+                                <template x-for="(stepId, idx) in editForm.steps" :key="'edit-prev-' + idx">
+                                    <span class="inline-flex items-center gap-1">
+                                        <span class="px-2 py-0.5 rounded-md font-semibold text-[10px]"
+                                              :class="isLeadershipRole(stepId, editForm.division_id) ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-indigo-100 text-indigo-800'"
+                                              x-text="getStepBadgeLabel(stepId, editForm.division_id)"></span>
+                                        <span x-show="idx < editForm.steps.length - 1" class="text-slate-400 font-bold">&rarr;</span>
+                                    </span>
+                                </template>
+                            </div>
                         </div>
                     @endif
                 </div>

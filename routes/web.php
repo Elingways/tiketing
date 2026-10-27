@@ -56,6 +56,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/hierarchy', [HierarchyController::class, 'index'])->name('hierarchy');
         Route::post('/hierarchy/roles', [HierarchyController::class, 'storeRole'])->name('hierarchy.store');
         Route::post('/hierarchy/divisions', [HierarchyController::class, 'storeDivision'])->name('hierarchy.divisions.store');
+        Route::put('/hierarchy/divisions/{division}', [HierarchyController::class, 'updateDivision'])->name('hierarchy.divisions.update');
+        Route::delete('/hierarchy/divisions/{division}', [HierarchyController::class, 'destroyDivision'])->name('hierarchy.divisions.destroy');
         Route::get('/hierarchy/roles/{role}/staff', [HierarchyController::class, 'roleStaff'])->name('hierarchy.staff');
         Route::put('/hierarchy/roles/{role}/staff', [HierarchyController::class, 'syncStaff'])->name('hierarchy.staff.sync');
         Route::delete('/hierarchy/roles/{role}/staff/{user}', [HierarchyController::class, 'removeStaff'])->name('hierarchy.staff.destroy');
@@ -75,9 +77,11 @@ Route::middleware('auth')->group(function () {
         Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 
         Route::get('/roles', [RoleController::class, 'index'])->name('roles');
+        Route::get('/divisions', [RoleController::class, 'index'])->name('divisions');
 
         // Manajemen Pengguna per Role / Unit Divisi
         Route::get('/users', [UserController::class, 'index'])->name('users');
+        Route::get('/users/division/{division:slug}', [UserController::class, 'divisionUsers'])->name('users.division');
         Route::get('/users/role/{role:slug}', [UserController::class, 'roleUsers'])->name('users.role');
         Route::get('/users/employees', [UserController::class, 'employees'])->name('users.employees');
         Route::get('/users/students', fn () => redirect()->route('admin.users'))->name('users.students');

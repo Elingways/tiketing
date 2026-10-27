@@ -1511,6 +1511,260 @@ class TicketingHierarchyTest extends TestCase
         $this->assertSame([$role->id], array_map('intval', $category->workflow_roles));
         $this->assertSame($role->id, (int) $category->max_approval_role_id);
     }
+
+    public function test_create_division_first_then_add_roles_with_accounts_and_configure_service_hierarchy(): void
+    {
+        $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+
+        // 1. Buat Divisi terlebih dahulu
+        $this->actingAs($superuser)->post(route('admin.hierarchy.divisions.store'), [
+            'name' => 'Divisi Layanan IT',
+            'badge_color' => 'indigo',
+            'description' => 'Layanan infrastruktur & sistem IT',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $division = Division::where('name', 'Divisi Layanan IT')->firstOrFail();
+        $this->assertSame('Divisi Layanan IT', $division->name);
+        $this->assertSame('indigo', $division->badge_color);
+
+        // 2. Tambahkan Role & Akun Email di dalam Divisi tersebut
+        // Role Admin/Kepala IT
+        $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'division_id' => $division->id,
+            'name' => 'Admin Utama IT',
+            'badge_color' => 'indigo',
+            'can_create_ticket' => 1,
+            'can_receive_ticket' => 1,
+            'head_name' => 'Budi Admin',
+            'head_email' => 'budi.admin@kampus.ac.id',
+            'password' => 'password',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        // Role SPV IT
+        $adminRole = Role::where('name', 'Admin Utama IT')->firstOrFail();
+        $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'division_id' => $division->id,
+            'name' => 'Supervisor Jaringan',
+            'parent_id' => $adminRole->id,
+            'badge_color' => 'indigo',
+            'can_create_ticket' => 1,
+            'can_receive_ticket' => 1,
+            'head_name' => 'Citra SPV',
+            'head_email' => 'citra.spv@kampus.ac.id',
+            'password' => 'password',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        // Role Staff IT
+        $spvRole = Role::where('name', 'Supervisor Jaringan')->firstOrFail();
+        $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'division_id' => $division->id,
+            'name' => 'Staff Helpdesk IT',
+            'parent_id' => $spvRole->id,
+            'badge_color' => 'indigo',
+            'can_create_ticket' => 1,
+            'can_receive_ticket' => 1,
+            'head_name' => 'Doni Helpdesk',
+            'head_email' => 'doni.helpdesk@kampus.ac.id',
+            'password' => 'password',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $staffRole = Role::where('name', 'Staff Helpdesk IT')->firstOrFail();
+
+        // Pastikan role-role tersebut terhubung ke divisi
+        $this->assertSame($division->id, (int) $adminRole->division_id);
+        $this->assertSame($division->id, (int) $spvRole->division_id);
+        $this->assertSame($division->id, (int) $staffRole->division_id);
+
+        // Pastikan akun user dibuat
+        $budi = User::where('email', 'budi.admin@kampus.ac.id')->firstOrFail();
+        $this->assertSame($adminRole->id, $budi->role_id);
+        $this->assertSame('Divisi Layanan IT', $budi->department);
+
+        // 3. Tampilan Manajemen Divisi memuat divisi dan role-role miliknya
+        $this->actingAs($superuser)->get(route('admin.roles'))
+            ->assertOk()
+            ->assertSee('Divisi Layanan IT')
+            ->assertSee('Admin Utama IT')
+            ->assertSee('Supervisor Jaringan')
+            ->assertSee('Staff Helpdesk IT')
+            ->assertSee('budi.admin@kampus.ac.id')
+            ->assertSee('citra.spv@kampus.ac.id')
+            ->assertSee('doni.helpdesk@kampus.ac.id');
+
+        // 4. Buat Kategori Layanan dengan alur hirarki tersendiri dari role divisi (Staff -> SPV -> Admin)
+        $this->actingAs($superuser)->post(route('admin.categories.store'), [
+            'name' => 'Layanan Internet & WiFi',
+            'workflow_type' => 'tiered_approval',
+            'division_id' => $division->id,
+            'workflow_roles' => [$staffRole->id, $spvRole->id, $adminRole->id],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $wifiCategory = TicketCategory::where('name', 'Layanan Internet & WiFi')->firstOrFail();
+        $this->assertSame($division->id, (int) $wifiCategory->division_id);
+        $this->assertSame([$staffRole->id, $spvRole->id, $adminRole->id], array_map('intval', $wifiCategory->workflow_roles));
+        $this->assertSame($staffRole->id, (int) $wifiCategory->initial_target_role_id);
+        $this->assertSame($adminRole->id, (int) $wifiCategory->max_approval_role_id);
+
+        // 5. Buat Layanan kedua di divisi yang sama dengan alur berbeda (hanya Staff -> Admin, tanpa SPV)
+        $this->actingAs($superuser)->post(route('admin.categories.store'), [
+            'name' => 'Reset Akun Email Kampus',
+            'workflow_type' => 'escalation',
+            'division_id' => $division->id,
+            'workflow_roles' => [$staffRole->id, $adminRole->id],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $resetCategory = TicketCategory::where('name', 'Reset Akun Email Kampus')->firstOrFail();
+        $this->assertSame($division->id, (int) $resetCategory->division_id);
+        $this->assertSame([$staffRole->id, $adminRole->id], array_map('intval', $resetCategory->workflow_roles));
+        $this->assertSame($staffRole->id, (int) $resetCategory->initial_target_role_id);
+        $this->assertSame($adminRole->id, (int) $resetCategory->max_approval_role_id);
+    }
+
+    public function test_shared_division_leadership_inbox_and_dispatch_to_staff(): void
+    {
+        $superuserRole = Role::firstOrCreate(['slug' => 'superuser'], [
+            'name' => 'Superuser',
+            'is_superuser' => true,
+            'can_create_ticket' => true,
+            'can_receive_ticket' => true,
+        ]);
+
+        $superuser = User::factory()->create([
+            'role_id' => $superuserRole->id,
+            'email' => 'su.shared@kampus.ac.id',
+        ]);
+
+        $mhsRole = Role::firstOrCreate(['slug' => 'mahasiswa'], [
+            'name' => 'Mahasiswa',
+            'can_create_ticket' => true,
+            'can_receive_ticket' => false,
+        ]);
+
+        $mhs = User::factory()->create([
+            'role_id' => $mhsRole->id,
+            'email' => 'mhs.shared@kampus.ac.id',
+        ]);
+
+        // 1. Buat Divisi IT
+        $this->actingAs($superuser)->post(route('admin.hierarchy.divisions.store'), [
+            'name' => 'Divisi Rekomendasi IT',
+            'badge_color' => 'indigo',
+            'description' => 'Divisi penanganan sistem informasi',
+        ])->assertRedirect();
+
+        $division = Division::where('name', 'Divisi Rekomendasi IT')->firstOrFail();
+
+        // 2. Tambah Role & Akun Pimpinan (Kepala Deny & SPV Ardy) serta Staff Syahrul
+        $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'division_id' => $division->id,
+            'name' => 'Kepala IT',
+            'badge_color' => 'indigo',
+            'head_name' => 'Pak Deny',
+            'head_email' => 'deny.kepala@kampus.ac.id',
+            'password' => 'secret123',
+            'can_create_ticket' => '1',
+            'can_receive_ticket' => '1',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'division_id' => $division->id,
+            'name' => 'SPV IT',
+            'badge_color' => 'indigo',
+            'head_name' => 'Pak Ardy',
+            'head_email' => 'ardy.spv@kampus.ac.id',
+            'password' => 'secret123',
+            'can_create_ticket' => '1',
+            'can_receive_ticket' => '1',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->actingAs($superuser)->post(route('admin.hierarchy.store'), [
+            'division_id' => $division->id,
+            'name' => 'Staff IT',
+            'badge_color' => 'indigo',
+            'head_name' => 'Syahrul Pelaksana',
+            'head_email' => 'syahrul.staff@kampus.ac.id',
+            'password' => 'secret123',
+            'can_create_ticket' => '1',
+            'can_receive_ticket' => '1',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $headRole = Role::where('name', 'Kepala IT')->firstOrFail();
+        $spvRole = Role::where('name', 'SPV IT')->firstOrFail();
+        $staffRole = Role::where('name', 'Staff IT')->firstOrFail();
+
+        $deny = User::where('email', 'deny.kepala@kampus.ac.id')->firstOrFail();
+        $ardy = User::where('email', 'ardy.spv@kampus.ac.id')->firstOrFail();
+        $syahrul = User::where('email', 'syahrul.staff@kampus.ac.id')->firstOrFail();
+
+        // 3. Konfigurasi Kategori Layanan: Tahap 1 Pimpinan (SPV/Kepala), Tahap 2 Staff
+        $this->actingAs($superuser)->post(route('admin.categories.store'), [
+            'name' => 'Perbaikan SIAKAD Shared',
+            'workflow_type' => 'tiered_approval',
+            'division_id' => $division->id,
+            'workflow_roles' => [$spvRole->id, $staffRole->id],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $category = TicketCategory::where('name', 'Perbaikan SIAKAD Shared')->firstOrFail();
+        $this->assertSame($spvRole->id, (int) $category->initial_target_role_id);
+
+        // 4. Mahasiswa Mengajukan Tiket
+        $this->actingAs($mhs)->post(route('tickets.store'), [
+            'title' => 'Error KRS SIAKAD Tidak Muncul',
+            'category_id' => $category->id,
+            'description' => 'Menu KRS tidak muncul saat masa pengisian kartu rencana studi.',
+            'priority_rank' => 2,
+        ])->assertRedirect();
+
+        $ticket = Ticket::where('title', 'Error KRS SIAKAD Tidak Muncul')->firstOrFail();
+        $this->assertSame($spvRole->id, (int) $ticket->current_role_id);
+        $this->assertSame('open', $ticket->status);
+
+        // 5. SHARED INBOX: Baik SPV Ardy maupun Kepala Deny BISA melihat tiket ini di Inbox mereka!
+        $this->actingAs($ardy)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Error KRS SIAKAD Tidak Muncul');
+
+        $this->actingAs($deny)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Error KRS SIAKAD Tidak Muncul');
+
+        // 6. SPV Ardy membuka tiket, melihat Syahrul di daftar staf, dan mendisposisikan ke Syahrul
+        $showResponse = $this->actingAs($ardy)->get(route('tickets.show', $ticket));
+        $showResponse->assertOk();
+        $this->assertTrue($ticket->canBeHandledBy($ardy));
+        $this->assertTrue($ticket->canBeHandledBy($deny));
+
+        $this->actingAs($ardy)->post(route('tickets.action', $ticket), [
+            'action_type' => 'in_progress',
+            'assigned_user_id' => $syahrul->id,
+            'priority_rank' => 1,
+            'note' => 'Tolong dicek query database KRS segera ya Mas Syahrul.',
+        ])->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertSame('in_progress', $ticket->status);
+        $this->assertSame($syahrul->id, (int) $ticket->assigned_user_id);
+
+        // 7. Staf Syahrul melihat tiket di inboxnya dan melaporkan progres pengerjaan
+        $this->actingAs($syahrul)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('Error KRS SIAKAD Tidak Muncul');
+
+        $this->actingAs($syahrul)->post(route('tickets.action', $ticket), [
+            'action_type' => 'in_progress',
+            'progress_percent' => 75,
+            'note' => 'Sudah diperbaiki indexing tabel KRS, sedang verifikasi akun mahasiswa.',
+        ])->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertSame(75, (int) $ticket->progress_percent);
+
+        // 8. Kepala Deny memonitor tiket Syahrul dan melihat progres 75%
+        $this->actingAs($deny)->get(route('tickets.show', $ticket))
+            ->assertOk()
+            ->assertSee('75%')
+            ->assertSee('Syahrul Pelaksana');
+    }
 }
 
 

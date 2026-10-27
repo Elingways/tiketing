@@ -29,27 +29,70 @@ class AppServiceProvider extends ServiceProvider
                 $user->loadMissing(['role.parent', 'role.children']);
                 $accessibleMenus = $user->accessibleMenus();
 
-                // Hubungkan role-role yang ditambahkan Superadmin sebagai sub-menu dinamis di bawah Manajemen Pengguna
+                // Hubungkan divisi / role sebagai sub-menu dinamis di bawah Manajemen Pengguna
                 if (Schema::hasTable('roles')) {
                     $adminUsersMenu = $accessibleMenus->firstWhere('slug', 'admin-users');
                     if ($adminUsersMenu) {
-                        $roleItems = \App\Models\Role::where('is_superuser', false)
-                            ->withCount('users')
-                            ->orderBy('name')
-                            ->get()
-                            ->map(function ($r) {
+                        $hasDivisions = Schema::hasTable('divisions') && \App\Models\Division::exists();
+                        if ($hasDivisions) {
+                            $divisions = \App\Models\Division::orderBy('name')->get();
+                            $divisionItems = $divisions->map(function ($d) {
+                                $userCount = \App\Models\User::whereHas('role', fn ($q) => $q->where('division_id', $d->id))
+                                    ->orWhereIn('id', function ($query) use ($d) {
+                                        $query->select('user_id')->from('division_user')->where('division_id', $d->id);
+                                    })
+                                    ->count();
+
                                 return new \App\Models\Menu([
-                                    'name' => $r->name,
-                                    'slug' => 'role-users-' . $r->slug,
-                                    'route_name' => '/admin/users/role/' . $r->slug,
-                                    'icon' => $r->icon ?: 'user-group',
-                                    'color' => $r->badge_color ?: 'indigo',
-                                    'badge_text' => (string) ($r->users_count ?: '0'),
+                                    'name' => $d->name,
+                                    'slug' => 'division-users-' . $d->slug,
+                                    'route_name' => '/admin/users/division/' . $d->slug,
+                                    'icon' => 'building-office',
+                                    'color' => $d->badge_color ?: 'indigo',
+                                    'badge_text' => (string) $userCount,
                                     'show_in_sidebar' => true,
                                     'is_active' => true,
                                 ]);
                             });
-                        $adminUsersMenu->setRelation('children', $roleItems);
+
+                            $standaloneRoles = \App\Models\Role::where('is_superuser', false)
+                                ->whereNull('division_id')
+                                ->withCount('users')
+                                ->orderBy('name')
+                                ->get()
+                                ->map(function ($r) {
+                                    return new \App\Models\Menu([
+                                        'name' => $r->name,
+                                        'slug' => 'role-users-' . $r->slug,
+                                        'route_name' => '/admin/users/role/' . $r->slug,
+                                        'icon' => $r->icon ?: 'user-group',
+                                        'color' => $r->badge_color ?: 'indigo',
+                                        'badge_text' => (string) ($r->users_count ?: '0'),
+                                        'show_in_sidebar' => true,
+                                        'is_active' => true,
+                                    ]);
+                                });
+
+                            $adminUsersMenu->setRelation('children', $divisionItems->concat($standaloneRoles));
+                        } else {
+                            $roleItems = \App\Models\Role::where('is_superuser', false)
+                                ->withCount('users')
+                                ->orderBy('name')
+                                ->get()
+                                ->map(function ($r) {
+                                    return new \App\Models\Menu([
+                                        'name' => $r->name,
+                                        'slug' => 'role-users-' . $r->slug,
+                                        'route_name' => '/admin/users/role/' . $r->slug,
+                                        'icon' => $r->icon ?: 'user-group',
+                                        'color' => $r->badge_color ?: 'indigo',
+                                        'badge_text' => (string) ($r->users_count ?: '0'),
+                                        'show_in_sidebar' => true,
+                                        'is_active' => true,
+                                    ]);
+                                });
+                            $adminUsersMenu->setRelation('children', $roleItems);
+                        }
                     }
                 }
 

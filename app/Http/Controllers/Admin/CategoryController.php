@@ -14,13 +14,18 @@ class CategoryController extends Controller
 {
     public function index()
     {
-        $categories = TicketCategory::with(['initialTargetRole.parent', 'maxApprovalRole', 'division.headRole.head'])
+        $categories = TicketCategory::with([
+            'initialTargetRole.parent',
+            'maxApprovalRole',
+            'division.headRole.head',
+            'division.roles',
+        ])
             ->withCount('tickets')
             ->latest()
             ->get();
 
         $roles = Role::where('is_superuser', false)
-            ->with(['priorityRoutes.user:id,name', 'head:id,name'])
+            ->with(['priorityRoutes.user:id,name', 'head:id,name', 'division:id,name'])
             ->withCount('users')
             ->orderByDesc('level')
             ->orderBy('name')
@@ -28,7 +33,12 @@ class CategoryController extends Controller
 
         $roles->whereNotNull('head_user_id')->load(['users:id,role_id,name,keahlian']);
 
-        $divisions = Division::with(['headRole.head:id,name', 'spvRole.head:id,name', 'staffRole'])->orderBy('name')->get();
+        $divisions = Division::with([
+            'roles' => fn ($q) => $q->orderBy('level')->orderBy('name')->with('head:id,name'),
+            'headRole.head:id,name',
+            'spvRole.head:id,name',
+            'staffRole',
+        ])->orderBy('name')->get();
 
         return view('admin.categories', compact('categories', 'roles', 'divisions'));
     }
@@ -177,18 +187,18 @@ class CategoryController extends Controller
      */
     private function resolveServicePlot(array $validated, ?int $initialTargetRoleId, ?int $maxApprovalRoleId): array
     {
-        if (!empty($validated['division_id'])) {
-            $division = Division::findOrFail($validated['division_id']);
-            $workflowRoles = $division->workflowRoleIds();
-
-            return [$workflowRoles, $workflowRoles[0], $workflowRoles[array_key_last($workflowRoles)], $division->id];
-        }
+        $divisionId = !empty($validated['division_id']) ? (int) $validated['division_id'] : null;
 
         $workflowRoles = collect($validated['workflow_roles'] ?? [])
             ->filter(fn ($id) => !empty($id))
             ->map(fn ($id) => (int) $id)
             ->values()
             ->all();
+
+        if (empty($workflowRoles) && $divisionId) {
+            $division = Division::find($divisionId);
+            $workflowRoles = $division ? $division->workflowRoleIds() : [];
+        }
 
         if (!empty($workflowRoles)) {
             $rolesById = Role::whereIn('id', $workflowRoles)->get()->keyBy('id');
@@ -197,11 +207,11 @@ class CategoryController extends Controller
                 ? $orderedRoles->slice(1)->values()
                 : $orderedRoles;
 
-            $initialTargetRoleId = $recipientRoles->first()?->id ?? $initialTargetRoleId;
-            $maxApprovalRoleId = $recipientRoles->last()?->id ?? $maxApprovalRoleId;
+            $initialTargetRoleId = $recipientRoles->first()?->id ?? $workflowRoles[0];
+            $maxApprovalRoleId = $recipientRoles->last()?->id ?? end($workflowRoles);
         }
 
-        return [$workflowRoles, $initialTargetRoleId, $maxApprovalRoleId, null];
+        return [$workflowRoles, $initialTargetRoleId, $maxApprovalRoleId, $divisionId];
     }
 }
 

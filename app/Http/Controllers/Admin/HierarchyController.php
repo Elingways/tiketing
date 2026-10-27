@@ -29,6 +29,7 @@ class HierarchyController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:80'],
+            'division_id' => ['nullable', 'exists:divisions,id'],
             'parent_id' => ['nullable', 'exists:roles,id'],
             'badge_color' => ['required', 'string', 'in:indigo,emerald,amber,rose,violet,sky,teal,fuchsia'],
             'description' => ['nullable', 'string', 'max:300'],
@@ -36,6 +37,7 @@ class HierarchyController extends Controller
             'can_receive_ticket' => ['nullable', 'boolean'],
             'head_name' => ['nullable', 'string', 'max:150'],
             'head_email' => ['nullable', 'email', 'max:150', 'unique:users,email'],
+            'password' => ['nullable', 'string', 'min:6'],
         ], [
             'head_email.unique' => 'Email pemegang role sudah digunakan oleh akun lain.',
         ]);
@@ -53,6 +55,7 @@ class HierarchyController extends Controller
             $role = Role::create([
                 'name' => $validated['name'],
                 'slug' => $slug,
+                'division_id' => ($validated['division_id'] ?? null) ?: null,
                 'parent_id' => ($validated['parent_id'] ?? null) ?: null,
                 'badge_color' => $validated['badge_color'],
                 'icon' => 'user-group',
@@ -67,15 +70,42 @@ class HierarchyController extends Controller
                 $headUser = User::create([
                     'name' => trim($validated['head_name']),
                     'email' => strtolower(trim($validated['head_email'])),
-                    'password' => 'password',
+                    'password' => $request->filled('password') ? trim($request->password) : 'password',
                     'role_id' => $role->id,
                     'user_type' => 'admin',
                     'status_akademik' => 'Aktif',
                     'jabatan' => 'Kepala ' . $role->name,
-                    'department' => $role->name,
+                    'department' => $role->division?->name ?? $role->name,
                     'avatar_color' => $role->badge_color ?: 'indigo',
                 ]);
                 $role->update(['head_user_id' => $headUser->id]);
+
+                if ($role->division_id) {
+                    $division = $role->division;
+                    if ($division) {
+                        $lower = strtolower($role->name);
+                        $pos = 'staff';
+                        if (str_contains($lower, 'kepala') || str_contains($lower, 'head') || str_contains($lower, 'admin')) {
+                            $pos = 'head';
+                            if (!$division->head_role_id) {
+                                $division->update(['head_role_id' => $role->id]);
+                            }
+                        } elseif (str_contains($lower, 'spv') || str_contains($lower, 'supervisor')) {
+                            $pos = 'spv';
+                            if (!$division->spv_role_id) {
+                                $division->update(['spv_role_id' => $role->id]);
+                            }
+                        } else {
+                            if (!$division->staff_role_id) {
+                                $division->update(['staff_role_id' => $role->id]);
+                            }
+                        }
+                        $division->members()->firstOrCreate(
+                            ['user_id' => $headUser->id],
+                            ['position' => $pos]
+                        );
+                    }
+                }
             }
 
             // Fallback backward-compatible jika ada staff dikirim
@@ -106,6 +136,64 @@ class HierarchyController extends Controller
     }
 
     public function storeDivision(Request $request)
+    {
+        if ($request->filled('head_user_id') && $request->filled('spv_user_id')) {
+            return $this->storeDivisionLegacyPlot($request);
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:80'],
+            'badge_color' => ['required', 'string', 'in:indigo,emerald,amber,rose,violet,sky,teal,fuchsia'],
+            'description' => ['nullable', 'string', 'max:300'],
+        ]);
+
+        $base = Str::slug($validated['name']);
+        if ($base === '' || Division::where('slug', $base)->exists()) {
+            $base .= '-'.rand(10, 99);
+        }
+
+        $division = Division::create([
+            'name' => $validated['name'],
+            'slug' => $base,
+            'badge_color' => $validated['badge_color'],
+            'description' => $validated['description'] ?? null,
+        ]);
+
+        return back()->with('success', "Divisi '{$division->name}' berhasil dibuat! Selanjutnya silakan tambahkan role dan akun untuk divisi ini.");
+    }
+
+    public function updateDivision(Request $request, Division $division)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:80'],
+            'badge_color' => ['required', 'string', 'in:indigo,emerald,amber,rose,violet,sky,teal,fuchsia'],
+            'description' => ['nullable', 'string', 'max:300'],
+        ]);
+
+        $division->update([
+            'name' => $validated['name'],
+            'badge_color' => $validated['badge_color'],
+            'description' => $validated['description'] ?? null,
+        ]);
+
+        return back()->with('success', "Data Divisi '{$division->name}' berhasil diperbarui.");
+    }
+
+    public function destroyDivision(Division $division)
+    {
+        if ($division->categories()->exists()) {
+            return back()->with('error', "Divisi '{$division->name}' tidak dapat dihapus karena masih digunakan oleh beberapa Kategori Layanan.");
+        }
+
+        $division->roles()->update(['division_id' => null]);
+        $division->members()->delete();
+        $name = $division->name;
+        $division->delete();
+
+        return back()->with('success', "Divisi '{$name}' berhasil dihapus.");
+    }
+
+    private function storeDivisionLegacyPlot(Request $request)
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:80'],
@@ -304,6 +392,7 @@ class HierarchyController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:80'],
+            'division_id' => ['nullable', 'exists:divisions,id'],
             'parent_id' => ['nullable', 'exists:roles,id'],
             'badge_color' => ['required', 'string', 'in:indigo,emerald,amber,rose,violet,sky,teal,fuchsia'],
             'description' => ['nullable', 'string', 'max:300'],
@@ -319,6 +408,7 @@ class HierarchyController extends Controller
 
         $role->update([
             'name' => $validated['name'],
+            'division_id' => ($validated['division_id'] ?? null) ?: null,
             'parent_id' => $newParentId,
             'badge_color' => $validated['badge_color'],
             'description' => $validated['description'],

@@ -123,6 +123,44 @@ class User extends Authenticatable
     }
 
     /**
+     * Divisi tempat user bernaung
+     */
+    public function division(): ?Division
+    {
+        if ($this->role?->division_id) {
+            return $this->role->division;
+        }
+
+        $member = DivisionMember::with('division')->where('user_id', $this->id)->first();
+        return $member?->division;
+    }
+
+    /**
+     * Cek apakah user adalah bagian dari pimpinan divisi (Kepala Divisi atau SPV)
+     */
+    public function isDivisionLeader(?Division $targetDivision = null): bool
+    {
+        if ($this->isSuperuser()) {
+            return true;
+        }
+
+        $division = $targetDivision ?? $this->division();
+        if (!$division) {
+            return false;
+        }
+
+        $leadershipRoleIds = $division->leadershipRoleIds();
+        if ($this->role_id && in_array((int) $this->role_id, $leadershipRoleIds, true)) {
+            return true;
+        }
+
+        return DivisionMember::where('division_id', $division->id)
+            ->where('user_id', $this->id)
+            ->whereIn('position', ['head', 'spv'])
+            ->exists();
+    }
+
+    /**
      * Ambil daftar menu dinamis yang berhak diakses oleh role user saat ini
      */
     public function accessibleMenus(): Collection

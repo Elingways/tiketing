@@ -427,9 +427,24 @@ class TicketController extends Controller
         } else {
             $headId = $user->role?->head_user_id;
             $isHead = $headId && (int) $headId === (int) $user->id;
-            if ($isHead) {
-                $query->where('current_role_id', $user->role_id)
-                    ->whereNotIn('status', ['resolved', 'rejected', 'closed']);
+            $userDivision = $user->division();
+
+            if ($userDivision && $user->isDivisionLeader($userDivision)) {
+                // Shared Inbox Pimpinan Divisi:
+                // Kepala Divisi dan SPV bersama-sama melihat tiket divisi di tahap pimpinan
+                $leadershipRoleIds = $userDivision->leadershipRoleIds();
+                $query->where(function ($q) use ($user, $userDivision, $leadershipRoleIds) {
+                    $q->where(function ($sub) use ($userDivision, $leadershipRoleIds) {
+                        $sub->whereHas('category', fn ($c) => $c->where('division_id', $userDivision->id))
+                            ->whereIn('current_role_id', $leadershipRoleIds);
+                    })->orWhere('current_role_id', $user->role_id)
+                      ->orWhere('assigned_user_id', $user->id);
+                })->whereNotIn('status', ['resolved', 'rejected', 'closed']);
+            } elseif ($isHead) {
+                $query->where(function ($q) use ($user) {
+                    $q->where('current_role_id', $user->role_id)
+                        ->orWhere('assigned_user_id', $user->id);
+                })->whereNotIn('status', ['resolved', 'rejected', 'closed']);
             } elseif ($user->role?->slug === 'admin-it') {
                 $itRoleIds = Role::whereIn('slug', ['admin-it', 'supervisor-it'])->pluck('id')->toArray();
                 $query->whereIn('current_role_id', $itRoleIds)
@@ -953,8 +968,14 @@ class TicketController extends Controller
         $roleStaff = collect();
         $canDirect = $ticket->canBeDirectedBy($user);
         $canSetAchievement = $ticket->canSetAchievementPoints($user);
-        if ($canDirect && $ticket->currentRole?->head_user_id) {
-            $roleStaff = $ticket->currentRole->assignableStaffUsers();
+        if ($canDirect) {
+            $division = $ticket->category?->division ?? $user->division();
+            if ($division) {
+                $roleStaff = $division->staffUsers();
+            }
+            if ($roleStaff->isEmpty() && $ticket->currentRole?->head_user_id) {
+                $roleStaff = $ticket->currentRole->assignableStaffUsers();
+            }
         }
 
         return view('tickets.show', compact(
@@ -1598,11 +1619,21 @@ class TicketController extends Controller
             return 'Tinjau permintaan tiket dulu, lalu pilih staff yang keahliannya cocok.';
         }
 
-        $assignableStaff = $ticket->currentRole
-            ? $ticket->currentRole->assignableStaffUsers()
-            : collect();
+        $division = $ticket->category?->division ?? $actor->division();
+        $assignableStaff = $division
+            ? $division->staffUsers()
+            : ($ticket->currentRole ? $ticket->currentRole->assignableStaffUsers() : collect());
+
         $staff = $assignableStaff->firstWhere('id', (int) $chosenStaffId)
             ?? User::whereKey($chosenStaffId)->where('role_id', $ticket->current_role_id)->first();
+
+        if (!$staff && $division) {
+            $candidate = User::with('role')->find($chosenStaffId);
+            if ($candidate && (int) $candidate->role?->division_id === (int) $division->id) {
+                $staff = $candidate;
+            }
+        }
+
         if (!$staff) {
             return 'Staff yang dipilih bukan anggota role ini.';
         }

@@ -22,6 +22,7 @@ class Role extends Model
         'can_create_ticket',
         'can_receive_ticket',
         'head_user_id',
+        'division_id',
     ];
 
     protected $casts = [
@@ -29,6 +30,11 @@ class Role extends Model
         'can_create_ticket' => 'boolean',
         'can_receive_ticket' => 'boolean',
     ];
+
+    public function division(): BelongsTo
+    {
+        return $this->belongsTo(Division::class);
+    }
 
     /**
      * Role atasan langsung (Parent di dalam hirarki, misal Mahasiswa -> Dosen -> Kaprodi)

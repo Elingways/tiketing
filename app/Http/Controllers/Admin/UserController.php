@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Division;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -10,10 +11,15 @@ use Illuminate\Http\Request;
 class UserController extends Controller
 {
     /**
-     * Redirect to the first operational role's user management page.
+     * Redirect to the first operational division's or role's user management page.
      */
     public function index()
     {
+        if (Division::exists()) {
+            $firstDivision = Division::first();
+            return redirect()->route('admin.users.division', $firstDivision->slug);
+        }
+
         $firstRole = Role::where('is_superuser', false)
             ->whereHas('users')
             ->first() ?? Role::where('is_superuser', false)->first();
@@ -23,6 +29,90 @@ class UserController extends Controller
         }
 
         return redirect()->route('admin.roles');
+    }
+
+    /**
+     * Display users table for a specific division with profile modal and password reset.
+     */
+    public function divisionUsers(Request $request, Division $division)
+    {
+        $search = trim((string) $request->input('search', ''));
+        $statusFilter = trim((string) $request->input('status', ''));
+        $roleFilter = trim((string) $request->input('role_id', ''));
+
+        $allDivisions = Division::orderBy('name')->get();
+        $divisionRoles = $division->roles()->orderBy('level')->orderBy('name')->get();
+        if ($divisionRoles->isEmpty()) {
+            $divisionRoles = collect([$division->staffRole, $division->spvRole, $division->headRole])->filter()->unique('id');
+        }
+
+        $divisionRoleIds = $divisionRoles->pluck('id')->all();
+
+        $query = User::query()
+            ->where(function ($q) use ($division, $divisionRoleIds) {
+                if (!empty($divisionRoleIds)) {
+                    $q->whereIn('role_id', $divisionRoleIds);
+                } else {
+                    $q->whereRaw('0 = 1');
+                }
+                $q->orWhereIn('id', function ($sub) use ($division) {
+                    $sub->select('user_id')->from('division_user')->where('division_id', $division->id);
+                });
+            })
+            ->with(['role'])
+            ->withCount([
+                'assignedTickets as active_tickets_count' => function ($q) {
+                    $q->whereNotIn('status', ['resolved', 'rejected', 'closed']);
+                },
+                'assignedTickets as completed_tickets_count' => function ($q) {
+                    $q->whereIn('status', ['resolved', 'closed']);
+                },
+                'createdTickets as created_tickets_count',
+            ]);
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('jabatan', 'like', "%{$search}%")
+                  ->orWhere('keahlian', 'like', "%{$search}%")
+                  ->orWhere('identity_number', 'like', "%{$search}%");
+            });
+        }
+
+        if ($statusFilter !== '') {
+            $query->where('status_akademik', $statusFilter);
+        }
+
+        if ($roleFilter !== '') {
+            $query->where('role_id', $roleFilter);
+        }
+
+        $users = $query->orderBy('name')
+            ->paginate(15)
+            ->appends($request->query());
+
+        $totalUsers = (clone $query)->count();
+        $totalActiveStaff = (clone $query)->where('status_akademik', 'Aktif')->count();
+
+        $headMember = $division->members->firstWhere('position', 'head');
+        $spvMember = $division->members->firstWhere('position', 'spv');
+        $headUser = $headMember?->user ?? $division->headRole?->head;
+        $spvUser = $spvMember?->user ?? $division->spvRole?->head;
+
+        return view('admin.users.division', compact(
+            'division',
+            'allDivisions',
+            'divisionRoles',
+            'users',
+            'headUser',
+            'spvUser',
+            'totalUsers',
+            'totalActiveStaff',
+            'search',
+            'statusFilter',
+            'roleFilter'
+        ));
     }
 
     /**

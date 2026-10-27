@@ -14,6 +14,8 @@ class RoleController extends Controller
     {
         $roles = Role::where('is_superuser', false)
             ->with([
+                'division:id,name,badge_color',
+                'parent:id,name',
                 'head:id,name,email',
                 'users:id,role_id,name,email,keahlian',
             ])
@@ -23,10 +25,12 @@ class RoleController extends Controller
             ->get();
 
         $divisions = Division::with([
-            'headRole:id,name',
-            'spvRole:id,name',
-            'staffRole:id,name',
-            'members.user:id,name',
+            'roles' => fn ($query) => $query->withCount('users')->with('head:id,name,email', 'users:id,role_id,name,email,keahlian'),
+            'categories:id,division_id,name',
+            'headRole.head:id,name,email',
+            'spvRole.head:id,name,email',
+            'staffRole',
+            'members.user:id,name,email',
         ])->orderBy('name')->get();
 
         $people = User::query()

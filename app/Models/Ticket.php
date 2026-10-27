@@ -193,6 +193,17 @@ class Ticket extends Model
             return true;
         }
 
+        // Shared Inbox Pimpinan Divisi:
+        // Jika tiket berada di tahap kepemimpinan divisi (SPV atau Kepala),
+        // maka baik Kepala maupun SPV di divisi tersebut berhak menangani tiket.
+        $division = $this->category?->division;
+        if ($division && $user->isDivisionLeader($division)) {
+            $leadershipIds = $division->leadershipRoleIds();
+            if (in_array((int) $this->current_role_id, $leadershipIds, true)) {
+                return true;
+            }
+        }
+
         if ((int) $user->role_id !== (int) $this->current_role_id) {
             return false;
         }
@@ -215,6 +226,11 @@ class Ticket extends Model
             return true;
         }
 
+        $division = $this->category?->division;
+        if ($division && $user->isDivisionLeader($division)) {
+            return true;
+        }
+
         $headId = $this->currentRole?->head_user_id;
 
         return $headId && (int) $user->id === (int) $headId;
@@ -228,6 +244,15 @@ class Ticket extends Model
 
         if ($user->isSuperuser() || $user->isAdminIt()) {
             return true;
+        }
+
+        // Pimpinan divisi (Kepala & SPV) dapat mendisposisikan/mengarahkan tiket jika masih di tahap pimpinan
+        $division = $this->category?->division;
+        if ($division && $user->isDivisionLeader($division)) {
+            $leadershipIds = $division->leadershipRoleIds();
+            if (in_array((int) $this->current_role_id, $leadershipIds, true)) {
+                return true;
+            }
         }
 
         $headId = $this->currentRole?->head_user_id;
