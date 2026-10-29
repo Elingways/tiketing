@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DivisionMember;
 use App\Models\Role;
 use App\Models\RolePriorityRoute;
 use App\Models\Ticket;
@@ -198,10 +199,11 @@ class TicketController extends Controller
         }
         $start = \Carbon\Carbon::createFromFormat('Y-m-d', $month.'-01')->startOfMonth();
         $end = $start->copy()->endOfMonth();
-        $isHead = $user->role && (int) $user->role->head_user_id === (int) $user->id;
-        $allowed = $isHead || $user->isSuperuser();
 
-        $role = $user->role;
+        $monitored = $this->resolveMonitoredStaffRole($user);
+        $allowed = $monitored['allowed'];
+        $role = $monitored['role'];
+
         if ($allowed && $user->isSuperuser() && $request->filled('role_id')) {
             $role = Role::find($request->query('role_id')) ?? $role;
         }
@@ -295,6 +297,40 @@ class TicketController extends Controller
             'tickets' => $tickets,
             'staffRows' => $staffRows,
             'summary' => $summary,
+        ];
+    }
+
+    /**
+     * Role operasional yang dipantau di laporan bulanan.
+     * Kepala/SPV divisi memantau role staff divisi (contoh: Admin IT),
+     * kepala role klasik tetap memantau role-nya sendiri.
+     *
+     * @return array{allowed: bool, role: ?Role}
+     */
+    private function resolveMonitoredStaffRole(User $user): array
+    {
+        if ($user->isSuperuser()) {
+            return ['allowed' => true, 'role' => $user->role];
+        }
+
+        $divisionMembership = DivisionMember::query()
+            ->with(['division.staffRole'])
+            ->where('user_id', $user->id)
+            ->whereIn('position', ['head', 'spv'])
+            ->first();
+
+        if ($divisionMembership?->division?->staffRole) {
+            return [
+                'allowed' => true,
+                'role' => $divisionMembership->division->staffRole,
+            ];
+        }
+
+        $isRoleHead = $user->role && (int) $user->role->head_user_id === (int) $user->id;
+
+        return [
+            'allowed' => $isRoleHead,
+            'role' => $isRoleHead ? $user->role : $user->role,
         ];
     }
 
@@ -392,11 +428,144 @@ class TicketController extends Controller
                 ->values();
         });
 
-        $canSeeFullRanking = Role::whereIn('slug', ['admin-it', 'admin'])
-            ->where('head_user_id', $user->id)
+        $isDivisionHead = DivisionMember::query()
+            ->where('user_id', $user->id)
+            ->where('position', 'head')
             ->exists();
+        $isDivisionStaff = DivisionMember::query()
+            ->where('user_id', $user->id)
+            ->where('position', 'staff')
+            ->exists();
+        $isLegacyItHead = ! $isDivisionStaff
+            && Role::whereIn('slug', ['admin-it', 'admin'])
+                ->where('head_user_id', $user->id)
+                ->exists();
 
-        return view('tickets.workload', compact('user', 'groups', 'ranking', 'canSeeFullRanking'));
+        // Podium penuh hanya Kepala Divisi. Staff divisi selalu hanya lihat peringkat sendiri.
+        $canSeeFullRanking = $isDivisionHead || $isLegacyItHead;
+
+        $myContribution = $this->buildPersonalContribution($user);
+
+        return view('tickets.workload', compact('user', 'groups', 'ranking', 'canSeeFullRanking', 'myContribution'));
+    }
+
+    /**
+     * Grafik kontribusi milik user yang login saja, 12 bulan seperti GitHub.
+     * Intensitas hijau mengikuti progres tiket yang dikerjakan hari itu
+     * (mis. 10% = hijau muda, makin tinggi makin gelap).
+     *
+     * @return array{cells: array<int, array{date: string, percent: int, level: int}>, month_labels: array<int, array{label: string, span: int}>, total: int}
+     */
+    private function buildPersonalContribution(User $user): array
+    {
+        $contribStart = now()->subYear()->startOfWeek();
+        $contribEnd = now()->endOfDay();
+        $contribDays = (int) $contribStart->diffInDays($contribEnd) + 1;
+
+        $dayPercents = [];
+
+        $logs = TicketLog::query()
+            ->where('user_id', $user->id)
+            ->whereIn('action', ['in_progress', 'progress_reported', 'problem_done'])
+            ->whereBetween('created_at', [$contribStart, $contribEnd])
+            ->get(['created_at', 'action', 'note']);
+
+        foreach ($logs as $log) {
+            $day = $log->created_at->toDateString();
+            $percent = $this->progressPercentFromLog($log);
+            if ($percent === null) {
+                continue;
+            }
+            $dayPercents[$day] = max($dayPercents[$day] ?? 0, $percent);
+        }
+
+        $finishedTickets = Ticket::query()
+            ->where('assigned_user_id', $user->id)
+            ->whereNotNull('finished_at')
+            ->whereBetween('finished_at', [$contribStart, $contribEnd])
+            ->get(['finished_at']);
+
+        foreach ($finishedTickets as $ticket) {
+            $day = $ticket->finished_at->toDateString();
+            $dayPercents[$day] = max($dayPercents[$day] ?? 0, 100);
+        }
+
+        $cells = [];
+        $monthLabels = [];
+        $previousMonth = null;
+        $currentSpan = 0;
+        $currentLabel = '';
+        $activeDays = 0;
+
+        for ($i = 0; $i < $contribDays; $i++) {
+            $date = $contribStart->copy()->addDays($i);
+            $day = $date->toDateString();
+            $percent = (int) ($dayPercents[$day] ?? 0);
+            $level = $this->contributionLevelFromProgress($percent);
+            if ($level > 0) {
+                $activeDays++;
+            }
+            $cells[] = [
+                'date' => $day,
+                'percent' => $percent,
+                'level' => $level,
+            ];
+
+            if ($i % 7 === 0) {
+                $month = $date->translatedFormat('M');
+                if ($previousMonth === null) {
+                    $previousMonth = $month;
+                    $currentLabel = $month;
+                    $currentSpan = 1;
+                } elseif ($month === $previousMonth) {
+                    $currentSpan++;
+                } else {
+                    $monthLabels[] = ['label' => $currentLabel, 'span' => $currentSpan];
+                    $previousMonth = $month;
+                    $currentLabel = $month;
+                    $currentSpan = 1;
+                }
+            }
+        }
+
+        if ($currentSpan > 0) {
+            $monthLabels[] = ['label' => $currentLabel, 'span' => $currentSpan];
+        }
+
+        return [
+            'cells' => $cells,
+            'month_labels' => $monthLabels,
+            'total' => $activeDays,
+        ];
+    }
+
+    private function progressPercentFromLog(TicketLog $log): ?int
+    {
+        $note = (string) $log->note;
+        if (preg_match('/progres(?:s)? pengerjaan(?:\s*:)?\s*(\d{1,3})\s*%/i', $note, $match)) {
+            return min(100, max(0, (int) $match[1]));
+        }
+
+        if ($log->action === 'in_progress') {
+            return 10;
+        }
+
+        if (str_contains(strtolower($note), 'status: finished') || str_contains($note, 'Status: Finished')) {
+            return 100;
+        }
+
+        return null;
+    }
+
+    private function contributionLevelFromProgress(int $percent): int
+    {
+        return match (true) {
+            $percent >= 75 => 4,
+            $percent >= 50 => 3,
+            $percent >= 25 => 2,
+            $percent >= 1 => 1,
+            default => 0,
+        };
     }
 
     /**
@@ -418,8 +587,8 @@ class TicketController extends Controller
                 'problems as done_problems_count' => fn ($problemQuery) => $problemQuery->where('is_done', true),
             ]);
 
-        if ($scope === 'all_system' && ($user->isSuperuser() || $user->role?->slug === 'admin-it')) {
-            // Superuser atau Admin IT melihat seluruh tiket
+        if ($scope === 'all_system' && $user->isSuperuser()) {
+            // Superuser melihat seluruh tiket
         } elseif ($scope === 'history_role') {
             $query->whereHas('logs', function ($q) use ($user) {
                 $q->where('from_role_id', $user->role_id);
@@ -430,13 +599,21 @@ class TicketController extends Controller
             $userDivision = $user->division();
 
             if ($userDivision && $user->isDivisionLeader($userDivision)) {
-                // Shared Inbox Pimpinan Divisi:
-                // Kepala Divisi dan SPV bersama-sama melihat tiket divisi di tahap pimpinan
+                // Shared Inbox Pimpinan Divisi (Deny & Ardy):
+                // Antrian disposisi layanan divisi + pantau tiket yang sudah diarahkan ke staff
                 $leadershipRoleIds = $userDivision->leadershipRoleIds();
-                $query->where(function ($q) use ($user, $userDivision, $leadershipRoleIds) {
-                    $q->where(function ($sub) use ($userDivision, $leadershipRoleIds) {
+                $staffRoleId = (int) ($userDivision->staff_role_id ?? 0);
+                $query->where(function ($q) use ($user, $userDivision, $leadershipRoleIds, $staffRoleId) {
+                    $q->where(function ($sub) use ($userDivision, $leadershipRoleIds, $staffRoleId) {
                         $sub->whereHas('category', fn ($c) => $c->where('division_id', $userDivision->id))
-                            ->whereIn('current_role_id', $leadershipRoleIds);
+                            ->where(function ($roleQ) use ($leadershipRoleIds, $staffRoleId) {
+                                if (!empty($leadershipRoleIds)) {
+                                    $roleQ->whereIn('current_role_id', $leadershipRoleIds);
+                                }
+                                if ($staffRoleId > 0) {
+                                    $roleQ->orWhere('current_role_id', $staffRoleId);
+                                }
+                            });
                     })->orWhere('current_role_id', $user->role_id)
                       ->orWhere('assigned_user_id', $user->id);
                 })->whereNotIn('status', ['resolved', 'rejected', 'closed']);
@@ -446,8 +623,8 @@ class TicketController extends Controller
                         ->orWhere('assigned_user_id', $user->id);
                 })->whereNotIn('status', ['resolved', 'rejected', 'closed']);
             } elseif ($user->role?->slug === 'admin-it') {
-                $itRoleIds = Role::whereIn('slug', ['admin-it', 'supervisor-it'])->pluck('id')->toArray();
-                $query->whereIn('current_role_id', $itRoleIds)
+                // Staff Admin IT hanya melihat tiket yang sudah diarahkan ke mereka
+                $query->where('assigned_user_id', $user->id)
                     ->whereNotIn('status', ['resolved', 'rejected', 'closed']);
             } elseif ($headId && !$user->isSuperuser()) {
                 $query->where('assigned_user_id', $user->id)
@@ -512,15 +689,20 @@ class TicketController extends Controller
         $categories = TicketCategory::orderBy('name')->get();
         $inboxStaff = collect();
         $role = $user->role;
-        $isHead = $user->isHeadOfRole();
+        $userDivision = $user->division();
+        $isDivisionLeader = $userDivision && $user->isDivisionLeader($userDivision);
+        $isHead = $user->isHeadOfRole() || $isDivisionLeader;
         $isAdmin = $user->isAdminIt();
         $isStaff = $user->isStaff();
         $staffProgress = collect();
 
+        // Pimpinan divisi (Deny/Ardy) pakai dashboard kepala; Admin IT tetap dashboard admin
         $roleType = 'general';
-        if ($isAdmin) {
+        if ($isDivisionLeader) {
+            $roleType = 'head';
+        } elseif ($isAdmin) {
             $roleType = 'admin';
-        } elseif ($isHead) {
+        } elseif ($user->isHeadOfRole()) {
             $roleType = 'head';
         } elseif ($isStaff) {
             $roleType = 'staff';
@@ -528,14 +710,21 @@ class TicketController extends Controller
 
         // Hitung data staff & progress untuk Kepala Staff, Admin IT, dan Staff
         $targetDepartmentRole = null;
-        if ($isHead) {
+        if ($isDivisionLeader && $userDivision) {
+            $inboxStaff = $userDivision->staffUsers();
+            if ($userDivision->staff_role_id) {
+                $targetDepartmentRole = $userDivision->staffRole;
+                $staffProgress = $targetDepartmentRole
+                    ? $this->staffProgressForRole($targetDepartmentRole, $user)
+                    : collect();
+            }
+        } elseif ($user->isHeadOfRole()) {
             $targetDepartmentRole = $role;
+            $inboxStaff = $targetDepartmentRole->assignableStaffUsers();
+            $staffProgress = $this->staffProgressForRole($targetDepartmentRole, $user);
         } elseif ($isAdmin || $isStaff) {
             $spvRole = Role::where('slug', 'supervisor-it')->first();
             $targetDepartmentRole = $spvRole ?? $role;
-        }
-
-        if ($targetDepartmentRole) {
             $inboxStaff = $targetDepartmentRole->assignableStaffUsers();
             $staffProgress = $this->staffProgressForRole($targetDepartmentRole, $user);
         }
@@ -599,9 +788,12 @@ class TicketController extends Controller
         $isHead = $user->isHeadOfRole();
         $isAdmin = $user->isAdminIt();
         $isStaff = $user->isStaff();
+        $monitored = $this->resolveMonitoredStaffRole($user);
 
         $targetDepartmentRole = null;
-        if ($isHead) {
+        if ($monitored['allowed'] && $monitored['role']) {
+            $targetDepartmentRole = $monitored['role'];
+        } elseif ($isHead) {
             $targetDepartmentRole = $role;
         } elseif ($isAdmin || $isStaff) {
             $spvRole = Role::where('slug', 'supervisor-it')->first();
@@ -676,13 +868,21 @@ class TicketController extends Controller
             ?? Role::where('is_superuser', true)->first()
             ?? $user->role;
 
+        // Layanan berdivisi dengan pimpinan (Kepala/SPV): masuk antrian disposisi
+        // tanpa auto-assign ke kepala role staff — Deny/Ardy yang menunjuk pengerja.
+        $division = $category->division;
+        $needsLeaderTriage = $division
+            && $division->members()->whereIn('position', ['head', 'spv'])->exists();
+
         $assignedUser = null;
-        if ($targetRole->head_user_id) {
-            $assignedUser = $targetRole->defaultAssignee();
-        } elseif ($user->supervisor && (int) $user->supervisor->role_id === (int) $targetRole->id) {
-            $assignedUser = $user->supervisor;
-        } else {
-            $assignedUser = $targetRole->defaultAssignee();
+        if (!$needsLeaderTriage) {
+            if ($targetRole->head_user_id) {
+                $assignedUser = $targetRole->defaultAssignee();
+            } elseif ($user->supervisor && (int) $user->supervisor->role_id === (int) $targetRole->id) {
+                $assignedUser = $user->supervisor;
+            } else {
+                $assignedUser = $targetRole->defaultAssignee();
+            }
         }
 
         $attachmentPath = null;
@@ -1058,6 +1258,9 @@ class TicketController extends Controller
             $assignedStaff = User::find($chosenAssigneeId);
             if ($assignedStaff) {
                 $ticket->loadMissing('currentRole');
+                if ($assignedStaff->role_id) {
+                    $updates['current_role_id'] = (int) $assignedStaff->role_id;
+                }
                 $updates = array_merge($updates, $ticket->deliveryStamp($user, $assignedStaff));
             }
             if ($ticket->canSetAchievementPoints($user) && $request->filled('achievement_points')) {
@@ -1643,17 +1846,19 @@ class TicketController extends Controller
         }
 
         $ticket->loadMissing('currentRole');
+        $toRoleId = (int) ($staff->role_id ?: $ticket->current_role_id);
         $ticket->update(array_merge([
             'priority_rank' => $rank,
             'priority' => RolePriorityRoute::legacyPriority($rank),
             'assigned_user_id' => $staff->id,
+            'current_role_id' => $toRoleId,
         ], $ticket->deliveryStamp($actor, $staff)));
 
         TicketLog::create([
             'ticket_id' => $ticket->id,
             'user_id' => $actor->id,
             'from_role_id' => $actor->role_id,
-            'to_role_id' => $ticket->current_role_id,
+            'to_role_id' => $toRoleId,
             'action' => 'priority_set',
             'note' => 'Setelah ditinjau, prioritas ' . RolePriorityRoute::labelFor($rank)
                 . ' diarahkan ke ' . $staff->name

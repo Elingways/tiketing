@@ -185,7 +185,7 @@ class Ticket extends Model
             return false;
         }
 
-        if ($user->isSuperuser() || $user->isAdminIt()) {
+        if ($user->isSuperuser()) {
             return true;
         }
 
@@ -194,14 +194,25 @@ class Ticket extends Model
         }
 
         // Shared Inbox Pimpinan Divisi:
-        // Jika tiket berada di tahap kepemimpinan divisi (SPV atau Kepala),
-        // maka baik Kepala maupun SPV di divisi tersebut berhak menangani tiket.
+        // Kepala & SPV menangani antrian disposisi (tahap pimpinan ATAU staff belum ditugaskan)
+        // serta memantau tiket staf di layanan divisi mereka.
         $division = $this->category?->division;
         if ($division && $user->isDivisionLeader($division)) {
             $leadershipIds = $division->leadershipRoleIds();
+            $staffRoleId = (int) ($division->staff_role_id ?? 0);
             if (in_array((int) $this->current_role_id, $leadershipIds, true)) {
                 return true;
             }
+            if ($staffRoleId > 0 && (int) $this->current_role_id === $staffRoleId) {
+                return true;
+            }
+        }
+
+        // Admin IT / staff operasional: hanya kepala role yang boleh triase antrean,
+        // staff biasa hanya jika sudah ditugaskan (dicek di atas).
+        if ($user->isAdminIt()) {
+            return $user->isHeadOfRole()
+                && (int) $user->role_id === (int) $this->current_role_id;
         }
 
         if ((int) $user->role_id !== (int) $this->current_role_id) {
@@ -242,15 +253,20 @@ class Ticket extends Model
             return false;
         }
 
-        if ($user->isSuperuser() || $user->isAdminIt()) {
+        if ($user->isSuperuser()) {
             return true;
         }
 
-        // Pimpinan divisi (Kepala & SPV) dapat mendisposisikan/mengarahkan tiket jika masih di tahap pimpinan
+        // Pimpinan divisi (Kepala & SPV) mendisposisikan antrian layanan divisi
+        // termasuk tiket yang masuk ke role staff tapi belum ditugaskan.
         $division = $this->category?->division;
         if ($division && $user->isDivisionLeader($division)) {
             $leadershipIds = $division->leadershipRoleIds();
+            $staffRoleId = (int) ($division->staff_role_id ?? 0);
             if (in_array((int) $this->current_role_id, $leadershipIds, true)) {
+                return true;
+            }
+            if ($staffRoleId > 0 && (int) $this->current_role_id === $staffRoleId) {
                 return true;
             }
         }

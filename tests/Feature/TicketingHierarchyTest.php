@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Division;
+use App\Models\DivisionMember;
 use App\Models\Role;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
@@ -838,14 +839,14 @@ class TicketingHierarchyTest extends TestCase
 
         $this->actingAs($staff)->get(route('tickets.report'))
             ->assertOk()
-            ->assertSee('hanya untuk kepala role')
+            ->assertSee('Kepala/SPV divisi atau kepala role')
             ->assertDontSee('Perbaikan jaringan lab')
             ->assertDontSee('Ekspor');
 
         $this->actingAs($staff)->get(route('tickets.report.export'))
             ->assertForbidden();
 
-        Ticket::create([
+        $finishedTicket = Ticket::create([
             'ticket_number' => 'TKT-TEST-9201',
             'title' => 'Tiket yang sudah selesai',
             'description' => 'Pekerjaan selesai.',
@@ -857,9 +858,32 @@ class TicketingHierarchyTest extends TestCase
             'assigned_user_id' => $staff->id,
             'status' => 'in_progress',
             'work_status' => 'finished',
-            'finished_at' => now(),
+            'finished_at' => now()->subDays(2),
             'progress_percent' => 100,
             'achievement_points' => 8,
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('ticket_logs')->insert([
+            [
+                'ticket_id' => $finishedTicket->id,
+                'user_id' => $staff->id,
+                'from_role_id' => $role->id,
+                'to_role_id' => $role->id,
+                'action' => 'progress_reported',
+                'note' => 'Staff melaporkan progres pengerjaan 10%. Status: In Progress.',
+                'created_at' => now()->subDay(),
+                'updated_at' => now()->subDay(),
+            ],
+            [
+                'ticket_id' => $finishedTicket->id,
+                'user_id' => $staff->id,
+                'from_role_id' => $role->id,
+                'to_role_id' => $role->id,
+                'action' => 'progress_reported',
+                'note' => 'Staff melaporkan progres pengerjaan 60%. Status: In Progress.',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
         ]);
 
         $lower = User::where('email', 'bagas.hardware@kampus.ac.id')->firstOrFail();
@@ -884,6 +908,7 @@ class TicketingHierarchyTest extends TestCase
         $workload->assertOk()
             ->assertSee('Pekerjaan Divisi')
             ->assertDontSee('Ranking achievement')
+            ->assertDontSee('Kontribusi pengerjaan kamu')
             ->assertSee('Admin IT')
             ->assertSee('Perbaikan jaringan lab')
             ->assertSee('Blocked')
@@ -897,15 +922,25 @@ class TicketingHierarchyTest extends TestCase
         $headBoard->assertOk()
             ->assertSee('Ranking achievement')
             ->assertSee('Staff IT, diurutkan dari poin terbanyak.')
-            ->assertSeeInOrder(['Fajar Nugroho, S.T.', '8 poin', 'Bagas Setiawan, A.Md.Kom.', '3 poin', 'Nadia Kusuma, S.Kom.', '0 poin']);
+            ->assertSeeInOrder(['Fajar Nugroho, S.T.', '8 poin', 'Bagas Setiawan, A.Md.Kom.', '3 poin', 'Nadia Kusuma, S.Kom.', '0 poin', 'Kontribusi pengerjaan kamu'])
+            ->assertSee('Hijau muda ≈ 10% progres');
         $this->assertSame(1, substr_count($headBoard->getContent(), 'rank-bar rank-bar-1'));
 
-        $this->actingAs($staff)->get(route('tickets.workload'))
-            ->assertOk()
+        $staffBoard = $this->actingAs($staff)->get(route('tickets.workload'));
+        $staffBoard->assertOk()
             ->assertSee('Peringkat kamu.')
             ->assertSee('Kamu')
             ->assertSee('8 poin')
+            ->assertSeeInOrder(['Peringkat kamu.', 'Kontribusi pengerjaan kamu'])
+            ->assertSee('Hijau muda ≈ 10% progres')
+            ->assertSee('contrib-cell contrib-1')
+            ->assertSee('contrib-cell contrib-3')
+            ->assertSee('progres 10%')
+            ->assertSee('hari dikerjakan')
             ->assertDontSee('3 poin');
+        $this->assertGreaterThan(300, substr_count($staffBoard->getContent(), 'contrib-cell'));
+        $this->assertGreaterThanOrEqual(2, substr_count($staffBoard->getContent(), 'contrib-cell contrib-1'));
+        $this->assertGreaterThanOrEqual(2, substr_count($staffBoard->getContent(), 'contrib-cell contrib-3'));
     }
 
     public function test_finished_work_is_counted_in_the_month_it_was_finished(): void
@@ -1764,6 +1799,163 @@ class TicketingHierarchyTest extends TestCase
             ->assertOk()
             ->assertSee('75%')
             ->assertSee('Syahrul Pelaksana');
+    }
+
+    public function test_it_division_tickets_triaged_by_head_and_spv_before_admin_it_staff(): void
+    {
+        $dosenRole = Role::where('slug', 'dosen')->firstOrFail();
+        $adminIt = Role::where('slug', 'admin-it')->firstOrFail();
+        $mhs = User::where('email', 'mahasiswa@kampus.ac.id')->firstOrFail();
+        $staff = User::where('email', 'fajar.jaringan@kampus.ac.id')->firstOrFail();
+
+        $deny = User::factory()->create([
+            'name' => 'Pak Deny Triase',
+            'email' => 'ushdeny.triase@kampus.ac.id',
+            'password' => 'password',
+            'role_id' => $dosenRole->id,
+        ]);
+        $ardy = User::factory()->create([
+            'name' => 'Pak Ardy Triase',
+            'email' => 'ardy.triase@kampus.ac.id',
+            'password' => 'password',
+            'role_id' => $dosenRole->id,
+        ]);
+
+        $adminIt->update(['division_id' => null]);
+        $division = Division::create([
+            'name' => 'IT Triase',
+            'slug' => 'it-triase',
+            'badge_color' => 'indigo',
+            'head_role_id' => $dosenRole->id,
+            'spv_role_id' => $dosenRole->id,
+            'staff_role_id' => $adminIt->id,
+        ]);
+        $adminIt->update(['division_id' => $division->id]);
+
+        DivisionMember::create(['division_id' => $division->id, 'user_id' => $deny->id, 'position' => 'head']);
+        DivisionMember::create(['division_id' => $division->id, 'user_id' => $ardy->id, 'position' => 'spv']);
+        DivisionMember::create(['division_id' => $division->id, 'user_id' => $staff->id, 'position' => 'staff']);
+
+        $superuser = User::where('email', 'superuser@kampus.ac.id')->firstOrFail();
+        $this->actingAs($superuser)->post(route('admin.categories.store'), [
+            'name' => 'SIAKAD Triase',
+            'workflow_type' => 'escalation',
+            'division_id' => $division->id,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $category = TicketCategory::where('name', 'SIAKAD Triase')->firstOrFail();
+        $this->assertSame($adminIt->id, (int) $category->initial_target_role_id);
+
+        $this->actingAs($mhs)->post(route('tickets.store'), [
+            'title' => 'SIAKAD Triase Error Login',
+            'category_id' => $category->id,
+            'description' => 'Mahasiswa tidak bisa login SIAKAD.',
+            'priority_rank' => 2,
+        ])->assertRedirect();
+
+        $ticket = Ticket::where('title', 'SIAKAD Triase Error Login')->firstOrFail();
+        $this->assertSame($adminIt->id, (int) $ticket->current_role_id);
+        $this->assertNull($ticket->assigned_user_id);
+
+        // Deny & Ardy melihat antrian; staff Admin IT belum melihat sebelum disposisi
+        $this->actingAs($deny)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('SIAKAD Triase Error Login');
+        $this->actingAs($ardy)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('SIAKAD Triase Error Login');
+        $this->actingAs($staff)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertDontSee('SIAKAD Triase Error Login');
+
+        $this->assertTrue($ticket->canBeHandledBy($deny));
+        $this->assertTrue($ticket->canBeDirectedBy($ardy));
+        $this->assertFalse($ticket->canBeHandledBy($staff));
+
+        $this->actingAs($ardy)->post(route('tickets.action', $ticket), [
+            'action_type' => 'in_progress',
+            'assigned_user_id' => $staff->id,
+            'priority_rank' => 1,
+            'note' => 'Tolong dicek login SIAKAD oleh Fajar.',
+        ])->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertSame($staff->id, (int) $ticket->assigned_user_id);
+        $this->assertSame('in_progress', $ticket->status);
+
+        $this->actingAs($staff)->get(route('tickets.inbox'))
+            ->assertOk()
+            ->assertSee('SIAKAD Triase Error Login');
+    }
+
+    public function test_division_head_and_spv_monitor_admin_it_monthly_report(): void
+    {
+        $dosenRole = Role::where('slug', 'dosen')->firstOrFail();
+        $adminIt = Role::where('slug', 'admin-it')->firstOrFail();
+        $category = TicketCategory::firstOrFail();
+
+        $kepala = User::factory()->create([
+            'name' => 'Kepala Pantau',
+            'email' => 'kepala.pantau@kampus.ac.id',
+            'password' => 'password',
+            'role_id' => $dosenRole->id,
+        ]);
+        $spv = User::factory()->create([
+            'name' => 'SPV Pantau',
+            'email' => 'spv.pantau@kampus.ac.id',
+            'password' => 'password',
+            'role_id' => $dosenRole->id,
+        ]);
+        $staff = User::where('email', 'fajar.jaringan@kampus.ac.id')->firstOrFail();
+
+        $adminIt->update(['division_id' => null]);
+        $division = Division::create([
+            'name' => 'IT Pantau',
+            'slug' => 'it-pantau',
+            'badge_color' => 'indigo',
+            'head_role_id' => $dosenRole->id,
+            'spv_role_id' => $dosenRole->id,
+            'staff_role_id' => $adminIt->id,
+        ]);
+        $adminIt->update(['division_id' => $division->id]);
+
+        DivisionMember::create(['division_id' => $division->id, 'user_id' => $kepala->id, 'position' => 'head']);
+        DivisionMember::create(['division_id' => $division->id, 'user_id' => $spv->id, 'position' => 'spv']);
+        DivisionMember::create(['division_id' => $division->id, 'user_id' => $staff->id, 'position' => 'staff']);
+
+        Ticket::create([
+            'ticket_number' => 'TKT-TEST-PANTAU-01',
+            'title' => 'Pemantauan Admin IT bulanan',
+            'description' => 'Dipantau kepala dan SPV.',
+            'category_id' => $category->id,
+            'workflow_type' => 'escalation',
+            'creator_id' => User::where('email', 'kaprodi@kampus.ac.id')->firstOrFail()->id,
+            'creator_role_id' => Role::where('slug', 'kaprodi')->firstOrFail()->id,
+            'current_role_id' => $adminIt->id,
+            'assigned_user_id' => $staff->id,
+            'status' => 'in_progress',
+            'work_status' => 'in_progress',
+            'progress_percent' => 40,
+            'delivered_at' => now(),
+        ]);
+
+        $this->actingAs($kepala)->get(route('tickets.report', ['month' => now()->format('Y-m')]))
+            ->assertOk()
+            ->assertSee('Laporan Bulanan — Admin IT')
+            ->assertSee('Pemantauan Admin IT bulanan')
+            ->assertSee('Fajar Nugroho, S.T.')
+            ->assertSee('Ekspor');
+
+        $this->actingAs($spv)->get(route('tickets.report', ['month' => now()->format('Y-m')]))
+            ->assertOk()
+            ->assertSee('Laporan Bulanan — Admin IT')
+            ->assertSee('Pemantauan Admin IT bulanan')
+            ->assertSee('Ekspor');
+
+        $this->actingAs($staff)->get(route('tickets.report'))
+            ->assertOk()
+            ->assertSee('Kepala/SPV divisi atau kepala role')
+            ->assertDontSee('Pemantauan Admin IT bulanan');
     }
 }
 

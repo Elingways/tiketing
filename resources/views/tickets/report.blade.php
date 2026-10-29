@@ -24,7 +24,7 @@
 
 @if(!$allowed)
     <div class="bg-white rounded-xl border border-slate-200 px-5 py-8 text-sm text-slate-600">
-        Laporan bulanan hanya untuk kepala role.
+        Laporan bulanan hanya untuk Kepala/SPV divisi atau kepala role.
     </div>
 @else
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">

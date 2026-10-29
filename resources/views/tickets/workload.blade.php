@@ -27,8 +27,49 @@
     .rank-bar-1 { height: 96px; background: linear-gradient(180deg,#fbbf24,#f59e0b); }
     .rank-bar-2 { height: 72px; background: linear-gradient(180deg,#cbd5e1,#94a3b8); }
     .rank-bar-3 { height: 56px; background: linear-gradient(180deg,#d8a878,#b45309); }
+    .contrib-wrap { display: inline-block; min-width: max-content; }
+    .contrib-months {
+        display: flex;
+        gap: 3px;
+        margin-bottom: 4px;
+        height: 14px;
+        padding-left: 28px;
+    }
+    .contrib-month {
+        flex: 0 0 auto;
+        font-size: 10px;
+        line-height: 14px;
+        color: #94a3b8;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+    .contrib-body { display: flex; align-items: flex-start; gap: 6px; }
+    .contrib-weekdays {
+        display: grid;
+        grid-template-rows: repeat(7, 10px);
+        gap: 3px;
+        font-size: 9px;
+        line-height: 10px;
+        color: #94a3b8;
+        width: 22px;
+        flex-shrink: 0;
+    }
+    .contrib-grid {
+        display: grid;
+        grid-auto-flow: column;
+        grid-template-rows: repeat(7, 10px);
+        grid-auto-columns: 10px;
+        gap: 3px;
+    }
+    .contrib-cell { width: 10px; height: 10px; border-radius: 2px; }
+    .contrib-0 { background: #ebedf0; }
+    .contrib-1 { background: #9be9a8; }
+    .contrib-2 { background: #40c463; }
+    .contrib-3 { background: #30a14e; }
+    .contrib-4 { background: #216e39; }
 </style>
 
+@php $contributionRendered = false; @endphp
 @forelse($groups as $division => $tickets)
     <section class="mb-6">
         <div class="mb-3 flex items-center justify-between gap-3">
@@ -126,6 +167,54 @@
                 </div>
             </section>
         @endif
+
+        @if(! $contributionRendered && !empty($myContribution['cells']) && (($showFullRanking && $rows->isNotEmpty()) || $mine))
+            @php $contributionRendered = true; @endphp
+            <section class="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div class="border-b border-slate-100 px-4 py-2.5 flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900">Kontribusi pengerjaan kamu</h2>
+                        <p class="text-[11px] text-slate-500">12 bulan. Hijau muda ≈ 10% progres, makin gelap seiring tiket dikerjakan.</p>
+                    </div>
+                    <span class="shrink-0 text-[11px] font-semibold text-slate-500">{{ $myContribution['total'] ?? 0 }} hari dikerjakan</span>
+                </div>
+                <div class="px-4 py-3 overflow-x-auto">
+                    <div class="contrib-wrap">
+                        <div class="contrib-months">
+                            @foreach(($myContribution['month_labels'] ?? []) as $month)
+                                <span class="contrib-month" style="width: {{ max(1, (int) $month['span']) * 13 - 3 }}px">{{ $month['label'] }}</span>
+                            @endforeach
+                        </div>
+                        <div class="contrib-body">
+                            <div class="contrib-weekdays" aria-hidden="true">
+                                <span></span>
+                                <span>Sen</span>
+                                <span></span>
+                                <span>Rab</span>
+                                <span></span>
+                                <span>Jum</span>
+                                <span></span>
+                            </div>
+                            <div class="contrib-grid">
+                                @foreach(($myContribution['cells'] ?? []) as $cell)
+                                    <span class="contrib-cell contrib-{{ $cell['level'] }}" title="{{ $cell['date'] }}: progres {{ $cell['percent'] }}%"></span>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div class="mt-2 flex items-center justify-end gap-1.5 text-[10px] text-slate-400">
+                            <span>≈10%</span>
+                            <span class="contrib-cell contrib-0"></span>
+                            <span class="contrib-cell contrib-1" title="1–24%"></span>
+                            <span class="contrib-cell contrib-2" title="25–49%"></span>
+                            <span class="contrib-cell contrib-3" title="50–74%"></span>
+                            <span class="contrib-cell contrib-4" title="75–100%"></span>
+                            <span>100%</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        @endif
+
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             @foreach($tickets as $ticket)
                 @php

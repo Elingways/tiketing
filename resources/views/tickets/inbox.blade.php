@@ -87,7 +87,7 @@
                class="px-3.5 py-1.5 rounded-lg text-xs font-medium transition {{ $scope === 'history_role' ? 'bg-white text-slate-900 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900' }}">
                 Riwayat Diteruskan
             </a>
-            @if($user->isSuperuser() || $isAdmin)
+            @if($user->isSuperuser())
                 <a href="{{ route('tickets.inbox', ['scope' => 'all_system', 'category_id' => $categoryId, 'search' => $search]) }}"
                    class="px-3.5 py-1.5 rounded-lg text-xs font-medium transition {{ $scope === 'all_system' ? 'bg-white text-slate-900 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900' }}">
                     Semua Tiket
